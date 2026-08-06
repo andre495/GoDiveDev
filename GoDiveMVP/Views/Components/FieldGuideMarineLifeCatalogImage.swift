@@ -211,8 +211,10 @@ struct FieldGuideMarineLifeCatalogImage: View {
             case .empty:
                 placeholder(accent: accent)
                     .overlay {
-                        ProgressView()
-                            .tint(accent.opacity(0.55))
+                        GoDiveRotateLoadingIndicator(
+                            size: .compact,
+                            tint: accent.opacity(0.55)
+                        )
                     }
             @unknown default:
                 placeholder(accent: accent)

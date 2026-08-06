@@ -38,7 +38,7 @@ struct FriendProfileRemoteHeroView: View {
             case .failure:
                 emptyPlaceholder
             default:
-                ProgressView()
+                GoDiveRotateLoadingIndicator()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(AppTheme.Colors.surfaceMuted.opacity(0.35))
             }

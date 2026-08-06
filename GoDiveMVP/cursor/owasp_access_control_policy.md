@@ -74,7 +74,9 @@ Add or extend rules as later OWASP phases land (import caps, crash scrubbing, et
 |------|------|----------------|
 | `users/{uid}` (public profile) | Any **authenticated** Firebase user | Owner only (`request.auth.uid == uid`) |
 | `users/{uid}/private/{doc}` | Owner only | Owner only |
-| `users/{uid}/sharedDives/{diveId}` | Owner or **active friend** | Owner only |
+| `users/{uid}/sharedDives/{diveId}` | Owner or **active friend** | Owner only (cannot change CF-owned `likeCount` / `commentCount`) |
+| `users/{uid}/sharedDives/{diveId}/likes/{likerUid}` | Owner, liker, or **active friend** | Liker create/delete own doc only (validated `displayName` + `createdAt`); no update |
+| `users/{uid}/sharedDives/{diveId}/comments/{commentId}` | Owner or **active friend** | Owner or friend create (validated `authorUid` + `displayName` + `text` + `createdAt` + optional `mentionedUids` ≤10); author delete only; no update |
 | `users/{uid}/ontologySightingContributions/{sightingUUID}` | Owner only | Owner only (Settings opt-in community graph) |
 | `users/{uid}/ontologySiteReportContributions/{activityUUID}` | Owner only | Owner only (Settings opt-in; 1:1 SiteReport per activity) |
 | `friendInvites/{token}` | Any authenticated (token must be known) | Creator create/revoke; redeeming user may mark redeemed |
@@ -89,7 +91,7 @@ Add or extend rules as later OWASP phases land (import caps, crash scrubbing, et
 
 **Friend-visible dive projections** may include structured dive fields (site, depths, times, conditions, tags, sightings, capped depth track, etc.). **Notes** and **media preview URLs** are included only when the owner opts in (Settings). FIT/UDDF source files and full Photos library bytes must not appear in Firestore.
 
-**Community sighting / SiteReport staging / public mirror:** private SiteReport staging (1:1 with activity) may include anonymized site/depth/conditions/date/activityKind plus opaque `contributionId`. Sighting staging may include species + opaque `siteReportId` linking to that report. Public `communitySightings` / `communitySiteReports` must **not** include Firebase UID, CloudKit profile ID, media, notes, or GPS. Contribution requires Settings opt-in (**default off**) and Firebase Auth; soft-fail otherwise.
+**Community sighting / SiteReport staging / public mirror:** private SiteReport staging (1:1 with activity) may include anonymized site/depth/conditions/date/activityKind plus opaque `contributionId`. Sighting staging may include species + opaque `siteReportId` linking to that report. Public `communitySightings` / `communitySiteReports` must **not** include Firebase UID, CloudKit profile ID, media, notes, or GPS. Contribution requires the Settings toggle (**default on**; user can opt out) and Firebase Auth; soft-fail otherwise.
 
 **Policy notes**
 

@@ -19,7 +19,17 @@ enum HomeMediaHighlightWarmup {
     }
 
     private static var inflightWarmups: [String: Task<Void, Never>] = [:]
-    private static var cachedVideoDurationSeconds: [String: Double] = [:]
+
+    /// **`true`** while Home launch warm (including its post-chrome defer) owns the serial PhotoKit gate.
+    private(set) static var isLaunchWarmOwningPhotoKitGate = false
+
+    static func beginLaunchWarmGateOwnership() {
+        isLaunchWarmOwningPhotoKitGate = true
+    }
+
+    static func endLaunchWarmGateOwnership() {
+        isLaunchWarmOwningPhotoKitGate = false
+    }
 
     /// Warms carousel stills and kicks all featured video streams ASAP for muted Home playback.
     static func warmHighlights(
@@ -103,39 +113,20 @@ enum HomeMediaHighlightWarmup {
         HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media)
     }
 
-    /// Maps owned media rows to carousel sources (includes Photos video duration for eligibility).
-    static func highlightSources(from mediaPhotos: [DiveMediaPhoto]) -> [HomeMediaHighlightSource] {
-        mediaPhotos.map { photo in
-            let kind = photo.resolvedMediaKind
-            let duration: Double? = {
-                #if canImport(Photos)
-                guard kind == .video, let identifier = photo.libraryAssetLocalIdentifier else { return nil }
-                return cachedVideoDurationSeconds(localIdentifier: identifier)
-                #else
-                return nil
-                #endif
-            }()
+    /// Carousel sources from lightweight seeds — **no** sync PhotoKit duration probes.
+    nonisolated static func highlightSources(
+        from mediaSeeds: [HomeOverviewMediaPhotoSeed]
+    ) -> [HomeMediaHighlightSource] {
+        mediaSeeds.map { seed in
+            let kind = DiveMediaKind(rawValue: seed.mediaKind) ?? .image
             return HomeMediaHighlightSource(
-                mediaID: photo.id,
-                diveActivityID: photo.diveActivityID,
+                mediaID: seed.id,
+                diveActivityID: seed.diveActivityID,
                 mediaKind: kind,
-                videoDurationSeconds: duration
+                videoDurationSeconds: nil
             )
         }
     }
-
-    #if canImport(Photos)
-    private static func cachedVideoDurationSeconds(localIdentifier: String) -> Double? {
-        if let cached = cachedVideoDurationSeconds[localIdentifier] {
-            return cached
-        }
-        let duration = DiveMediaReferenceLoader.videoDurationSeconds(localIdentifier: localIdentifier)
-        if let duration {
-            cachedVideoDurationSeconds[localIdentifier] = duration
-        }
-        return duration
-    }
-    #endif
 
     // MARK: - Bootstrap warm tiers
 
@@ -145,7 +136,7 @@ enum HomeMediaHighlightWarmup {
         #if canImport(Photos) && canImport(UIKit)
         preheatPhotoKit(for: mediaRows)
 
-        // Slide 0 first — it is on-screen at paint and historically lost PhotoKit races to later slides.
+        // 1) Preview / stored-soft posters for every slide so the carousel can paint immediately.
         let first = mediaRows[0]
         await warmMediaRow(
             first,
@@ -153,27 +144,35 @@ enum HomeMediaHighlightWarmup {
                 isVideo: first.resolvedMediaKind == .video
             )
         )
-
         let remaining = Array(mediaRows.dropFirst())
-        let photos = remaining.filter { $0.resolvedMediaKind == .image }
-        let videos = remaining.filter { $0.resolvedMediaKind == .video }
         await withTaskGroup(of: Void.self) { group in
-            for media in photos {
+            for media in remaining {
                 group.addTask {
                     await warmMediaRow(
                         media,
-                        quality: HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: false)
+                        quality: HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(
+                            isVideo: media.resolvedMediaKind == .video
+                        )
                     )
                 }
             }
         }
+
+        // 2) Incremental hero upgrade for still photos (slide 0 first). Videos keep poster tier.
+        if let upgrade = HomeMediaHighlightWarmupPresentation.upgradeStillQuality(
+            isVideo: first.resolvedMediaKind == .video
+        ) {
+            await warmMediaRow(first, quality: upgrade)
+        }
+        let photosNeedingHero = remaining.filter {
+            HomeMediaHighlightWarmupPresentation.upgradeStillQuality(
+                isVideo: $0.resolvedMediaKind == .video
+            ) != nil
+        }
         await withTaskGroup(of: Void.self) { group in
-            for media in videos {
+            for media in photosNeedingHero {
                 group.addTask {
-                    await warmMediaRow(
-                        media,
-                        quality: HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: true)
-                    )
+                    await warmMediaRow(media, quality: .full)
                 }
             }
         }

@@ -118,6 +118,8 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
     let statusBarSafeAreaTop: CGFloat
     /// Pale list chrome feather in light mode (certifications, buddies, equipment locker).
     let statusBarUsesListChromeFeather: Bool
+    /// When **`false`**, empty header chrome (spacers / wordmark band) passes hits through — Home hero media.
+    let blocksHitsInEmptyChrome: Bool
 
     init(
         title: String,
@@ -128,6 +130,7 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
         statusBarUsesListChromeFeather: Bool = false,
+        blocksHitsInEmptyChrome: Bool = true,
         @ViewBuilder trailingContent: () -> TrailingContent,
         @ViewBuilder leadingContent: () -> LeadingContent = { EmptyView() }
     ) {
@@ -139,6 +142,7 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         self.titlePlacement = titlePlacement
         self.statusBarSafeAreaTop = statusBarSafeAreaTop
         self.statusBarUsesListChromeFeather = statusBarUsesListChromeFeather
+        self.blocksHitsInEmptyChrome = blocksHitsInEmptyChrome
         self.leadingContent = leadingContent()
         self.trailingContent = trailingContent()
     }
@@ -156,7 +160,7 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         .padding(.horizontal, AppTheme.Spacing.lg)
         .appTopChromeVerticalPadding()
         .fixedSize(horizontal: false, vertical: true)
-        .contentShape(Rectangle())
+        .modifier(AppHeaderEmptyChromeHitTestingModifier(blocksHitsInEmptyChrome: blocksHitsInEmptyChrome))
         .background(alignment: .top) {
             if statusBarSafeAreaTop > 0.5 {
                 AppStatusBarEdgeScrim(
@@ -271,6 +275,8 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         }
         .lineLimit(1)
         .modifier(AppHeaderCenterClusterScalePolicy(isBrandWordmark: showsBrandWordmark))
+        // Decorative wordmark must not steal Home carousel pans under the header band.
+        .allowsHitTesting(blocksHitsInEmptyChrome)
         .accessibilityLabel(showsBrandWordmark ? appName : title)
         .accessibilityHidden(!showsBrandWordmark && (title.isEmpty || usesLeadingTitlePlacement || usesBelowBackRowPlacement))
     }
@@ -379,6 +385,19 @@ extension AppHeader where LeadingContent == EmptyView, TrailingContent == EmptyV
             statusBarUsesListChromeFeather: statusBarUsesListChromeFeather
         ) {
             EmptyView()
+        }
+    }
+}
+
+/// Full-bleed header hit target for list pages; Home opts out so media pans under chrome.
+private struct AppHeaderEmptyChromeHitTestingModifier: ViewModifier {
+    let blocksHitsInEmptyChrome: Bool
+
+    func body(content: Content) -> some View {
+        if blocksHitsInEmptyChrome {
+            content.contentShape(Rectangle())
+        } else {
+            content
         }
     }
 }

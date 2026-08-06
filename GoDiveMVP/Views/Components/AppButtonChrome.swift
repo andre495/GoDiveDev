@@ -187,6 +187,24 @@ struct AppSheetToolbarPlusButton: View {
     }
 }
 
+/// Sheet-toolbar **×** — white glyph in the nav bar’s Liquid Glass circle (do not nest **`.glass`** /
+/// **`AppToolbarIconButton`**, or the control double-stacks glass).
+struct AppSheetToolbarCloseButton: View {
+    let action: () -> Void
+    let accessibilityIdentifier: String
+    var accessibilityLabel: String = "Close"
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+        }
+        .fontWeight(.semibold)
+        .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
 /// Sheet-toolbar **Done** — Liquid Glass **`.glassProminent`** tinted with brand accent blue
 /// ([HIG Liquid Glass color](https://developer.apple.com/design/human-interface-guidelines/color#Liquid-Glass-color):
 /// tint primary actions only).

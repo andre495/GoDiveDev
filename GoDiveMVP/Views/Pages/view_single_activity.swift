@@ -25,10 +25,17 @@ struct ViewSingleActivity: View {
     @Bindable var activity: DiveActivity
     /// When set (e.g. tapping a logbook row thumbnail), open on the **Media** tab focused on this photo at the medium detent.
     var initialMediaFocusID: UUID? = nil
+    /// Comment push deep link — present the comments sheet once after Map social mounts.
+    var opensCommentsOnAppear: Bool = false
 
-    init(activity: DiveActivity, initialMediaFocusID: UUID? = nil) {
+    init(
+        activity: DiveActivity,
+        initialMediaFocusID: UUID? = nil,
+        opensCommentsOnAppear: Bool = false
+    ) {
         self._activity = Bindable(wrappedValue: activity)
         self.initialMediaFocusID = initialMediaFocusID
+        self.opensCommentsOnAppear = opensCommentsOnAppear
         _pendingInitialMediaFocusID = State(initialValue: initialMediaFocusID)
         if initialMediaFocusID != nil {
             _selectedActivityTab = State(initialValue: .camera)
@@ -38,6 +45,7 @@ struct ViewSingleActivity: View {
         }
     }
 
+    @State private var didConsumeOpenCommentsOnAppear = false
     @State private var marineLifeCatalog: [MarineLife] = []
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -63,6 +71,7 @@ struct ViewSingleActivity: View {
     @State private var tankMinimizedChromeRevealProgress: CGFloat = 1
     @State private var tankDepthChartScrubCallout: DiveDepthProfileScrubCallout?
     @FocusState private var isNotesFieldFocused: Bool
+    @State private var notesMentionFriends: [GoDiveFriendGraphService.FriendEdge] = []
     @State private var depthChartPreviewMediaID: UUID?
     /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
     @State private var overviewMapTeardownRequested = false
@@ -1450,9 +1459,16 @@ struct ViewSingleActivity: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: AppTheme.Spacing.lg) {
                                 ForEach(activity.buddies, id: \.id) { tag in
+                                    let sources: DiveBuddyAvatarChipSources = {
+                                        if let buddy = tag.buddy {
+                                            return DiveBuddyAvatarChipPresentation.sources(for: buddy)
+                                        }
+                                        return DiveBuddyAvatarChipPresentation.sources(profilePhoto: nil)
+                                    }()
                                     DiveActivityBuddyAvatarChip(
                                         displayName: tag.displayName,
-                                        profilePhoto: tag.buddy?.profilePhoto,
+                                        profilePhoto: sources.localProfilePhoto,
+                                        photoURL: sources.photoURL,
                                         showsGoDiveUserPin: tag.buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
                                     )
                                 }
@@ -1470,13 +1486,55 @@ struct ViewSingleActivity: View {
         }
     }
 
+    private var notesEditorActiveMention: GoDiveMentionPresentation.ActiveMention? {
+        GoDiveMentionPresentation.activeMention(
+            in: activity.notes ?? "",
+            utf16Caret: ((activity.notes ?? "") as NSString).length,
+            friends: notesMentionFriends
+        )
+    }
+
+    private var notesEditorMentionSuggestions: [GoDiveFriendGraphService.FriendEdge] {
+        guard let active = notesEditorActiveMention else { return [] }
+        return GoDiveMentionPresentation.matchingFriends(
+            query: active.query,
+            friends: notesMentionFriends
+        )
+    }
+
     private var notesEditorBox: some View {
-        TextEditor(text: notesBinding)
-            .font(.body)
-            .foregroundStyle(AppTheme.Colors.textPrimary)
-            .scrollContentBackground(.hidden)
-            .scrollIndicators(.visible)
-            .focused($isNotesFieldFocused)
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            if let active = notesEditorActiveMention, !notesEditorMentionSuggestions.isEmpty {
+                GoDiveMentionAutocompleteList(friends: notesEditorMentionSuggestions) { friend in
+                    insertNotesMention(friend, active: active)
+                }
+            }
+
+            Group {
+                if isNotesFieldFocused {
+                    TextEditor(text: notesBinding)
+                        .font(.body)
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .scrollContentBackground(.hidden)
+                        .scrollIndicators(.visible)
+                        .focused($isNotesFieldFocused)
+                } else {
+                    // Colored @mentions while reading; tap to edit.
+                    ScrollView {
+                        GoDiveMentionText(
+                            text: (activity.notes?.isEmpty == false) ? (activity.notes ?? "") : " ",
+                            knownDisplayNames: GoDiveMentionPresentation.knownDisplayNames(
+                                taggedBuddyNames: activity.buddies.compactMap { $0.buddy?.displayName },
+                                friendNames: notesMentionFriends.map(\.displayName)
+                            )
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+                    }
+                    .scrollIndicators(.visible)
+                    .contentShape(Rectangle())
+                    .onTapGesture { isNotesFieldFocused = true }
+                }
+            }
             .padding(AppTheme.Spacing.md)
             .frame(maxWidth: .infinity, minHeight: 180, alignment: .topLeading)
             .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
@@ -1485,13 +1543,31 @@ struct ViewSingleActivity: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(AppTheme.Colors.tabUnselected.opacity(0.22), lineWidth: 1)
             }
-            .onAppear {
-                clampNotesToLimitIfNeeded()
-            }
-            .onChange(of: isNotesFieldFocused) { _, focused in
-                guard !focused else { return }
-                persistNotesTrimmedIfNeeded()
-            }
+        }
+        .onAppear {
+            clampNotesToLimitIfNeeded()
+        }
+        .task {
+            notesMentionFriends = (try? await GoDiveFriendGraphService.listFriendEdges()) ?? []
+        }
+        .onChange(of: isNotesFieldFocused) { _, focused in
+            guard !focused else { return }
+            persistNotesTrimmedIfNeeded()
+        }
+    }
+
+    private func insertNotesMention(
+        _ friend: GoDiveFriendGraphService.FriendEdge,
+        active: GoDiveMentionPresentation.ActiveMention
+    ) {
+        let current = activity.notes ?? ""
+        let insertion = GoDiveMentionPresentation.insertMention(
+            displayName: friend.displayName,
+            into: current,
+            active: active
+        )
+        let draft = DiveNotesValidation.draftNotes(insertion.text)
+        activity.notes = draft.isEmpty ? nil : draft
     }
 
     private func clampNotesToLimitIfNeeded() {
@@ -1501,7 +1577,16 @@ struct ViewSingleActivity: View {
     }
 
     private func persistNotesTrimmedIfNeeded() {
-        activity.notes = GoDiveInputSanitization.sanitizedNotes(activity.notes ?? "")
+        let notes = GoDiveInputSanitization.sanitizedNotes(activity.notes ?? "")
+        activity.notes = notes
+        GoDiveNotesMentionTagging.tagMentionedFriends(
+            inNotes: notes ?? "",
+            friends: notesMentionFriends,
+            on: activity,
+            owner: accountSession.currentProfile,
+            modelContext: modelContext
+        )
+        try? modelContext.save()
     }
 
     private var notesBinding: Binding<String> {
@@ -1963,7 +2048,9 @@ struct ViewSingleActivity: View {
             onManageMarineLife: { showsMarineLifeTagSheet = true },
             onEditNotes: { showsMapNotesEditSheet = true },
             onAddTags: { showsTagsEditSheet = true },
-            canAddTags: accountSession.currentProfile?.id != nil
+            canAddTags: accountSession.currentProfile?.id != nil,
+            opensCommentsOnAppear: opensCommentsOnAppear && !didConsumeOpenCommentsOnAppear,
+            onOpenCommentsOnAppearConsumed: { didConsumeOpenCommentsOnAppear = true }
         )
     }
 

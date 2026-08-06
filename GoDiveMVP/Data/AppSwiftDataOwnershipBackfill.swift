@@ -3,8 +3,14 @@ import SwiftData
 
 /// Idempotent ownership backfill for hybrid catalog rows (Phase 1).
 enum AppSwiftDataOwnershipBackfill {
+    nonisolated static let completedDefaultsKey = "goDiveSwiftDataOwnershipBackfillComplete"
 
-    static func backfillIfNeeded(modelContext: ModelContext) throws {
+    static func backfillIfNeeded(
+        modelContext: ModelContext,
+        userDefaults: UserDefaults = .standard
+    ) throws {
+        guard !userDefaults.bool(forKey: completedDefaultsKey) else { return }
+
         let marineLife = try modelContext.fetch(FetchDescriptor<MarineLife>())
         for species in marineLife {
             let inferred = MarineLifeOwnership.inferred(fromUUID: species.uuid)
@@ -24,5 +30,10 @@ enum AppSwiftDataOwnershipBackfill {
         if modelContext.hasChanges {
             try modelContext.save()
         }
+        userDefaults.set(true, forKey: completedDefaultsKey)
+    }
+
+    static func resetCompletedFlagForTesting(userDefaults: UserDefaults = .standard) {
+        userDefaults.removeObject(forKey: completedDefaultsKey)
     }
 }

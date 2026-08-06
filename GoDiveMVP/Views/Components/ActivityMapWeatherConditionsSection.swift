@@ -64,7 +64,7 @@ struct ActivityMapWeatherConditionsSection: View {
         switch loadState {
         case .idle, .loading:
             HStack(spacing: AppTheme.Spacing.sm) {
-                ProgressView()
+                GoDiveRotateLoadingIndicator(size: .compact)
                 Text("Loading weather…")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.Colors.secondaryText)

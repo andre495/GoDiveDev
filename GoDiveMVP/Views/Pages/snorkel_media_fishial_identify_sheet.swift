@@ -211,8 +211,7 @@ struct SnorkelMediaFishialIdentifySheet: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
-            ProgressView()
-                .tint(AppTheme.Colors.accent)
+            GoDiveRotateLoadingIndicator()
 
             Text(progress.stage)
                 .font(.body)
@@ -266,8 +265,7 @@ struct SnorkelMediaFishialIdentifySheet: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
-            ProgressView()
-                .tint(AppTheme.Colors.accent)
+            GoDiveRotateLoadingIndicator()
 
             Text(progress.stage)
                 .font(.body)

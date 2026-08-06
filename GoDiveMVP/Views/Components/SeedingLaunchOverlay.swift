@@ -11,10 +11,11 @@ struct SeedingLaunchOverlay: View {
                     .font(AppTheme.Typography.headerBrandTitle.weight(.bold))
                     .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
 
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .tint(AppTheme.Colors.tabSelected)
-                    .scaleEffect(1.2)
+                GoDiveRotateLoadingIndicator(
+                    size: .large,
+                    tint: AppTheme.Colors.tabSelected,
+                    accessibilityLabel: "Seeding dive data"
+                )
 
                 Text("Seeding dive data...")
                     .font(.subheadline)

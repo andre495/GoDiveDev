@@ -99,7 +99,7 @@ enum DiveActivityTimePresentation: Sendable {
 }
 
 extension DiveActivity {
-    func formattedStartDateOnly() -> String {
+    nonisolated func formattedStartDateOnly() -> String {
         DiveActivityTimePresentation.formatDateOnly(startTime, timeZoneOffsetSeconds: timeZoneOffsetSeconds)
     }
 

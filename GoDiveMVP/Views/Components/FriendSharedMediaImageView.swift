@@ -32,13 +32,16 @@ struct FriendSharedMediaImageView: View {
                     .scaledToFill()
                     .transition(.opacity.animation(.easeInOut(duration: 0.25)))
             } else {
-                ProgressView()
+                GoDiveRotateLoadingIndicator(size: .compact)
             }
 
             if showsVideoBadge, item.kind == .video {
                 videoBadge
             }
         }
+        // `scaledToFill` paints past the proposed frame — clip so pager / hero hosts stay clean.
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+        .clipped()
         .task(id: loadToken) {
             await loadImages()
         }

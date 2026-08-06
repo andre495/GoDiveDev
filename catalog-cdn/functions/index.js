@@ -697,3 +697,445 @@ exports.rebuildSpeciesSimilarityCache = onSchedule(
     );
   }
 );
+
+// ---------------------------------------------------------------------------
+// Buddy activity liked — increment/decrement likeCount + notify the owner.
+// ---------------------------------------------------------------------------
+
+const BUDDY_ACTIVITY_LIKED_NOTIFICATION_TYPE = "buddy_activity_liked";
+
+/**
+ * When a friend creates/deletes `users/{ownerUid}/sharedDives/{activityId}/likes/{likerUid}`:
+ * - maintain denormalized `likeCount` on the parent projection (Admin SDK only)
+ * - on create, push the owner ("{Name} liked your dive/snorkel.")
+ */
+exports.notifyBuddyActivityLiked = onDocumentWritten(
+  {
+    document: "users/{ownerUid}/sharedDives/{activityId}/likes/{likerUid}",
+    timeoutSeconds: 60,
+  },
+  async (event) => {
+    const ownerUid = event.params.ownerUid;
+    const activityId = event.params.activityId;
+    const likerUid = event.params.likerUid;
+    const beforeExists = event.data.before.exists;
+    const afterExists = event.data.after.exists;
+    if (beforeExists === afterExists) return;
+    if (likerUid === ownerUid) return;
+
+    const created = afterExists && !beforeExists;
+    const deleted = !afterExists && beforeExists;
+    if (!created && !deleted) return;
+
+    const db = getFirestore();
+    const activityRef = db
+      .collection("users")
+      .doc(ownerUid)
+      .collection("sharedDives")
+      .doc(activityId);
+
+    const activitySnap = await activityRef.get();
+    if (!activitySnap.exists) {
+      console.warn(
+        `buddy activity liked: missing sharedDive owner=${ownerUid} activity=${activityId}`
+      );
+      return;
+    }
+
+    const delta = created ? 1 : -1;
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(activityRef);
+      if (!snap.exists) return;
+      const current = Number(snap.data().likeCount) || 0;
+      tx.update(activityRef, {
+        likeCount: Math.max(0, current + delta),
+      });
+    });
+
+    if (!created) return;
+
+    const activityData = activitySnap.data() || {};
+    const kindRaw = activityData.activityKind;
+    const activityKind = kindRaw === "snorkel" ? "snorkel" : "scubaDive";
+
+    const privateSnap = await db
+      .collection("users")
+      .doc(ownerUid)
+      .collection("private")
+      .get();
+
+    const tokens = [];
+    privateSnap.forEach((doc) => {
+      if (!doc.id.startsWith(FCM_DOC_PREFIX)) return;
+      const token = doc.data().fcmToken;
+      if (typeof token === "string" && token.length > 0) {
+        tokens.push(token);
+      }
+    });
+    if (tokens.length === 0) {
+      console.warn(
+        `buddy activity liked: no FCM tokens for owner=${ownerUid}`
+      );
+      return;
+    }
+
+    let likerLabel = "A dive buddy";
+    const likeData = event.data.after.data() || {};
+    const likeName =
+      typeof likeData.displayName === "string" ? likeData.displayName.trim() : "";
+    if (likeName) {
+      likerLabel = likeName;
+    } else {
+      const likerSnap = await db.collection("users").doc(likerUid).get();
+      if (likerSnap.exists) {
+        const displayName = (likerSnap.data().displayName || "").trim();
+        if (displayName) likerLabel = displayName;
+      }
+    }
+
+    const kindLabel = activityKind === "snorkel" ? "snorkel" : "dive";
+    const title = "Someone liked your activity";
+    const body = `${likerLabel} liked your ${kindLabel}.`;
+
+    // APNs collapse-id max is 64 bytes — keep under that (UUID alone is 36).
+    const collapseId = `blike_${activityId}`.slice(0, 64);
+
+    const messages = tokens.map((token) => ({
+      token,
+      notification: { title, body },
+      data: {
+        type: BUDDY_ACTIVITY_LIKED_NOTIFICATION_TYPE,
+        friendUID: likerUid,
+        activityID: activityId,
+        activityKind,
+      },
+      apns: {
+        headers: {
+          "apns-collapse-id": collapseId,
+        },
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    }));
+
+    const response = await getMessaging().sendEach(messages);
+
+    if (response.failureCount > 0) {
+      const failureCodes = response.responses
+        .map((result) => {
+          if (result.success) return null;
+          const code = (result.error && result.error.code) || "unknown";
+          const msg = (result.error && result.error.message) || "";
+          return `${code}: ${msg}`;
+        })
+        .filter(Boolean);
+      console.warn(
+        `buddy activity liked push: ${response.failureCount}/${messages.length} failures for owner — ${failureCodes.join(" | ")}`
+      );
+      await deleteInvalidFcmTokens(db, messages, response.responses);
+    }
+    if (response.successCount > 0) {
+      console.log(
+        `buddy activity liked push: sent ${response.successCount}/${messages.length} for activity=${activityId}`
+      );
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Buddy activity commented — increment/decrement commentCount + notify owner.
+// ---------------------------------------------------------------------------
+
+const BUDDY_ACTIVITY_COMMENTED_NOTIFICATION_TYPE = "buddy_activity_commented";
+const BUDDY_ACTIVITY_MENTIONED_NOTIFICATION_TYPE = "buddy_activity_mentioned";
+/** Character cap for the comment snippet in the owner push body (parity with iOS). */
+const BUDDY_ACTIVITY_COMMENT_PREVIEW_MAX_CHARS = 50;
+const BUDDY_ACTIVITY_MENTION_UIDS_MAX = 10;
+
+/**
+ * Collapse whitespace and truncate for APNs body preview.
+ * @param {unknown} raw
+ * @param {number} maxChars
+ * @returns {string}
+ */
+function buddyActivityCommentNotificationPreview(raw, maxChars = BUDDY_ACTIVITY_COMMENT_PREVIEW_MAX_CHARS) {
+  if (typeof raw !== "string") return "";
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  if (!collapsed) return "";
+  if (collapsed.length <= maxChars) return collapsed;
+  if (maxChars <= 1) return "…";
+  return `${collapsed.slice(0, maxChars - 1)}…`;
+}
+
+/**
+ * Sanitize `mentionedUids` from a comment doc (unique, non-empty, capped, no author).
+ * @param {unknown} raw
+ * @param {string} authorUid
+ * @returns {string[]}
+ */
+function sanitizeMentionedUids(raw, authorUid) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const value of raw) {
+    if (typeof value !== "string") continue;
+    const uid = value.trim();
+    if (!uid || uid === authorUid || seen.has(uid)) continue;
+    seen.add(uid);
+    out.push(uid);
+    if (out.length >= BUDDY_ACTIVITY_MENTION_UIDS_MAX) break;
+  }
+  return out;
+}
+
+/**
+ * True when uidA and uidB share an active friendship.
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {string} uidA
+ * @param {string} uidB
+ */
+async function areActiveFriends(db, uidA, uidB) {
+  if (!uidA || !uidB || uidA === uidB) return false;
+  const snap = await db
+    .collection("friendships")
+    .where("members", "array-contains", uidA)
+    .get();
+  for (const doc of snap.docs) {
+    const data = doc.data() || {};
+    if (data.status !== "active") continue;
+    const members = Array.isArray(data.members) ? data.members : [];
+    if (members.includes(uidB)) return true;
+  }
+  return false;
+}
+
+/**
+ * Collect FCM device tokens under `users/{uid}/private/fcm_*`.
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {string} uid
+ * @returns {Promise<string[]>}
+ */
+async function collectFcmTokensForUser(db, uid) {
+  const privateSnap = await db.collection("users").doc(uid).collection("private").get();
+  const tokens = [];
+  privateSnap.forEach((doc) => {
+    if (!doc.id.startsWith(FCM_DOC_PREFIX)) return;
+    const token = doc.data().fcmToken;
+    if (typeof token === "string" && token.length > 0) {
+      tokens.push(token);
+    }
+  });
+  return tokens;
+}
+
+/**
+ * When a friend (or owner) creates/deletes
+ * `users/{ownerUid}/sharedDives/{activityId}/comments/{commentId}`:
+ * - maintain denormalized `commentCount` on the parent projection
+ * - on create: mention pushes to `mentionedUids`; owner comment push when not mentioned
+ */
+exports.notifyBuddyActivityCommented = onDocumentWritten(
+  {
+    document: "users/{ownerUid}/sharedDives/{activityId}/comments/{commentId}",
+    timeoutSeconds: 60,
+  },
+  async (event) => {
+    const ownerUid = event.params.ownerUid;
+    const activityId = event.params.activityId;
+    const beforeExists = event.data.before.exists;
+    const afterExists = event.data.after.exists;
+    if (beforeExists === afterExists) return;
+
+    const created = afterExists && !beforeExists;
+    const deleted = !afterExists && beforeExists;
+    if (!created && !deleted) return;
+
+    const db = getFirestore();
+    const activityRef = db
+      .collection("users")
+      .doc(ownerUid)
+      .collection("sharedDives")
+      .doc(activityId);
+
+    const activitySnap = await activityRef.get();
+    if (!activitySnap.exists) {
+      console.warn(
+        `buddy activity commented: missing sharedDive owner=${ownerUid} activity=${activityId}`
+      );
+      return;
+    }
+
+    const delta = created ? 1 : -1;
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(activityRef);
+      if (!snap.exists) return;
+      const current = Number(snap.data().commentCount) || 0;
+      tx.update(activityRef, {
+        commentCount: Math.max(0, current + delta),
+      });
+    });
+
+    if (!created) return;
+
+    const commentData = event.data.after.data() || {};
+    const authorUid =
+      typeof commentData.authorUid === "string" ? commentData.authorUid.trim() : "";
+    if (!authorUid) {
+      console.log(
+        `buddy activity commented: skip push (missing author) activity=${activityId}`
+      );
+      return;
+    }
+
+    const activityData = activitySnap.data() || {};
+    const kindRaw = activityData.activityKind;
+    const activityKind = kindRaw === "snorkel" ? "snorkel" : "scubaDive";
+    const mentionedUids = sanitizeMentionedUids(
+      commentData.mentionedUids,
+      authorUid
+    );
+
+    let authorLabel = "A dive buddy";
+    const commentName =
+      typeof commentData.displayName === "string"
+        ? commentData.displayName.trim()
+        : "";
+    if (commentName) {
+      authorLabel = commentName;
+    } else {
+      const authorSnap = await db.collection("users").doc(authorUid).get();
+      if (authorSnap.exists) {
+        const displayName = (authorSnap.data().displayName || "").trim();
+        if (displayName) authorLabel = displayName;
+      }
+    }
+
+    const preview = buddyActivityCommentNotificationPreview(commentData.text);
+    const messaging = getMessaging();
+
+    // Mention pushes (author may be the owner).
+    for (const recipientUid of mentionedUids) {
+      const friendOfAuthor = await areActiveFriends(db, authorUid, recipientUid);
+      const friendOfOwner =
+        recipientUid === ownerUid
+          ? true
+          : await areActiveFriends(db, ownerUid, recipientUid);
+      if (!friendOfAuthor && !friendOfOwner) {
+        console.log(
+          `buddy activity mentioned: skip non-friend recipient=${recipientUid} activity=${activityId}`
+        );
+        continue;
+      }
+      const tokens = await collectFcmTokensForUser(db, recipientUid);
+      if (tokens.length === 0) {
+        console.warn(
+          `buddy activity mentioned: no FCM tokens for recipient=${recipientUid}`
+        );
+        continue;
+      }
+      const mentionBody = preview
+        ? `${authorLabel} mentioned you in a comment: ${preview}`
+        : `${authorLabel} mentioned you in a comment.`;
+      const collapseId = `bment_${activityId}_${recipientUid}`.slice(0, 64);
+      const messages = tokens.map((token) => ({
+        token,
+        notification: {
+          title: "Mentioned in a comment",
+          body: mentionBody,
+        },
+        data: {
+          type: BUDDY_ACTIVITY_MENTIONED_NOTIFICATION_TYPE,
+          friendUID: authorUid,
+          activityID: activityId,
+          activityKind,
+          ownerUID: ownerUid,
+        },
+        apns: {
+          headers: {
+            "apns-collapse-id": collapseId,
+          },
+          payload: {
+            aps: {
+              sound: "default",
+            },
+          },
+        },
+      }));
+      const response = await messaging.sendEach(messages);
+      if (response.failureCount > 0) {
+        await deleteInvalidFcmTokens(db, messages, response.responses);
+      }
+      if (response.successCount > 0) {
+        console.log(
+          `buddy activity mentioned push: sent ${response.successCount}/${messages.length} recipient=${recipientUid} activity=${activityId}`
+        );
+      }
+    }
+
+    // Owner comment push — skip when owner authored, or owner was @mentioned (mention push covers them).
+    if (authorUid === ownerUid || mentionedUids.includes(ownerUid)) {
+      return;
+    }
+
+    const tokens = await collectFcmTokensForUser(db, ownerUid);
+    if (tokens.length === 0) {
+      console.warn(
+        `buddy activity commented: no FCM tokens for owner=${ownerUid}`
+      );
+      return;
+    }
+
+    const kindLabel = activityKind === "snorkel" ? "snorkel" : "dive";
+    const title = "New comment on your activity";
+    const body = preview
+      ? `${authorLabel} commented on your ${kindLabel}: ${preview}`
+      : `${authorLabel} commented on your ${kindLabel}.`;
+    const collapseId = `bcomm_${activityId}`.slice(0, 64);
+
+    const messages = tokens.map((token) => ({
+      token,
+      notification: { title, body },
+      data: {
+        type: BUDDY_ACTIVITY_COMMENTED_NOTIFICATION_TYPE,
+        friendUID: authorUid,
+        activityID: activityId,
+        activityKind,
+      },
+      apns: {
+        headers: {
+          "apns-collapse-id": collapseId,
+        },
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    }));
+
+    const response = await messaging.sendEach(messages);
+
+    if (response.failureCount > 0) {
+      const failureCodes = response.responses
+        .map((result) => {
+          if (result.success) return null;
+          const code = (result.error && result.error.code) || "unknown";
+          const msg = (result.error && result.error.message) || "";
+          return `${code}: ${msg}`;
+        })
+        .filter(Boolean);
+      console.warn(
+        `buddy activity commented push: ${response.failureCount}/${messages.length} failures for owner — ${failureCodes.join(" | ")}`
+      );
+      await deleteInvalidFcmTokens(db, messages, response.responses);
+    }
+    if (response.successCount > 0) {
+      console.log(
+        `buddy activity commented push: sent ${response.successCount}/${messages.length} for activity=${activityId}`
+      );
+    }
+  }
+);

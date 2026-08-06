@@ -60,9 +60,16 @@ enum HomeMediaHighlightWarmupPresentation: Sendable {
         isVideo && hasDisplayablePoster && isVideoPrepareInFlightOrReady
     }
 
-    /// Photos warm at hero size; videos only need a poster still before AVAsset warm.
+    /// Bootstrap stills start at preview (or stored soft JPEG) so slides paint before hero PhotoKit.
+    /// Photos later upgrade via **`upgradeStillQuality`**; videos keep the poster tier.
     nonisolated static func bootstrapStillQuality(isVideo: Bool) -> WarmupQuality {
-        isVideo ? .preview : .full
+        _ = isVideo
+        return .preview
+    }
+
+    /// After preview posters are cached, still photos upgrade to hero; videos stay on poster.
+    nonisolated static func upgradeStillQuality(isVideo: Bool) -> WarmupQuality? {
+        isVideo ? nil : .full
     }
 
     /// Quality tier for a carousel index during bootstrap (**0**-based).

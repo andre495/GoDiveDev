@@ -18,6 +18,22 @@ extension DiveActivityOverviewDetent {
         )
     }
 
+    /// Single detent for blue overview-panel modals (comments, notes, buddies, …) —
+    /// same point height as the activity’s resting **large** panel.
+    @MainActor
+    static func overviewPanelModalLargePresentationDetent(
+        context: DiveActivityOverviewSheetLayoutContext? = nil
+    ) -> PresentationDetent {
+        // Resolve window metrics in-body — default-arg evaluation is nonisolated.
+        let resolved = context ?? DiveActivityOverviewSheetLayoutContext.currentWindowContext()
+        return large.presentationDetent(
+            screenHeight: resolved.layoutHeight,
+            screenWidth: resolved.screenWidth,
+            topSafeInset: resolved.topSafeInset,
+            bottomSafeInset: resolved.bottomSafeInset
+        )
+    }
+
     static func allPresentationDetents(
         screenHeight: CGFloat,
         screenWidth: CGFloat,

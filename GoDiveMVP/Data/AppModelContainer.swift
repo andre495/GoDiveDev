@@ -12,7 +12,11 @@ enum AppModelContainer {
                 guard stored == nil else { return }
                 stored = Task.detached(priority: .userInitiated) {
                     let signpostID = AppPerformanceSignpost.begin(.launchContainerLoad)
-                    defer { AppPerformanceSignpost.end(.launchContainerLoad, signpostID: signpostID) }
+                    AppLaunchTimelineLog.splashContainerLoadBegan()
+                    defer {
+                        AppPerformanceSignpost.end(.launchContainerLoad, signpostID: signpostID)
+                        AppLaunchTimelineLog.splashContainerReady()
+                    }
                     do {
                         return try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: false)
                     } catch {

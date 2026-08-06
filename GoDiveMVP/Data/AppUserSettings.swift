@@ -48,7 +48,7 @@ enum AppUserSettings: Sendable {
     nonisolated static let shareMediaOnWiFiOnlyKey = "goDiveShareMediaOnWiFiOnly"
 
     /// When **`true`**, anonymized marine-life sighting events sync to the community ontology graph.
-    /// Default **off** — opt-in. Synced via **`UserPreferences`** (CloudKit).
+    /// Default **on**; user can opt out. Synced via **`UserPreferences`** (CloudKit).
     nonisolated static let contributeCommunitySightingsKey = "goDiveContributeCommunitySightings"
 
     /// Legacy key — downloads always use Wi‑Fi or cellular; see **`downloadFriendMediaOnWiFiOnly`**.
@@ -137,7 +137,7 @@ enum AppUserSettings: Sendable {
     }
 
     nonisolated static func contributeCommunitySightings(userDefaults: UserDefaults = .standard) -> Bool {
-        userDefaults.bool(forKey: contributeCommunitySightingsKey)
+        registeredOrDefaultTrue(forKey: contributeCommunitySightingsKey, userDefaults: userDefaults)
     }
 
     /// Always **`false`** — buddy media downloads use Wi‑Fi or cellular (no Settings gate).
@@ -194,7 +194,7 @@ enum AppUserSettings: Sendable {
             shareNotesWithFriendsKey: false,
             shareMediaWithFriendsKey: false,
             shareMediaOnWiFiOnlyKey: false,
-            contributeCommunitySightingsKey: false,
+            contributeCommunitySightingsKey: true,
             notifyAllNotificationsKey: true,
             notifyBuddyActivitySharesKey: true,
             notifyGearServiceRemindersKey: true,

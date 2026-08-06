@@ -6,12 +6,24 @@ struct DiveActivityBuddiesOverviewSection: View {
     @Bindable var activity: DiveActivity
 
     @Environment(AccountSession.self) private var accountSession
+    @State private var friendEdges: [GoDiveFriendGraphService.FriendEdge] = []
+
+    private var avatarLookup: BuddyFeedAvatarLookup {
+        BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: GoDiveFirebaseAuthSession.currentFirebaseUID(),
+            currentLocalProfilePhoto: accountSession.currentProfile?.profilePhoto,
+            friends: friendEdges
+        )
+    }
 
     var body: some View {
         buddiesContent
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("DiveOverview.BuddiesSection")
+            .task {
+                friendEdges = (try? await GoDiveFriendGraphService.listFriendEdges()) ?? []
+            }
     }
 
     @ViewBuilder
@@ -37,9 +49,19 @@ struct DiveActivityBuddiesOverviewSection: View {
 
     @ViewBuilder
     private func buddyAvatar(for tag: DiveBuddyTag) -> some View {
+        let sources: DiveBuddyAvatarChipSources = {
+            if let buddy = tag.buddy {
+                return DiveBuddyAvatarChipPresentation.sources(for: buddy, lookup: avatarLookup)
+            }
+            return DiveBuddyAvatarChipPresentation.sources(
+                profilePhoto: nil,
+                lookup: avatarLookup
+            )
+        }()
         let chip = DiveActivityBuddyAvatarChip(
             displayName: tag.displayName,
-            profilePhoto: tag.buddy?.profilePhoto,
+            profilePhoto: sources.localProfilePhoto,
+            photoURL: sources.photoURL,
             showsGoDiveUserPin: tag.buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
         )
 

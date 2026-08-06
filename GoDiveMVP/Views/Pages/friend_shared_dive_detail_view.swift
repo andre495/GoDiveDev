@@ -6,6 +6,10 @@ struct FriendSharedDiveDetailView: View {
     let friendName: String
     var friendPhotoURL: String? = nil
     var friendUID: String? = nil
+    /// Buddy Feed comment icon: present comments sheet once after the activity opens.
+    var opensCommentsOnAppear: Bool = false
+    /// Buddy Feed “with” avatar tap: expand Map and scroll to tagged buddies.
+    var scrollToTaggedBuddiesOnAppear: Bool = false
 
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @State private var mediaDive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
@@ -27,6 +31,9 @@ struct FriendSharedDiveDetailView: View {
     @State private var tankMinimizedPsiUsedRevealProgress: CGFloat = 1
     @State private var tankMinimizedWaterTopFadeProgress: CGFloat = 0
     @State private var tankMinimizedChromeRevealProgress: CGFloat = 1
+    @State private var panelScrollRequest: DiveOverviewPanelScrollRequest?
+    @State private var didConsumeScrollToTaggedBuddies = false
+    @State private var didConsumeOpenCommentsOnAppear = false
 
     private var currentUID: String? {
         GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID()
@@ -39,16 +46,25 @@ struct FriendSharedDiveDetailView: View {
         )
     }
 
+    /// One-shot: Map remounts on tab return must not re-open comments.
+    private var pendingOpenCommentsOnAppear: Bool {
+        opensCommentsOnAppear && !didConsumeOpenCommentsOnAppear
+    }
+
     init(
         dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
         friendName: String,
         friendPhotoURL: String? = nil,
-        friendUID: String? = nil
+        friendUID: String? = nil,
+        opensCommentsOnAppear: Bool = false,
+        scrollToTaggedBuddiesOnAppear: Bool = false
     ) {
         self.dive = dive
         self.friendName = friendName
         self.friendPhotoURL = friendPhotoURL
         self.friendUID = friendUID
+        self.opensCommentsOnAppear = opensCommentsOnAppear
+        self.scrollToTaggedBuddiesOnAppear = scrollToTaggedBuddiesOnAppear
         _mediaDive = State(initialValue: dive)
     }
 
@@ -61,6 +77,7 @@ struct FriendSharedDiveDetailView: View {
                 snorkelDetailPage
             }
         }
+        .environment(\.diveOverviewPanelScrollRequest, panelScrollRequest)
         .hidesBottomTabBarWhenPushed()
         .accessibilityIdentifier("FriendSharedDiveDetail.Root")
         .fullScreenCover(isPresented: $isFriendSharedMediaFullscreenPresented) {
@@ -91,6 +108,34 @@ struct FriendSharedDiveDetailView: View {
                     + FriendSharedMediaPresentation.allVideoContentPrefetchURLs(items: items)
             )
         }
+        .task(id: "scrollTaggedBuddies-\(dive.id)-\(scrollToTaggedBuddiesOnAppear)") {
+            await scrollToTaggedBuddiesIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func scrollToTaggedBuddiesIfNeeded() async {
+        guard LogbookBuddyFeedPresentation.shouldScrollToTaggedBuddiesOnAppear(
+            scrollToTaggedBuddiesOnAppear: scrollToTaggedBuddiesOnAppear,
+            alreadyConsumed: didConsumeScrollToTaggedBuddies
+        ) else { return }
+        didConsumeScrollToTaggedBuddies = true
+        guard !dive.taggedBuddies.isEmpty else { return }
+
+        selectedDiveTab = .map
+        selectedSnorkelTab = .map
+        withAnimation(.diveOverviewPanelDetent) {
+            overviewSheetDetent = .large
+        }
+        let delayMs = LogbookBuddyFeedPresentation.scrollToTaggedBuddiesAfterNavigationDelayMilliseconds
+        if delayMs > 0 {
+            try? await Task.sleep(for: .milliseconds(delayMs))
+        }
+        guard !Task.isCancelled else { return }
+        panelScrollRequest = DiveOverviewPanelScrollRequest(
+            sectionID: LogbookBuddyFeedPresentation.taggedBuddiesPanelScrollSectionID,
+            nonce: 1
+        )
     }
 
     private var friendSharedMediaRefreshToken: String {
@@ -312,6 +357,11 @@ struct FriendSharedDiveDetailView: View {
                                     dive: mediaDive,
                                     friendName: friendName,
                                     friendPhotoURL: friendPhotoURL,
+                                    friendUID: friendUID,
+                                    opensCommentsOnAppear: pendingOpenCommentsOnAppear,
+                                    onOpenCommentsOnAppearConsumed: {
+                                        didConsumeOpenCommentsOnAppear = true
+                                    },
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
@@ -803,6 +853,11 @@ struct FriendSharedDiveDetailView: View {
                                     dive: mediaDive,
                                     friendName: friendName,
                                     friendPhotoURL: friendPhotoURL,
+                                    friendUID: friendUID,
+                                    opensCommentsOnAppear: pendingOpenCommentsOnAppear,
+                                    onOpenCommentsOnAppearConsumed: {
+                                        didConsumeOpenCommentsOnAppear = true
+                                    },
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )

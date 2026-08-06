@@ -8,6 +8,7 @@ import SwiftData
 ///
 /// Catalog OpenDiveMap / bundled rows stay on `MarineLife` / `DiveSite`.
 enum AppSwiftDataHybridRowMigration {
+    nonisolated static let completedDefaultsKey = "goDiveSwiftDataHybridRowMigrationComplete"
 
     struct Result: Equatable, Sendable {
         var migratedSpeciesCount: Int = 0
@@ -26,14 +27,25 @@ enum AppSwiftDataHybridRowMigration {
     }
 
     @discardableResult
-    nonisolated static func migrateIfNeeded(modelContext: ModelContext) throws -> Result {
+    nonisolated static func migrateIfNeeded(
+        modelContext: ModelContext,
+        userDefaults: UserDefaults = .standard
+    ) throws -> Result {
+        guard !userDefaults.bool(forKey: completedDefaultsKey) else {
+            return Result()
+        }
         var result = Result()
         result.migratedSpeciesCount = try migrateUserMarineLife(modelContext: modelContext)
         result.migratedSiteCount = try migrateUserDiveSites(modelContext: modelContext)
         if modelContext.hasChanges {
             try modelContext.save()
         }
+        userDefaults.set(true, forKey: completedDefaultsKey)
         return result
+    }
+
+    nonisolated static func resetCompletedFlagForTesting(userDefaults: UserDefaults = .standard) {
+        userDefaults.removeObject(forKey: completedDefaultsKey)
     }
 
     private nonisolated static func migrateUserMarineLife(modelContext: ModelContext) throws -> Int {

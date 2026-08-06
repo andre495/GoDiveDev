@@ -26,9 +26,10 @@ enum HomeOverviewRebuildPresentation: Sendable {
         hasPerformedInitialHomeBuild: Bool,
         source: Source
     ) -> Bool {
-        guard isCelebrationShellPrewarmActive else { return false }
         switch source {
         case .incidental:
+            // Never interrupt the cold-launch scalar / carousel path.
+            _ = isCelebrationShellPrewarmActive
             return !hasPerformedInitialHomeBuild
         case .initialRootAppear:
             return false
@@ -46,5 +47,27 @@ enum HomeOverviewRebuildPresentation: Sendable {
         case .incidental:
             return 0
         }
+    }
+}
+
+/// Cold Home first paint: scalar launch path before background sighting enrichment.
+enum HomeOverviewFirstPaintPresentation: Sendable {
+    /// When the owner query already has dives, use scalar launch + pick-3 JPEG seed before full enrich.
+    nonisolated static func shouldUseTwoPhaseInitialRebuild(
+        hasPerformedInitialHomeBuild: Bool,
+        ownerDiveActivityCount: Int
+    ) -> Bool {
+        !hasPerformedInitialHomeBuild && ownerDiveActivityCount > 0
+    }
+}
+
+/// Splash dismiss — Home chrome ready must not depend on a single rebuild generation surviving.
+enum HomeLaunchChromePresentation: Sendable {
+    /// Mark ready after any successful Home aggregate apply while splash is still waiting.
+    ///
+    /// Do **not** gate on “was initial rebuild” — a superseded launch path can set
+    /// **`hasPerformedInitialHomeBuild`** (or skip) such that a later rebuild never marks chrome.
+    nonisolated static func shouldMarkChromeReady(isAlreadyReady: Bool) -> Bool {
+        !isAlreadyReady
     }
 }

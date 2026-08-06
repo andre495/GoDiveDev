@@ -62,7 +62,12 @@ struct AccountDeletionAppleConfirmSheet: View {
                 if isDeleting {
                     ZStack {
                         Color.black.opacity(0.35).ignoresSafeArea()
-                        ProgressView(AccountDeletionPresentation.progressTitle)
+                        VStack(spacing: AppTheme.Spacing.md) {
+                            GoDiveRotateLoadingIndicator()
+                            Text(AccountDeletionPresentation.progressTitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.Colors.textPrimary)
+                        }
                             .padding(AppTheme.Spacing.lg)
                             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }

@@ -12,6 +12,7 @@ struct LogbookView: View {
     @Query private var activities: [DiveActivity]
     @Query private var snorkelActivities: [SnorkelActivity]
     @Query private var ownerTrips: [DiveTrip]
+    @Query private var ownedBuddies: [DiveBuddy]
 
     @State private var diveSiteCatalog: [DiveSite] = []
 
@@ -44,9 +45,15 @@ struct LogbookView: View {
         )
     }
 
+    @Environment(RootTabSelectionStore.self) private var rootTabSelection
+
     private let ownerProfileID: UUID?
     private let logbookTabSelectionGeneration: Int
-    private let isLogbookTabSelected: Bool
+
+    /// Live tab selection via **`RootTabSelectionStore`** (not a stale `Tab` init `let`).
+    private var isLogbookTabSelected: Bool {
+        RootTabSelectionPresentation.isSelected(.logbook, selected: rootTabSelection.selected)
+    }
 
     private var isLogbookNavigationStackAtRoot: Bool {
         RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
@@ -55,12 +62,10 @@ struct LogbookView: View {
     init(
         ownerProfileID: UUID?,
         pendingRoute: Binding<LogbookRoute?> = .constant(nil),
-        logbookTabSelectionGeneration: Int = 0,
-        isLogbookTabSelected: Bool = true
+        logbookTabSelectionGeneration: Int = 0
     ) {
         self.ownerProfileID = ownerProfileID
         self.logbookTabSelectionGeneration = logbookTabSelectionGeneration
-        self.isLogbookTabSelected = isLogbookTabSelected
         _pendingRoute = pendingRoute
         let filterOwnerID = ownerProfileID ?? LogbookView.noOwnerQueryToken
         _activities = Query(
@@ -83,6 +88,10 @@ struct LogbookView: View {
                 SortDescriptor(\DiveTrip.startDate, order: .reverse),
                 SortDescriptor(\DiveTrip.id, order: .forward),
             ]
+        )
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
         )
     }
 
@@ -252,9 +261,20 @@ struct LogbookView: View {
     private func consumePendingLogbookRouteIfNeeded() {
         guard let route = pendingRoute else { return }
         pendingRoute = nil
-        if case .buddySharedDive(let friendUID, let diveDocumentID) = route {
-            openBuddySharedDiveFromPush(friendUID: friendUID, diveDocumentID: diveDocumentID)
+        if case .buddySharedDive(let friendUID, let diveDocumentID, let opensComments, let scrollToTaggedBuddies) = route {
+            openBuddySharedDiveFromPush(
+                friendUID: friendUID,
+                diveDocumentID: diveDocumentID,
+                opensComments: opensComments,
+                scrollToTaggedBuddies: scrollToTaggedBuddies
+            )
             return
+        }
+        switch route {
+        case .diveDetail, .snorkelDetail, .diveMedia, .snorkelMedia:
+            logbookFeedScope = .myActivities
+        default:
+            break
         }
         path = LogbookPendingRouteNavigation.path(afterConsuming: route, currentPath: path)
     }
@@ -262,7 +282,12 @@ struct LogbookView: View {
     /// Push-notification deep link: land on **Buddy Feed**, wait until the target
     /// activity is in feed state (retry + direct projection fetch), then push detail
     /// so **Back** returns to a feed that already includes that activity.
-    private func openBuddySharedDiveFromPush(friendUID: String, diveDocumentID: String) {
+    private func openBuddySharedDiveFromPush(
+        friendUID: String,
+        diveDocumentID: String,
+        opensComments: Bool = false,
+        scrollToTaggedBuddies: Bool = false
+    ) {
         logbookFeedScope = .buddyFeed
         path.removeAll()
         Task { @MainActor in
@@ -271,7 +296,14 @@ struct LogbookView: View {
                 diveDocumentID: diveDocumentID
             )
             guard ready else { return }
-            pushLogbook(.buddySharedDive(friendUID: friendUID, diveDocumentID: diveDocumentID))
+            pushLogbook(
+                .buddySharedDive(
+                    friendUID: friendUID,
+                    diveDocumentID: diveDocumentID,
+                    opensComments: opensComments,
+                    scrollToTaggedBuddies: scrollToTaggedBuddies
+                )
+            )
         }
     }
 
@@ -510,6 +542,15 @@ struct LogbookView: View {
         )
     }
 
+    private var buddyFeedAvatarLookup: BuddyFeedAvatarLookup {
+        BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: GoDiveFirebaseAuthSession.currentFirebaseUID(),
+            currentLocalProfilePhoto: accountSession.currentProfile?.profilePhoto,
+            friends: buddyFeedFriends,
+            rosterBuddies: ownedBuddies
+        )
+    }
+
     private var logbookListSurfaceView: some View {
         LogbookListSurface(
             feedScope: logbookFeedScope,
@@ -525,18 +566,86 @@ struct LogbookView: View {
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
-            bubbleAnimationPaused: !isLogbookTabSelected,
+            // Always run while mounted — tab-selection pause was stale under iOS 18 TabView
+            // (Field Guide froze; Logbook never paused off-tab). ScenePhase pause is in
+            // WaterBubbleBackground.
+            bubbleAnimationPaused: false,
             scrollToTopNonce: listScrollToTopNonce,
+            buddyFeedAvatarLookup: buddyFeedAvatarLookup,
             onSelectMediaPreview: openActivityMediaPreview,
             onOpenTrip: { pushLogbook(.tripDetail($0)) },
             onOpenDive: { pushLogbook(.diveDetail($0)) },
             onOpenFriendProfile: { friend in
                 pushLogbook(.friendProfile(friend))
             },
+            onBuddyFeedToggleLike: toggleBuddyFeedLike,
+            onBuddyFeedOpenComments: openBuddyFeedComments,
+            onBuddyFeedOpenTaggedBuddies: openBuddyFeedTaggedBuddies,
             onBuddyFeedRefresh: refreshBuddyFeed,
             onBuddyFeedLoadMore: loadMoreBuddyFeedRowsIfNeeded
         )
         .equatable()
+    }
+
+    @MainActor
+    private func openBuddyFeedComments(_ row: LogbookBuddyFeedPresentation.Row) {
+        pushLogbook(
+            .buddySharedDive(
+                friendUID: row.friendUID,
+                diveDocumentID: row.dive.id,
+                opensComments: true
+            )
+        )
+    }
+
+    @MainActor
+    private func openBuddyFeedTaggedBuddies(_ row: LogbookBuddyFeedPresentation.Row) {
+        pushLogbook(
+            .buddySharedDive(
+                friendUID: row.friendUID,
+                diveDocumentID: row.dive.id,
+                scrollToTaggedBuddies: true
+            )
+        )
+    }
+
+    @MainActor
+    private func toggleBuddyFeedLike(_ row: LogbookBuddyFeedPresentation.Row) {
+        guard let latest = buddyFeedAllRows.first(where: { $0.id == row.id }) else { return }
+        let nextLiked = !latest.currentUserHasLiked
+        let optimistic = LogbookBuddyFeedPresentation.rowApplyingLikeToggle(latest, liked: nextLiked)
+        buddyFeedAllRows = LogbookBuddyFeedPresentation.replacingRow(optimistic, in: buddyFeedAllRows)
+        let displayName = accountSession.currentProfile?.displayName ?? "A dive buddy"
+        let ownerUID = latest.friendUID
+        let activityID = latest.dive.id
+        let rowID = latest.id
+        Task { @MainActor in
+            let succeeded = await GoDiveSharedActivityLikeSync.setLiked(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                liked: nextLiked,
+                likerDisplayName: displayName
+            )
+            guard let current = buddyFeedAllRows.first(where: { $0.id == rowID }) else { return }
+            if !succeeded {
+                if current.currentUserHasLiked == nextLiked {
+                    buddyFeedAllRows = LogbookBuddyFeedPresentation.replacingRow(
+                        latest,
+                        in: buddyFeedAllRows
+                    )
+                }
+                return
+            }
+            // User toggled again while the write was in flight — sync to the latest UI intent.
+            if current.currentUserHasLiked != nextLiked {
+                _ = await GoDiveSharedActivityLikeSync.setLiked(
+                    ownerUID: ownerUID,
+                    activityID: activityID,
+                    liked: current.currentUserHasLiked,
+                    likerDisplayName: displayName
+                )
+            }
+        }
     }
 
     private var buddyFeedEmptyKind: LogbookBuddyFeedPresentation.EmptyKind? {
@@ -611,7 +720,12 @@ struct LogbookView: View {
             TripPlannerView()
         case .diveDetail(let id):
             if let activity = activities.first(where: { $0.id == id }) {
-                ViewSingleActivity(activity: activity)
+                ViewSingleActivity(
+                    activity: activity,
+                    opensCommentsOnAppear: GoDiveOwnedActivityCommentsDeepLinkStore.shared.consume(
+                        activityID: id
+                    )
+                )
             } else {
                 ActivityMissingDestinationPopView {
                     path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
@@ -622,7 +736,12 @@ struct LogbookView: View {
             }
         case .snorkelDetail(let id):
             if let activity = snorkelActivities.first(where: { $0.id == id }) {
-                ViewSingleSnorkelActivity(activity: activity)
+                ViewSingleSnorkelActivity(
+                    activity: activity,
+                    opensCommentsOnAppear: GoDiveOwnedActivityCommentsDeepLinkStore.shared.consume(
+                        activityID: id
+                    )
+                )
             } else {
                 ActivityMissingDestinationPopView {
                     path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
@@ -667,7 +786,7 @@ struct LogbookView: View {
                 ownerProfileID: ownerProfileID,
                 onOpenDive: { pushLogbook(.diveDetail($0)) }
             )
-        case .buddySharedDive(let friendUID, let diveDocumentID):
+        case .buddySharedDive(let friendUID, let diveDocumentID, let opensComments, let scrollToTaggedBuddies):
             if let row = buddyFeedAllRows.first(where: {
                 $0.friendUID == friendUID && $0.dive.id == diveDocumentID
             }) {
@@ -675,7 +794,9 @@ struct LogbookView: View {
                     dive: row.dive,
                     friendName: row.friendDisplayName,
                     friendPhotoURL: row.friendPhotoURL,
-                    friendUID: row.friendUID
+                    friendUID: row.friendUID,
+                    opensCommentsOnAppear: opensComments,
+                    scrollToTaggedBuddiesOnAppear: scrollToTaggedBuddies
                 )
                     .hidesBottomTabBarWhenPushed()
             } else {
@@ -865,10 +986,14 @@ private struct LogbookListSurface: View, Equatable {
     let showsMyActivitiesKindFilterEmptyState: Bool
     let bubbleAnimationPaused: Bool
     let scrollToTopNonce: Int
+    let buddyFeedAvatarLookup: BuddyFeedAvatarLookup
     let onSelectMediaPreview: (DiveLogbookRowDisplayData) -> Void
     let onOpenTrip: (UUID) -> Void
     let onOpenDive: (UUID) -> Void
     let onOpenFriendProfile: (GoDiveFriendGraphService.FriendEdge) -> Void
+    let onBuddyFeedToggleLike: (LogbookBuddyFeedPresentation.Row) -> Void
+    let onBuddyFeedOpenComments: (LogbookBuddyFeedPresentation.Row) -> Void
+    let onBuddyFeedOpenTaggedBuddies: (LogbookBuddyFeedPresentation.Row) -> Void
     let onBuddyFeedRefresh: () async -> Void
     let onBuddyFeedLoadMore: () -> Void
 
@@ -894,7 +1019,8 @@ private struct LogbookListSurface: View, Equatable {
             upcomingTripBanner: upcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             bubbleAnimationPaused: bubbleAnimationPaused,
-            scrollToTopNonce: scrollToTopNonce
+            scrollToTopNonce: scrollToTopNonce,
+            buddyFeedAvatarLookupFingerprint: buddyFeedAvatarLookup.equatableFingerprint
         )
     }
 
@@ -906,7 +1032,10 @@ private struct LogbookListSurface: View, Equatable {
 
             ZStack(alignment: .top) {
                 if !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground(animationPaused: bubbleAnimationPaused)
+                    WaterBubbleBackground(
+                        animationPaused: bubbleAnimationPaused,
+                        diagnosticsLabel: "Logbook"
+                    )
                 }
 
                 logbookScrollSurface(topInset: topInset, bottomInset: bottomInset)
@@ -1008,7 +1137,7 @@ private struct LogbookListSurface: View, Equatable {
     private func logbookMyActivitiesLoadingSurface(topInset: CGFloat) -> some View {
         ScrollView {
             Color.clear.frame(height: topInset)
-            ProgressView()
+            GoDiveRotateLoadingIndicator()
                 .frame(maxWidth: .infinity)
                 .padding(.top, AppTheme.Spacing.lg)
                 .accessibilityIdentifier(LogbookMyActivitiesSummaryPresentation.loadingAccessibilityIdentifier)
@@ -1060,7 +1189,7 @@ private struct LogbookListSurface: View, Equatable {
         if isBuddyFeedLoading, buddyFeedRows.isEmpty {
             ScrollView {
                 Color.clear.frame(height: topInset)
-                ProgressView()
+                GoDiveRotateLoadingIndicator()
                     .frame(maxWidth: .infinity)
                     .padding(.top, AppTheme.Spacing.lg)
             }
@@ -1078,7 +1207,7 @@ private struct LogbookListSurface: View, Equatable {
                 )
             )
             .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
-            .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
+            .logbookBuddyFeedPullToRefresh(topInset: topInset, action: onBuddyFeedRefresh)
         } else if let emptyKind = buddyFeedEmptyKind {
             logbookBuddyFeedEmptyState(topInset: topInset, kind: emptyKind)
         } else {
@@ -1114,7 +1243,7 @@ private struct LogbookListSurface: View, Equatable {
             )
         )
         .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
-        .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
+        .logbookBuddyFeedPullToRefresh(topInset: topInset, action: onBuddyFeedRefresh)
     }
 
     private func logbookBuddyFeedList(topInset: CGFloat, bottomInset: CGFloat) -> some View {
@@ -1127,37 +1256,41 @@ private struct LogbookListSurface: View, Equatable {
                 .accessibilityHidden(true)
 
             ForEach(Array(buddyFeedRows.enumerated()), id: \.element.id) { index, row in
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    LogbookBuddyFeedNavigableTile(row: row) { isolatesHero in
-                        NavigationLink(
-                            value: LogbookRoute.buddySharedDive(
-                                friendUID: row.friendUID,
-                                diveDocumentID: row.dive.id
-                            )
-                        ) {
-                            LogbookBuddyFeedTileView(
-                                row: row,
-                                part: isolatesHero ? .body : .full
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    Button {
+                LogbookBuddyFeedNavigableTile(
+                    row: row,
+                    avatarLookup: buddyFeedAvatarLookup,
+                    onOpenFriendProfile: {
                         onOpenFriendProfile(
                             GoDiveFriendGraphService.friendEdge(
                                 friendUID: row.friendUID,
-                                displayName: row.friendDisplayName
+                                displayName: row.friendDisplayName,
+                                photoURL: row.friendPhotoURL
                             )
                         )
-                    } label: {
-                        Text(row.friendDisplayName)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(AppTheme.Colors.accent)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    },
+                    onToggleLike: {
+                        onBuddyFeedToggleLike(row)
+                    },
+                    onOpenComments: {
+                        onBuddyFeedOpenComments(row)
+                    },
+                    onOpenTaggedBuddies: {
+                        onBuddyFeedOpenTaggedBuddies(row)
+                    }
+                ) {
+                    NavigationLink(
+                        value: LogbookRoute.buddySharedDive(
+                            friendUID: row.friendUID,
+                            diveDocumentID: row.dive.id
+                        )
+                    ) {
+                        LogbookBuddyFeedTileView(
+                            row: row,
+                            part: .caption,
+                            avatarLookup: buddyFeedAvatarLookup
+                        )
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, AppTheme.Spacing.sm)
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)
@@ -1186,9 +1319,14 @@ private struct LogbookListSurface: View, Equatable {
                         rows: buddyFeedRows,
                         startIndex: index
                     )
+                    let avatarURLs = GoDiveRemoteAvatarPresentation.buddyFeedAvatarPrefetchURLs(
+                        rows: buddyFeedRows,
+                        startIndex: index,
+                        avatarLookup: buddyFeedAvatarLookup
+                    )
                     let allowsNetwork = AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
                     await GoDiveSharedMediaCache.shared.prefetch(
-                        remoteURLStrings: thumbURLs,
+                        remoteURLStrings: thumbURLs + avatarURLs,
                         tier: .thumb,
                         allowsNetworkFetch: allowsNetwork
                     )
@@ -1196,7 +1334,7 @@ private struct LogbookListSurface: View, Equatable {
             }
 
             if buddyFeedHasMoreRows {
-                ProgressView()
+                GoDiveRotateLoadingIndicator()
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, AppTheme.Spacing.md)
                     .listRowInsets(
@@ -1241,7 +1379,7 @@ private struct LogbookListSurface: View, Equatable {
         )
         .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
         .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
-        .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
+        .logbookBuddyFeedPullToRefresh(topInset: topInset, action: onBuddyFeedRefresh)
     }
 
     private func logbookStoredEmptyState(topInset: CGFloat) -> some View {
@@ -1550,4 +1688,5 @@ private struct LogbookStoredEmptyState: View {
 
 #Preview {
     LogbookView(ownerProfileID: nil)
+        .environment(RootTabSelectionStore())
 }

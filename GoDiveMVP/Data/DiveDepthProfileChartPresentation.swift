@@ -10,6 +10,10 @@ enum DiveDepthProfileChartPresentation: Sendable {
         case edgeToEdge
     }
 
+    /// Depth / heart-rate profile charts always use the **dark** palette (water fill, underfill, accent line)
+    /// so light mode matches dark mode exactly — same idea as Media frosted overlays.
+    nonisolated static let forcesDarkAppearance = true
+
     /// Y-axis extends this fraction beyond the deepest sample (e.g. **0.2** → 100 ft max plots to 120 ft).
     nonisolated static let depthAxisExtensionFraction: Double = 0.2
 

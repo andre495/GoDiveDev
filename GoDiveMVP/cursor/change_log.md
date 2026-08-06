@@ -3811,6 +3811,285 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Trip detail pager titles (**Trip Stats**, **Activities**, **Marine Life**, **Dive Buddies**, **Media**, **Planned Dive Sites**).
 - Test: mosaic column count + page subtitles + tile accessibility id.
 
-## 133 - Next batch
+## 133 - Mentions, notifications, bubbles **(pushed)**
+
+**Summary:** Bug fix — water bubbles stay alive across tab / page switches (not only Logbook).
+
+- Console trace (`devicectl --console`): Field Guide mounted **`staticFrame paused=true`** and never flipped; Logbook kept **`heartbeat`** off-tab — tab-selection pause flags stayed stale inside iOS 18 `Tab` content (one-shot `let`, `EnvironmentValues`, and `@Observable` store reads).
+- Fix: stop off-tab bubble pause on Logbook / Field Guide / Explore; UIKit **`CADisplayLink`** + `draw(_:)` always runs while mounted; **`scenePhase != .active`** still pauses. **`RootTabSelectionStore`** kept for cache / warm-up gates. DEBUG **`WaterBubbleDiagnostics`**.
+- **Tests:** `rootTabSelection_bubblePause_followsLiveSelection`, `waterBubbleTimelineMode_*`.
+
+**Summary:** Home Notifications **New** = unread + last 2 weeks; **Older** = rest (all 2+ weeks).
+
+- **New** requires both unread and age under 2 weeks. **Older** includes every item older than 2 weeks (read or unread) and already-seen recent items.
+- **Test:** `homeNotifications_sections_newIsUnreadAndRecent_olderIncludesAllPastTwoWeeks`.
+- **Docs:** **`docs/home.md`**.
+
+**Summary:** Bug fix — Buddy Feed hero media no longer bleeds into the depth-chart page.
+
+- Clip each paged hero page + scroll container (`compositingGroup` + `clipped`); aspect-fill stills clip in **`FriendSharedMediaImageView`**.
+- **Test:** `buddyFeed_heroPager_pageSizeFillsContainerAndClipsOverflow`.
+
+**Summary:** Home Notifications bell unread dot uses accent blue (light/dark) instead of red.
+
+**Summary:** Bug fix — Buddy Feed + activity Buddies avatars resolve linked friend photos (not local JPEG-only).
+
+- Root cause: Map / detail **Buddies** chips and Buddies list only read **`DiveBuddy.profilePhoto`**; friend sync stores **`linkedPhotoURL`** without downloading JPEG → initials for linked GoDive friends.
+- Shared **`DiveBuddyAvatarChipPresentation`**: local JPEG → `linkedPhotoURL` → friend-graph / roster lookup; chips use **`FriendSharedMapOwnerAvatarView`** (remote cache).
+- Buddy Feed lookup enriched with roster `linkedPhotoURL` + local JPEG by UID when friend edges lack `photoURL`.
+- Friend-shared Map Buddies rows include `photoURL`; load friend edges for lookup.
+- **Tests:** chip source priority; roster fallback in lookup; map tagged rows use linked URL.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Home Notifications — read rows are subdued (lower opacity, regular weight) so unread stand out.
+
+- Uses the existing last-seen watermark from before the visit; markSeen still clears the bell on open.
+- **Test:** `homeNotifications_isUnreadAndReadRowStyle_useLastSeenWatermark`.
+- **Docs:** **`docs/home.md`**.
+
+**Summary:** Bug fix — tapping like / comment / tag / mention pushes on cold start opens the activity (not Home).
+
+- Root cause: notification tap often set pending stores before `ContentView` existed (NC posts lost); like/mention flush ran only on `onChange(showsMainAppShell)`, which does not fire when the shell is already true on first mount.
+- Flush **all** pending push/reminder deep links from `onAppear`, shell-visible, and Home chrome-ready; gate open on shell **and** chrome so restore/splash cannot consume-then-remount empty.
+- **Test:** `rootPushDeepLinkFlush_requiresShellAndHomeChrome`.
+
+**Summary:** Mention display hides `@` and shows the name in bold colored text.
+
+**Summary:** Color `@mention` names in notes and comments (dark blue / light blue by appearance).
+
+**Summary:** `@mentions` of GoDive friends in notes and comments.
+
+- Type **`@`** in notes or comment compose → friend autocomplete; stores human-readable `@DisplayName`.
+- **Notes:** saving auto-tags mentioned friends; first publish still uses tagged-you push (no late note-mention push).
+- **Comments:** write **`mentionedUids`**; CF pushes `buddy_activity_mentioned` (owner comment push skipped if owner was mentioned).
+- Tap mention → activity + comments sheet (owned or Buddy Feed).
+- Home **Notifications** include mention rows (owned + feed scans).
+- **Tests:** mention parse/insert/extract; mention push routes; notes tag helpers.
+- **Docs:** **`docs/friends.md`**, **`docs/home.md`**, push notes; deploy rules + **`notifyBuddyActivityCommented`**.
+
+**Summary:** Home comment notifications show the comment preview in the title and detail line (parity with push body).
+
+**Summary:** Verified like/comment push taps open owned activity detail (comments sheet for comments); like taps clear any stale comment deep-link.
+
+**Summary:** Home **Notifications** includes likes and comments on your shared activities.
+
+- Fetch likes/comments on owned **`sharedDives`** (**`HomeNotificationsOwnedSocialSync`**); merge into **`HomeNotificationsPresentation`** (kinds **`.buddyActivityLiked`** / **`.buddyActivityCommented`**).
+- Tap like → owned activity Map; tap comment → same with comments sheet open (**`HomeRoute.ownedSharedActivity`**).
+- Bell badge refresh includes owned social events; empty-state copy mentions likes/comments.
+- **Tests:** **`homeNotifications_items_includeOwnedLikesAndComments`**.
+- **Docs:** **`docs/home.md`**, **`docs/friends.md`**.
+
+**Summary:** Bug fix — comments sheet no longer re-opens when leaving/returning to Map on a buddy activity.
+
+- Root cause: Map social remounted on tab switch while parent still passed **`opensCommentsOnAppear: true`**, so local consume state was lost.
+- Parent detail views now keep a one-shot consumed flag; Map social clears it immediately before presenting.
+- Same fix for owned activities opened from a comment push.
+
+**Summary:** Buddy Feed “with” chips — no GoDive pin; tap opens activity Map scrolled to Buddies.
+
+- Feed tagged avatars never show **`GoDiveUserAvatarPin`** (`feedTaggedBuddyShowsGoDiveUserPin = false`).
+- Tap “with” row → **`buddySharedDive(…, scrollToTaggedBuddies: true)`** → Map **large** + scroll to **Buddies** (`OverviewPanelScrollArea` + section id).
+- Tagged row sits outside the caption **`NavigationLink`** (same pattern as hero / like).
+- **Tests:** pin-off + scroll-on-appear helpers; route identity includes **`scrollToTaggedBuddies`**.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Bug fix — Buddy Feed “with” tags and comment avatars match Profile for you (and friend-graph photos for others), with cache/prefetch.
+
+- Root cause: tagged “with” row and comment rows used initials only (`photoURL: nil`); no lookup from Profile / friend graph.
+- **`BuddyFeedAvatarLookup`** / **`BuddyFeedAvatarPresentation`** — resolve “me” → local **`UserProfile.profilePhoto`** (source of truth); friends → graph `photoURL`; feed prefetch warms tagged + friend URLs via **`GoDiveRemoteAvatarImageCache`**.
+- Wired into Buddy Feed tiles, friend shared logbook, comment sheet, and Map social comment entry (refresh from session + friend edges).
+- **`FriendSharedMapOwnerAvatarView`** prefers local JPEG when present so Profile matches on Buddy Feed.
+- **Tests:** **`buddyFeedAvatarLookup_resolvesMeLocalAndFriendRemote`**.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** **Contribute sightings to community** defaults **on** (was off).
+
+- **`AppUserSettings`** / **`UserPreferences`** / Settings **`@AppStorage`** default **true**; unset keys read as on via **`registeredOrDefaultTrue`**. Explicit opt-out still honored. Docs + OWASP / hybrid boundary notes updated.
+- **Tests:** register-defaults + ontology sync gate expect default on / explicit off.
+
+**Summary:** Depth / heart-rate profile charts use dark-mode colors in light mode (no adaptive palette swap).
+
+- **Profile chart colors** — **`DiveDepthProfileChartPresentation.forcesDarkAppearance`** + **`DiveDepthProfileChartDarkAppearance`** force **`.environment(\.colorScheme, .dark)`** on depth and snorkel heart-rate charts so water fill, accent line, and chrome match dark mode exactly. Underfill tokens (**`depthProfileUnderfillTop` / `Bottom`**) are fixed dark ocean stops.
+- **Test:** **`diveDepthProfileChartPresentation_forcesDarkAppearancePalette`** (replaces light-navy underfill check).
+
+**Summary:** Light selection haptics while scrubbing depth / heart-rate profile charts (throttled).
+
+- **Profile scrub haptics** — **`UISelectionFeedbackGenerator`** tick each time the scrub line lands on a new sample on dive depth charts (**`DiveDepthProfileOverlayChart`**, **`DiveDepthProfileChart`**) and snorkel heart-rate charts (**`SnorkelHeartRateProfileChart`**). Shared **`ProfileChartScrubHapticPlayer`** / **`ProfileChartScrubHapticPresentation`** skip UITest and rate-limit to ~**45 ms** so dense profiles do not saturate the Taptic Engine.
+- **Test:** **`profileChartScrubHapticPresentation_firesOnNewSampleAndThrottles`**.
+
+**Summary:** Buddy Feed activities redesigned as social-style posts (avatar/name header, 👌 like, tagged “with” row) while keeping photo + depth-profile heroes; likes now persist to Firestore with live tallies and owner push.
+
+- **Buddy Feed social posts** — **`LogbookBuddyFeedNavigableTile`** posts show friend avatar + name + compact relative timestamp + activity verb, keep the featured-media / depth-chart / swim-map hero (with page dots), **👌** like + tally, caption (site, place, stats, optional notes), and a **with** overlapping-avatar row for tagged divers. Avatar/name open the friend profile; caption opens shared detail. Same chrome on a friend’s shared logbook.
+- **Buddy Feed likes (wired)** — friend-writable **`users/{owner}/sharedDives/{activityId}/likes/{likerUid}`**; CF **`notifyBuddyActivityLiked`** maintains parent **`likeCount`** and pushes the owner (*"{Name} liked your dive/snorkel."*). Optimistic tally in the feed; tap-push opens the owner’s own dive/snorkel. Rules block clients from writing **`likeCount`**.
+- **Presentation helpers** — **`LogbookBuddyFeedPresentation`**: social chrome + like toggle/enrich helpers; **`GoDiveSharedActivityLikeSync`**; **`GoDiveBuddyActivityLikedPushPresentation`**.
+- **Tests:** **`buddyFeed_postTimestampText_formatsCompactRelativeUnits`**, **`buddyFeed_postSocialChrome_taggedBuddiesNotesAndLikeCopy`**, **`buddyFeed_rowApplyingLikeToggle_updatesTallyOptimistically`**, **`sharedActivityLike_pathAndDisplayNameHelpers`**, **`buddyActivityLikedPush_targetAndCopy`**.
+- **Buddy Feed post chrome polish** — hide shared notes/descriptions on feed posts (still on detail); move **👌** like row to the bottom under a divider.
+- **Buddy Feed like icon** — Apple **👌** emoji masked with theme color (**`BuddyFeedOkayHandIcon`**): muted idle, **`AppTheme.Colors.accent`** when liked (dark blue light mode / light blue dark mode).
+- **Like push fix** — **`notifyBuddyActivityLiked`** was firing and finding FCM tokens but APNs rejected every send (`1/1` / `2/2` failures): `apns-collapse-id` exceeded the 64-byte limit (`buddy_like_{uuid}_{uid}`). Shortened to `blike_{activityId}`, switched to **`sendEach`**, log FCM error codes, prune invalid tokens (same as buddy-activity shared).
+
+**Summary:** Buddy activity comments + likes on shared detail Map (large detent) and feed comment sheet.
+
+- **Firestore comments** — **`users/{owner}/sharedDives/{activityId}/comments/{commentId}`** (`authorUid`, `displayName`, `text` ≤500, `createdAt`); owner or friends create; author delete; clients cannot write **`commentCount`**. Rules + CF deployed to **`godive-1cff8`**.
+- **CF `notifyBuddyActivityCommented`** — maintains **`commentCount`**; owner push *"{Name} commented on your dive/snorkel: {50-char preview}"* (`type=buddy_activity_commented`, collapse id `bcomm_{activityId}`); tap opens owned activity (same Logbook Me deep link as likes).
+- **Client** — **`GoDiveSharedActivityCommentSync`**; **`FriendVisibleDive.commentCount`**; **`GoDiveBuddyActivityCommentedPushPresentation`**; feed action-bar comment control → **`BuddyActivityCommentsSheet`**; Map panel large-detent **`FriendSharedActivityMapSocialSection`** (like + inline thread).
+- **Tests:** **`sharedActivityComment_sanitizeAndParseHelpers`**, **`buddyFeed_commentCountParseAndOptimisticDelta`**, **`buddyActivityCommentedPush_targetAndCopy`**.
+- **Docs:** **`docs/friends.md`**, OWASP matrix, buddy push notes, **`firebase_user_profiles.md`**.
+- **Comment sheet chrome** — **`BuddyActivityCommentsSheet`** uses the same opaque blue overview-panel modal as notes/buddies; close is **`AppSheetToolbarCloseButton`** (nav-bar Liquid Glass circle only — no nested **`AppToolbarIconButton`** double-glass).
+- **Buddy Feed comment icon** — opens the shared activity first (`LogbookRoute.buddySharedDive(…, opensComments: true)`), then presents the comments sheet from the detail Map social row (same path from a friend’s shared logbook).
+- **Shared Map details order** — like / comment / **Add a comment…** above notes, marine life, buddies (`mapLargeDetentDetailsBlockOrder`).
+- **Friend avatar cache** — Buddy Feed / notifications / friend profile / buddies-list remote avatars use **`GoDiveRemoteAvatarImageCache`** (in-memory) over **`GoDiveSharedMediaCache`** `.thumb` disk LRU instead of uncached **`AsyncImage`**; feed prefetch includes unique friend `photoURL`s.
+- **Comment compose send alignment** — send control vertically centered with the text field (`HStack` `.center`, was `.bottom`).
+- **Overview-panel modal height** — **`diveActivityOverviewPanelModalSheetPresentation`** (comments, notes, buddies, tags, …) uses the activity overview **large** detent height instead of system full-screen **`.large`**.
+- **Comment push preview** — owner notification body appends a **50**-character comment snippet (*"{Name} commented on your dive: …"*); CF **`notifyBuddyActivityCommented`** + **`GoDiveBuddyActivityCommentedPushPresentation`**.
+- **Owned Map social** — when an activity is shared with friends, dive/snorkel Map large detent shows the same like/comment row as Buddy Feed (`FriendSharedActivityMapSocialSection`; owner like disabled; tallies from `sharedDives`).
+- **Comment push → comments sheet** — tapping a comment notification opens the owned activity with the comments sheet presented (`GoDiveOwnedActivityCommentsDeepLinkStore` → `opensCommentsOnAppear`).
+- **Buddy Feed pull-to-refresh chrome** — accent SF Symbol **`arrow.trianglehead.2.clockwise`** with repeating **`.symbolEffect(.rotate)`** under the header (not a `ProgressView` wheel); medium haptic on trigger; feed scroll locked until reload + minimum hold, then release. Fetch path still **`fetchBuddyFeedSnapshot`**.
+- **Shared rotate loader** — **`GoDiveRotateLoadingIndicator`** replaces indeterminate **`ProgressView()`** across page loads, media placeholders, Fishial waits, launch/seeding overlays, comments, buddies, etc. Determinate progress bars (import / delete / library backfill) stay as **`ProgressView(value:)`**.
+- **Shared detail social row** — Map large detent hides the inline comment feed; shows like + comment icons (count when &gt; 0), then an **Add a comment…** prompt. Comment icon → comments sheet (keyboard off); prompt → same sheet with compose focused.
+- **Shared detail polish** — drop **Notes not shared** placeholder; larger like/comment icons on detail; Map large-detent order is like/comment/**Add a comment…** first, then notes / marine life / buddies (and other read-only sections) below.
+- **Buddy notifications after rebuild (Kathleen flood)** — media content patches were writing **`updatedAt: now`** after full republish, so the buddy’s Home Notifications (sorted on **`updatedAt`**) showed every share as new. Media patches no longer bump **`updatedAt`**; projections get stable **`sharedAt`** (first create / hydrate once); notifications prefer **`sharedAt`**.
+
+**Summary:** Cold-launch performance — shorter splash critical path without UX changes (same overlays / flows).
+
+- **Instrumentation** — Instruments Points of Interest: **`LaunchSessionRestore`**, **`LaunchEssentialMaintenance`**, **`LaunchMarineLifeSeed`** (plus existing **`LaunchContainerLoad`**).
+- **Catalog seed skip** — bundled **`marine_life.json`** upsert skipped when SHA-256 fingerprint matches and catalog rows exist; common-name / ownership / hybrid migrations one-shot via UserDefaults flags; dive-number + friend-share defaults use cheap **`fetchCount`** early exits.
+- **Session restore fast path** — local Keychain preferred profile attaches without CloudKit import poll; dive-log / Firebase population stay deferred after overlay dismiss (**`AccountSessionLaunchRestorePresentation`**).
+- **Contention** — CloudKit kickstart no longer blocks Gate 2; APNs **`registerForRemoteNotifications`** deferred until restore finishes; MapKit / Google warm on Explore select (2.5s shell fallback).
+- **Tests:** fingerprint skip / reseed, normalization one-shot, ownership skip, restore wait policy, signpost names, map warmup delay.
+
+**Summary:** Bug fix — empty Home after fast cold launch when Keychain preferred profile was an empty Apple-ID twin.
+
+- **Session restore** — keep no-CloudKit-poll when preferred row is local, but always run ownership-aware **`attachSessionProfile`** / twin reconcile before shell (not blind preferred-ID attach). Home owner-scoped queries match dives already on device; preview stills can warm again.
+- **Test:** **`accountSessionProfileResolution_prefersOwningTwinWithoutCloudKitWait`**.
+
+**Summary:** Bug fix — empty Home when local dives existed but were nil-owned or pointed at a deleted profile UUID.
+
+- **Root cause** — **`syncCloudKitDiveLogIntoSession`** only ran **`claimUnowned*`** after **`totalOwnedActivityCount > 0`**, so all-nil / missing-owner UUID logs never got adopted (chicken-and-egg).
+- **`AccountSessionLocalOwnershipHealing`** — claims nil owners + remaps missing-profile UUIDs (does not steal from live other profiles); runs before splash dismiss and during deferred CloudKit sync.
+- **Wait policy** — skip CloudKit poll when owned activities exist or the store already has activities (heal locally); wait only when preferred row is missing and store is empty.
+- **Home** — immediate rebuild when dive count goes **0 → n** after ownership heal.
+- **Tests:** heal nil+zombie owners; no steal from other live profile; wait-policy matrix.
+
+**Summary:** Bug fix — empty Home after launch was waiting on full marine-life catalog bind before first aggregate.
+
+- **Home first paint** — build stats/carousel from owner dives immediately; load Field Guide catalog in parallel and rebuild only to enrich sighting names. Stop marking “initial build done” before the first aggregate finishes (was skipping later rebuilds while UI showed empty).
+- **Ownership** — sole-account stranded adoption when session owns 0 but store has dives under a blank-Apple-ID / SIWA twin (still never steals from another live Apple account).
+- **Test:** **`accountSessionLocalOwnershipHealing_adoptsStrandedTwinOwnedDives`**.
+
+**Summary:** DEBUG **`LaunchTimeline`** console hooks for splash end vs Home data load.
+
+- **`AppLaunchTimelineLog`** (category **`LaunchTimeline`**) — `splash.container_*`, `splash.restore_*`, `splash.overlay_hidden`, `splash.main_shell_visible`, `home.root_appear`, `home.rebuild_*`, `home.query_dives_changed`, ownership heal. Coarse counts only; DEBUG on by default. Emits **`print("[LaunchTimeline] …")`** so Xcode’s debugger console shows lines even when OSLog **`notice`** is filtered.
+
+**Summary:** Home first paint — lifetime stats immediately, carousel/media on a second pass.
+
+- Measured gap: splash cleared with **147** owned dives, but full aggregate took ~**3.3s** (MainActor media/sighting walk) leaving empty stats.
+- **Two-phase initial rebuild** — **`captureStatsOnly` / `buildStatsAsync`** paints dive counts / hours / leaderboard, yields for a frame, then full **`buildAsync`** + carousel. **`home.stats_applied`** timeline event.
+- Dropped intentional **150ms** first-Home rebuild defer (**`initialHomeRebuildDeferNanoseconds = 0`**).
+- Full capture uses O(1) marine-life uuid→name map.
+- **Tests:** two-phase gate, stats-only aggregate without media seeds, defer == 0, timeline event names.
+
+**Summary:** Home carousel — stored low-res previews first, then incremental full-res.
+
+- Mid-pass **`captureCarouselBootstrap` / `buildCarouselBootstrapAsync`** (media rows, no sightings) after stats so slides appear with **`previewJPEGData`** session seeds before the full sighting walk.
+- Warmup paints **preview** posters for all slides, then upgrades stills to hero (**`upgradeStillQuality`**); videos stay on poster. Timeline **`home.carousel_previews_seeded`**.
+- **Tests:** bootstrap still quality preview-first; carousel bootstrap has media seeds without sightings.
+
+**Summary:** Home Phase 1 — millisecond scalar launch path (no logbook relationship walks on critical path).
+
+- **`HomeDiveScalarSeeding`** — activity scalars, denormalized trip/buddy fetches, media **index** seeds; site names from **`siteName`** (no per-dive site resolve).
+- **`buildLaunchAsync`** paints stats, picks 3 from index (no PhotoKit duration probes), loads **only those 3** JPEGs, then enriches sightings in a background **`buildAsync`**.
+- Timeline: **`home.stats_applied`** → **`home.carousel_previews_seeded`** with **`storedPreviews ≤ 3`** → later **`home.rebuild_applied`**.
+- **Tests:** launch path scalar stats + media index; seed highlight sources omit duration.
+
+**Summary:** Splash stays until Home lifetime stats are ready — no empty dashboard gap after restore.
+
+- **`AppSessionBootstrapPresentation.showsLaunchOverlay`** also true while **`showsMainAppShell && !isHomeLaunchChromeReady`**.
+- **`AccountSession.isHomeLaunchChromeReady`** / **`markHomeLaunchChromeReady()`** — set when first Home aggregate applies (launch path or empty-log full build); cleared on sign-out.
+- **`ContentView`** still mounts under the overlay after restore so Home can build; timeline **`splash.home_chrome_ready`** then **`splash.overlay_hidden`**.
+- **Test:** overlay gate covers shell-waiting-for-stats vs chrome-ready vs celebration (shell off).
+
+**Summary:** Bug fix — Home **Top buddies** empty after scalar launch path.
+
+- Root cause: **`buddyTagSeeds`** only fetched tags with denormalized **`diveActivityID`** (same CloudKit/legacy gap as media); full enrich used the same path so leaderboard never recovered.
+- Relationship fallback via **`HomeBuddyLeaderboardSeeding.tagInputs(from:)`** when the denormalized fetch is empty; **`buddyID`** also accepts relationship id.
+- **Test:** **`homeDiveScalarSeeding_buddyTagSeeds_fallsBackWhenDiveActivityIDMissing`**.
+
+**Summary:** Splash waits for Home carousel seed — not only lifetime stats.
+
+- **`markHomeLaunchChromeReady()`** moved to after **`applyLaunchCarousel`** (+ frame yields) so splash does not dismiss onto an empty hero while media is still indexing.
+- Stats still paint under the overlay first; PhotoKit hero upgrade / sighting enrich stay post-splash.
+
+**Summary:** Home interactive sooner after splash — defer enrich + pass-through overlay hits.
+
+- **`postChromeHomeEnrichDeferNanoseconds` (500ms)** before launch-path **`buildAsync`** so MainActor sighting/media walk does not contend with first swipe/tabs; timeline **`home.enrich_deferred_begin`**.
+- Splash overlay **`allowsHitTesting(false)`** once the main shell is mounted (including opacity fade) via **`launchOverlayAllowsHitTesting`**.
+- **Tests:** enrich defer constant; overlay hit-testing gate.
+
+**Summary:** Bug fix — Home featured media only responded to swipes/taps near the bottom chrome.
+
+- Root causes: (1) Home **`AppHeader`** full **`contentShape`** + wordmark ate pans across the upper hero; (2) bottom chrome **`ZStack`** could expand to full page height so only the Spacer pass-through stayed swipeable; (3) exclusive media **`onTapGesture`** competed with paging.
+- Home chrome: **`blocksHitsInEmptyChrome: false`**, hug-height top chrome, hug-height bottom chrome, **simultaneous** tap-to-open.
+- **Tests:** **`homeHeaderBlocksHitsInEmptyChrome`**, simultaneous open-media flag.
+
+**Summary:** Retry Home media gestures — forward swipe + tap.
+
+- Eager **`HStack`** + **`containerRelativeFrame`** (drop **`LazyHStack`** / per-page SwiftUI taps that broke forward pans).
+- **`HomeMediaCarouselScrollTapInstaller`** — UIKit tap on the paging **`UIScrollView`** with **`cancelsTouchesInView = false`** (skips control hits); chrome buttons unchanged.
+- **Tests:** eager stack + UIKit installer flags.
+
+**Summary:** Home sheet — pin lifetime summary under the seam (tiles stay centered).
+
+- Root cause: vertical centering put large slack above the whole stack, so shrinking **`lifetimeSummaryTopInset`** was nearly invisible.
+- Home places **X dives | X hr bottom time** at **half** the tile-centering top slack (**`homeLifetimeSummaryTopSlackFraction = 0.5`**); tiles / **Top buddies** stay centered below.
+- **Test:** **`homeLifetimeStatsTilesLayout_homePinsSummaryAboveCenteredTiles`**.
+
+**Summary:** Profile **Diver stats** — hide **X dives | X hr bottom time** (keep on Home).
+
+- **`HomeLifetimeStatsSection.includesLifetimeSummaryHeader`**; Profile **`showsLifetimeSummaryOnDiverStats = false`** (dive count stays on pinned identity).
+- **Test:** **`profileDetailContentPagerPresentation_detailsPageCopy`**.
+
+**Summary:** Post-splash Home snappiness — defer PhotoKit warm, catalog bind, preview persist; scalar enrich capture; skip double video ensure.
+
+- **Quiet windows** (**`AppLaunchPostOverlayPresentation`**) — enrich **500 ms**; carousel PhotoKit warm **750 ms**; soft JPEG persist **1 s** after warm; marine name-map + dive-site bind **2 s** (then rebuild if species names were missing).
+- **Video gate** — launch warm owns the serial PhotoKit gate for the defer + warm window; page **`ensureCarouselVideoReady`** skips while **`isLaunchWarmOwningPhotoKitGate`**.
+- **Scalar enrich** — full **`capture()`** uses denormalized **`sightingSeeds`** / **`mediaBuddyTagSeeds`** (relationship fallback when denormalized IDs missing), matching buddy-tag launch path.
+- **Timeline:** **`home.carousel_warm_deferred_begin`**, **`home.catalog_names_deferred_begin`**, **`home.preview_persist_deferred_begin`**.
+- **Tests:** post-chrome timing constants; warm-owning gate skip; sighting/media-buddy scalar fallback; timeline event names.
+
+**Summary:** Home enrich off MainActor — name map instead of full catalog bind; denormalized sighting assemble.
+
+- **Names only** — **`MarineLifeCatalogLoader.fetchCommonNameByUUID`** (background context); Home deferred load no longer **`bindModels`** thousands of **`MarineLife`** rows. Enrich **`capture` / `buildAsync`** take **`commonNameByUUID`**. Overlay / leaderboard bind only owner-tagged UUIDs; species push uses **`bindModel(uuid:)`** on demand.
+- **Sightings** — **`fetchSightingInstances`** after compute (no per-dive **`marineLifeSightings`** walk). Timeline **`home.catalog_names_deferred_begin`**.
+- **Tests:** common-name map + UUID bind; sighting fetch fallback; timeline event rename.
+
+**Summary:** Bug fix — splash stuck forever when Home rebuild generation was superseded before chrome ready.
+
+- Root cause: launch path set **`hasPerformedInitialHomeBuild`** before **`markHomeLaunchChromeReady`**, so incidental rebuilds could cancel the launch task; the follow-up rebuild skipped chrome mark (**`if wasInitial`**).
+- Mark chrome on any successful apply while splash waits; set **`hasPerformedInitialHomeBuild`** only after chrome ready; **8 s** failsafe (**`splash.home_chrome_ready_failsafe`**).
+- **Tests:** **`homeLaunchChromePresentation_marksUntilReady`**.
+
+**Summary:** Bug fix — simplify Field Guide / Logbook bubble animation.
+
+- Revert stacked **`TimelineView`** / identity / pause machinery that froze Logbook and hid Field Guide bubbles.
+- Field Guide: one tab-level **`WaterBubbleBackground`** behind a clear **`AppHeaderlessPage`** for hub + category/subcategory browse.
+- **`WaterBubbleBackground`** is plain **`TimelineView(paused:)`** again (no remount **`.id`**).
+
+**Summary:** Splash overlay — logo + **GoDive** only (no rotate loading indicator).
+
+- **`AppLaunchOverlay`** / cold-launch root no longer pass **`showsProgressIndicator`**.
+
+**Summary:** Docs — TestFlight setup reference for Archive / ASC / internal vs external testers.
+
+- **`cursor/testflight_setup.md`** — App Store Connect prep, signing + gitignored secrets, release gates, Archive upload, Internal/External TestFlight, smoke checks, common pitfalls. Links OWASP release gates and push/APNs notes.
+
+**Summary:** Bug fix — post-splash Home lag; enrich capture off the main actor, no JPEG blobs in the media index, no duplicate ~2s rebuild.
+
+- **Off-main enrich** — **`HomeOverviewAggregateBuilder.buildAsync`** re-fetches owner dives + roster on a background **`ModelContext`** inside **`Task.detached`** and runs **`HomeOverviewSnapshotSeeding.capture`** + compute there (new nonisolated **`capture(selfBuddyID:modelContext:)`** overload; **`HomeDiveScalarSeeding`** / **`HomeBuddyLeaderboardSeeding`** now nonisolated). Only pick-row binds + sighting resolve stay on main. Reads persisted rows — the ~80 ms rebuild debounce covers main-context autosave.
+- **No blob I/O in the media index** — **`HomeDiveScalarSeeding.mediaPhotoSeeds`** sets **`propertiesToFetch`** (id / sortOrder / mediaKind / photosLocalIdentifier / diveActivityID) so **`previewJPEGData`** never loads for the index (launch path included). **`buildAsync`** no longer fetches every owner media row: aggregate carries Sendable **`mediaPhotoSeeds`**; **`mediaByID`** / **`ownerMediaPhotos`** hold only today's ≤3 carousel picks (**`carouselPickMediaIDs`** — same deterministic daily shuffle as Home).
+- **Seed-based carousel candidates** — **`buildCarouselHighlights`** uses **`aggregate.mediaPhotoSeeds`**; removed the model-based **`highlightSources`** and its **synchronous PhotoKit video-duration probe** on the main actor. Launch + enrich picks now share nil-duration eligibility.
+- **Single enrich pass** — the +500 ms enrich task loads **`fetchCommonNameByUUID`** (off-main) first when the name map is empty, so the deferred ~2 s catalog task no longer schedules a second full rebuild; **`reloadHomeNavigationCatalogsIfNeeded`** skips re-fetching names once loaded.
+- **Tests:** **`homeOverviewAggregateBuilder_buildAsync_offMainCaptureBindsOnlyCarouselPicks`** (seeds survive, only picks bound, picks match the daily shuffle, **`withCarouselMedia`** preserves seeds).
+
+## 134 - Next batch
 
 

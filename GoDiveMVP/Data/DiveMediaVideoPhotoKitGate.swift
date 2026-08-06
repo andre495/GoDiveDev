@@ -72,11 +72,15 @@ enum DiveMediaVideoPhotoKitGatePresentation: Sendable {
     ///
     /// With **3** slides, wrapping “previous” of index **0** made **every** slide prepare at once and
     /// starved the first item’s **`requestPlayerItem`**.
+    ///
+    /// When **`isLaunchWarmOwningGate`**, skip page ensures — **`warmHighlights`** owns the serial gate.
     nonisolated static func shouldEnsureCarouselVideoReady(
         isSlidePlaybackActive: Bool,
-        isAdjacentToActive: Bool = false
+        isAdjacentToActive: Bool = false,
+        isLaunchWarmOwningGate: Bool = false
     ) -> Bool {
-        isSlidePlaybackActive || isAdjacentToActive
+        if isLaunchWarmOwningGate { return false }
+        return isSlidePlaybackActive || isAdjacentToActive
     }
 
     /// Whether a carousel page should kick **`requestPlayerItem`** for its video.

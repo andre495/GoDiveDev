@@ -320,7 +320,7 @@ struct GlobalSearchMediaResultsView: View {
     }
 
     private var loadingPlaceholder: some View {
-        ProgressView()
+        GoDiveRotateLoadingIndicator()
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppTheme.Spacing.lg)
             .accessibilityIdentifier("GlobalSearch.MediaBrowse.Loading")

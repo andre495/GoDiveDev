@@ -11,9 +11,13 @@ struct SnorkelActivityMapOverviewPanelContent: View {
     let onOpenLinkedSite: () -> Void
     let regionCountryLine: String?
     let onEditNotes: () -> Void
+    var opensCommentsOnAppear: Bool = false
+    var onOpenCommentsOnAppearConsumed: (() -> Void)? = nil
 
     @Environment(\.diveOverviewPanelHeightFraction) private var panelHeightFraction
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(AccountSession.self) private var accountSession
+    @AppStorage(AppUserSettings.shareDivesWithFriendsKey) private var shareDivesWithFriends = true
 
     private var showsStatsBox: Bool {
         DiveActivityOverviewPanelMetrics.mapPanelShowsStatsBox(
@@ -80,8 +84,31 @@ struct SnorkelActivityMapOverviewPanelContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var showsOwnedMapSocial: Bool {
+        _ = shareDivesWithFriends
+        return OwnedActivityMapSocialPresentation.shouldShowSocial(
+            isPublishedWithFriends: ActivityFriendShareConfiguration.shouldPublish(snorkel: activity),
+            firebaseUID: GoDiveFirebaseAuthSession.currentFirebaseUID()
+        )
+    }
+
     private var mapDetailsSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            if showsOwnedMapSocial,
+               let ownerUID = GoDiveFirebaseAuthSession.currentFirebaseUID()
+            {
+                FriendSharedActivityMapSocialSection(
+                    ownerUID: ownerUID,
+                    activityID: activity.id.uuidString,
+                    seedLikeCount: 0,
+                    seedCommentCount: 0,
+                    authorDisplayName: accountSession.currentProfile?.displayName ?? "A dive buddy",
+                    opensCommentsOnAppear: opensCommentsOnAppear,
+                    onOpenCommentsOnAppearConsumed: onOpenCommentsOnAppearConsumed,
+                    allowsLiking: OwnedActivityMapSocialPresentation.allowsOwnerLiking
+                )
+            }
+
             ActivityMapWeatherConditionsSection(
                 activityID: activity.id,
                 mapCoordinate: mapCoordinate,
@@ -99,6 +126,9 @@ struct SnorkelActivityMapOverviewPanelContent: View {
 
             SnorkelActivityNotesOverviewSection(
                 notes: activity.notes,
+                mentionDisplayNames: GoDiveMentionPresentation.knownDisplayNames(
+                    taggedBuddyNames: activity.buddies.compactMap { $0.buddy?.displayName }
+                ),
                 onEditNotes: onEditNotes
             )
         }

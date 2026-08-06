@@ -431,10 +431,16 @@ struct GoDiveMVPTests {
             .profile,
             .diveDetail(remove),
             .diveMedia(diveID: keep, mediaID: mediaID),
+            .ownedSharedActivity(activityID: remove, activityKind: .scubaDive, opensComments: true),
+            .ownedSharedActivity(activityID: keep, activityKind: .snorkel, opensComments: false),
         ]
         #expect(
             ActivityDeleteSuccessPresentation.homePathByRemovingActivity(home, activityID: remove)
-                == [.profile, .diveMedia(diveID: keep, mediaID: mediaID)]
+                == [
+                    .profile,
+                    .diveMedia(diveID: keep, mediaID: mediaID),
+                    .ownedSharedActivity(activityID: keep, activityKind: .snorkel, opensComments: false),
+                ]
         )
         let explore: [ExploreRoute] = [.siteDetail(keep), .diveDetail(remove), .diveDetail(keep)]
         #expect(
@@ -1086,6 +1092,7 @@ struct GoDiveMVPTests {
         )
         #expect(ProfileDetailContentPagerPresentation.defaultPage == .diverStats)
         #expect(ProfileDetailContentPagerPresentation.showsBuddyLeaderboardOnDiverStats == false)
+        #expect(ProfileDetailContentPagerPresentation.showsLifetimeSummaryOnDiverStats == false)
         #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .diverStats) == "Diver stats")
         #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .details) == "Details")
         #expect(
@@ -4714,15 +4721,25 @@ struct GoDiveMVPTests {
         #expect(!above.contains(CGPoint(x: 100, y: 92)))
     }
 
-    @Test func diveDepthProfileChartPresentation_underfill_usesDarkNavyInLightMode() {
+    @Test func diveDepthProfileChartPresentation_forcesDarkAppearancePalette() {
+        #expect(DiveDepthProfileChartPresentation.forcesDarkAppearance)
         #expect(DiveDepthProfileChartPresentation.underfillTopOpacity == 0.55)
         #expect(DiveDepthProfileChartPresentation.underfillBottomOpacity == 0.94)
+
         let light = UITraitCollection(userInterfaceStyle: .light)
-        let underfillTop = UIColor(AppTheme.Colors.depthProfileUnderfillTop).resolvedColor(with: light)
-        let accentDeep = UIColor(AppTheme.Colors.accentDeep).resolvedColor(with: light)
-        let pageTop = UIColor(AppTheme.Colors.surfaceGradientTop).resolvedColor(with: light)
-        #expect(underfillTop == accentDeep)
-        #expect(underfillTop != pageTop)
+        let dark = UITraitCollection(userInterfaceStyle: .dark)
+        let underfillTopLight = UIColor(AppTheme.Colors.depthProfileUnderfillTop).resolvedColor(with: light)
+        let underfillTopDark = UIColor(AppTheme.Colors.depthProfileUnderfillTop).resolvedColor(with: dark)
+        let underfillBottomLight = UIColor(AppTheme.Colors.depthProfileUnderfillBottom).resolvedColor(with: light)
+        let underfillBottomDark = UIColor(AppTheme.Colors.depthProfileUnderfillBottom).resolvedColor(with: dark)
+        let pageTopLight = UIColor(AppTheme.Colors.surfaceGradientTop).resolvedColor(with: light)
+        let pageTopDark = UIColor(AppTheme.Colors.surfaceGradientTop).resolvedColor(with: dark)
+
+        // Underfill is fixed to dark ocean stops in both appearances.
+        #expect(underfillTopLight == underfillTopDark)
+        #expect(underfillBottomLight == underfillBottomDark)
+        #expect(underfillTopDark == pageTopDark)
+        #expect(underfillTopLight != pageTopLight)
     }
 
     @Test func diveDepthProfileChartAxisPresentation_depthTicks_unitAware() {
@@ -7199,6 +7216,10 @@ struct GoDiveMVPTests {
         #expect(BlueSheetDetailPanelContentTopDividerPresentation.lineHeight == 1)
     }
 
+    @Test func blueSheetTopChromePresentation_homeHeaderPassesHitsThroughEmptyChrome() {
+        #expect(!BlueSheetTopChromePresentation.homeHeaderBlocksHitsInEmptyChrome)
+    }
+
     @Test func blueSheetTopChromePresentation_homeHeroUsesLogbookScrimFeather() {
         #expect(BlueSheetTopChromePresentation.HomeHeroFade.usesBrandStatusBarScrim)
         #expect(BlueSheetTopChromePresentation.HomeHeroFade.logbookScrimFeather == 52)
@@ -8014,16 +8035,56 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_isIdempotentByUUID() throws {
+        let suiteName = "test.marineLife.idempotent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
-        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
         let firstCount = try context.fetchCount(FetchDescriptor<MarineLife>())
         #expect(firstCount > 0)
-        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
         #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == firstCount)
     }
 
+    @Test @MainActor func marineLifeCatalogSeeder_skipsUpsertWhenFingerprintMatches() throws {
+        let suiteName = "test.marineLife.fingerprint.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
+        let french = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-french-angelfish"
+        }
+        #expect(french != nil)
+        french?.aboutText = "MUTATED_FOR_SKIP_TEST"
+        try context.save()
+
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
+        let afterSkip = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-french-angelfish"
+        }
+        #expect(afterSkip?.aboutText == "MUTATED_FOR_SKIP_TEST")
+
+        MarineLifeCatalogSeeder.resetAppliedFingerprintForTesting(userDefaults: defaults)
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
+        let afterReseed = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-french-angelfish"
+        }
+        #expect(afterReseed?.aboutText != "MUTATED_FOR_SKIP_TEST")
+    }
+
     @Test @MainActor func marineLifeCatalogSeeder_prunesSpeciesRemovedFromBundledJSON() throws {
+        let suiteName = "test.marineLife.prune.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
         context.insert(
@@ -8035,7 +8096,7 @@ struct GoDiveMVPTests {
         )
         try context.save()
 
-        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
 
         let orphan = try context.fetch(FetchDescriptor<MarineLife>()).first {
             $0.uuid == "marine-life-orphan-catalog-row"
@@ -8045,6 +8106,11 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_preservesUserCreatedSpeciesOnReseed() throws {
+        let suiteName = "test.marineLife.preserve.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
         let userSpecies = FieldGuideMarineLifeAddPresentation.makeMarineLife(
@@ -8058,7 +8124,7 @@ struct GoDiveMVPTests {
         context.insert(userSpecies)
         try context.save()
 
-        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
 
         let preserved = try context.fetch(FetchDescriptor<UserMarineLife>()).first {
             $0.uuid == userSpecies.uuid
@@ -8835,11 +8901,16 @@ struct GoDiveMVPTests {
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
+        // Default on, but still soft-fail closed without Firebase Auth.
+        #expect(AppUserSettings.contributeCommunitySightings(userDefaults: defaults))
+        #expect(!OntologySightingContributionSync.shouldContribute(userDefaults: defaults))
+
+        defaults.set(false, forKey: AppUserSettings.contributeCommunitySightingsKey)
         #expect(!AppUserSettings.contributeCommunitySightings(userDefaults: defaults))
         #expect(!OntologySightingContributionSync.shouldContribute(userDefaults: defaults))
 
         defaults.set(true, forKey: AppUserSettings.contributeCommunitySightingsKey)
-        // Opt-in alone is insufficient without Firebase Auth — soft-fail closed.
+        // Preference alone is insufficient without Firebase Auth — soft-fail closed.
         #expect(!OntologySightingContributionSync.shouldContribute(userDefaults: defaults))
 
         let first = OntologySightingContributionSync.contributionId(
@@ -9194,6 +9265,11 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func marineLifeCommonNameNormalization_updatesStoredRows() throws {
+        let suiteName = "test.commonNameNorm.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
         let species = MarineLife(uuid: "marine-life-legacy-case", commonName: "legacy species")
@@ -9203,8 +9279,19 @@ struct GoDiveMVPTests {
         species.commonName = "french angelfish"
         try context.save()
 
-        try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(modelContext: context)
+        try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(
+            modelContext: context,
+            userDefaults: defaults
+        )
         #expect(species.commonName == "French Angelfish")
+
+        species.commonName = "queen angelfish"
+        try context.save()
+        try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(
+            modelContext: context,
+            userDefaults: defaults
+        )
+        #expect(species.commonName == "queen angelfish")
     }
 
     @Test @MainActor func marineLife_subcategoryDefaultsEmptyForSwiftDataMigration() throws {
@@ -16862,6 +16949,19 @@ struct GoDiveMVPTests {
             )
         )
         #expect(
+            !DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
+                isSlidePlaybackActive: true,
+                isLaunchWarmOwningGate: true
+            )
+        )
+        #expect(
+            !DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
+                isSlidePlaybackActive: false,
+                isAdjacentToActive: true,
+                isLaunchWarmOwningGate: true
+            )
+        )
+        #expect(
             DiveMediaVideoPhotoKitGatePresentation.adjacentLogicalIndices(
                 activeLogicalIndex: 0,
                 slideCount: 3
@@ -17899,9 +17999,373 @@ struct GoDiveMVPTests {
 
     @Test func appPerformanceSignpost_intervalNamesAreStable() {
         #expect(AppPerformanceSignpost.Interval.launchContainerLoad.rawValue == "LaunchContainerLoad")
+        #expect(AppPerformanceSignpost.Interval.launchSessionRestore.rawValue == "LaunchSessionRestore")
         #expect(AppPerformanceSignpost.Interval.launchSessionValidation.rawValue == "LaunchSessionValidation")
+        #expect(AppPerformanceSignpost.Interval.launchEssentialMaintenance.rawValue == "LaunchEssentialMaintenance")
+        #expect(AppPerformanceSignpost.Interval.launchMarineLifeSeed.rawValue == "LaunchMarineLifeSeed")
         #expect(AppPerformanceSignpost.Interval.homeOverviewRebuild.rawValue == "HomeOverviewRebuild")
         #expect(AppPerformanceSignpost.Interval.tripDetailContentRebuild.rawValue == "TripDetailContentRebuild")
+    }
+
+    @Test func appLaunchTimelineLog_eventNamesAreStable() {
+        // Keep the console filter vocabulary documented for Xcode category **LaunchTimeline**.
+        let names = [
+            "splash.container_load_begin",
+            "splash.container_ready",
+            "splash.restore_begin",
+            "splash.restore_end",
+            "splash.home_chrome_ready",
+            "splash.home_chrome_ready_failsafe",
+            "splash.overlay_hidden",
+            "splash.main_shell_visible",
+            "home.root_appear",
+            "home.rebuild_scheduled",
+            "home.stats_applied",
+            "home.carousel_previews_seeded",
+            "home.enrich_deferred_begin",
+            "home.carousel_warm_deferred_begin",
+            "home.catalog_names_deferred_begin",
+            "home.preview_persist_deferred_begin",
+            "home.rebuild_applied",
+            "home.query_dives_changed",
+            "home.ownership_healed",
+        ]
+        #expect(names.count == 19)
+        #expect(Set(names).count == names.count)
+        #expect(AppLaunchTimelineLog.elapsedMilliseconds() >= 0)
+    }
+
+    @Test func homeLaunchChromePresentation_marksUntilReady() {
+        #expect(HomeLaunchChromePresentation.shouldMarkChromeReady(isAlreadyReady: false))
+        #expect(!HomeLaunchChromePresentation.shouldMarkChromeReady(isAlreadyReady: true))
+        #expect(AppLaunchPostOverlayPresentation.homeChromeReadyFailsafeNanoseconds == 8_000_000_000)
+    }
+
+    @Test func homeOverviewFirstPaintPresentation_twoPhaseWhenInitialAndHasDives() {
+        #expect(
+            HomeOverviewFirstPaintPresentation.shouldUseTwoPhaseInitialRebuild(
+                hasPerformedInitialHomeBuild: false,
+                ownerDiveActivityCount: 3
+            )
+        )
+        #expect(
+            !HomeOverviewFirstPaintPresentation.shouldUseTwoPhaseInitialRebuild(
+                hasPerformedInitialHomeBuild: false,
+                ownerDiveActivityCount: 0
+            )
+        )
+        #expect(
+            !HomeOverviewFirstPaintPresentation.shouldUseTwoPhaseInitialRebuild(
+                hasPerformedInitialHomeBuild: true,
+                ownerDiveActivityCount: 3
+            )
+        )
+    }
+
+    @Test @MainActor
+    func homeOverviewAggregateBuilder_launchPath_scalarStatsAndMediaIndexWithoutSightings() throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveMediaPhoto.self,
+            DiveBuddy.self,
+            DiveBuddyTag.self,
+            DiveTrip.self,
+            DiveTripActivityLink.self,
+            SightingInstance.self,
+            UserProfile.self,
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+        let owner = UserProfile(
+            appleUserIdentifier: "launch-path-\(UUID().uuidString)",
+            displayName: "Launch Path"
+        )
+        context.insert(owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSinceReferenceDate: 100),
+            durationMinutes: 40,
+            maxDepthMeters: 22,
+            diveNumber: 1
+        )
+        dive.ownerProfileID = owner.id
+        dive.owner = owner
+        dive.siteName = "Blue Hole"
+        context.insert(dive)
+        let media = DiveMediaPhoto(
+            sortOrder: 0,
+            mediaKind: .image,
+            photosLocalIdentifier: "ph-launch-path"
+        )
+        media.diveActivityID = dive.id
+        media.dive = dive
+        context.insert(media)
+        try context.save()
+
+        let launch = HomeOverviewAggregateBuilder.buildLaunch(
+            activities: [dive],
+            buddyRoster: [],
+            automaticallyRenumberDives: true,
+            ownerProfileID: owner.id,
+            ownerProfile: owner,
+            modelContext: context
+        )
+        #expect(launch.aggregate.diveStatsInputs.count == 1)
+        #expect(launch.aggregate.lifetimeStats.diveCount == 1)
+        #expect(launch.aggregate.ownerMediaPhotos.isEmpty)
+        #expect(launch.aggregate.ownerSightings.isEmpty)
+        #expect(launch.aggregate.diveStatsInputs[0].siteDisplayName == "Blue Hole")
+
+        let mediaSeeds = HomeDiveScalarSeeding.mediaPhotoSeeds(
+            ownerDiveIDs: [dive.id],
+            activities: [dive],
+            modelContext: context
+        )
+        #expect(mediaSeeds.count == 1)
+        #expect(mediaSeeds[0].id == media.id)
+
+        let sources = HomeMediaHighlightWarmup.highlightSources(from: mediaSeeds)
+        #expect(sources.count == 1)
+        #expect(sources[0].videoDurationSeconds == nil)
+
+        let pickPhotos = HomeDiveScalarSeeding.fetchMediaPhotos(ids: [media.id], modelContext: context)
+        #expect(pickPhotos.count == 1)
+        let withMedia = launch.aggregate.withCarouselMedia(pickPhotos)
+        #expect(withMedia.ownerMediaPhotos.count == 1)
+        #expect(withMedia.mediaByID[media.id] != nil)
+    }
+
+    @Test @MainActor
+    func homeOverviewAggregateBuilder_buildAsync_offMainCaptureBindsOnlyCarouselPicks() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveMediaPhoto.self,
+            DiveBuddy.self,
+            DiveBuddyTag.self,
+            DiveTrip.self,
+            DiveTripActivityLink.self,
+            SightingInstance.self,
+            UserProfile.self,
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+        let owner = UserProfile(
+            appleUserIdentifier: "enrich-picks-\(UUID().uuidString)",
+            displayName: "Enrich Picks"
+        )
+        context.insert(owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSinceReferenceDate: 200),
+            durationMinutes: 45,
+            maxDepthMeters: 18,
+            diveNumber: 1
+        )
+        dive.ownerProfileID = owner.id
+        dive.owner = owner
+        context.insert(dive)
+        var mediaIDs: [UUID] = []
+        for index in 0 ..< 5 {
+            let media = DiveMediaPhoto(
+                sortOrder: index,
+                mediaKind: .image,
+                photosLocalIdentifier: "ph-enrich-\(index)"
+            )
+            media.diveActivityID = dive.id
+            media.dive = dive
+            context.insert(media)
+            mediaIDs.append(media.id)
+        }
+        try context.save()
+
+        let built = await HomeOverviewAggregateBuilder.buildAsync(
+            activities: [dive],
+            commonNameByUUID: [:],
+            automaticallyRenumberDives: true,
+            ownerProfileID: owner.id,
+            ownerProfile: owner,
+            modelContext: context
+        )
+
+        // Full media index survives as Sendable seeds; only today's picks are bound rows.
+        #expect(built.mediaPhotoSeeds.count == 5)
+        #expect(built.mediaByID.count == HomeMediaHighlightPresentation.carouselLimit)
+        #expect(built.ownerMediaPhotos.count == HomeMediaHighlightPresentation.carouselLimit)
+        #expect(built.lifetimeStats.diveCount == 1)
+        let boundIDs = Set(built.mediaByID.keys)
+        #expect(boundIDs.isSubset(of: Set(mediaIDs)))
+
+        // Bound rows match the deterministic in-session daily picks Home renders.
+        let candidates = HomeMediaHighlightPresentation.buildCandidates(
+            mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: built.mediaPhotoSeeds),
+            dives: built.diveStatsInputs
+        )
+        let expectedPickIDs = HomeMediaHighlightPresentation.highlightsForOwner(
+            ownerProfileID: owner.id,
+            candidates: candidates
+        ).map(\.mediaID)
+        #expect(boundIDs == Set(expectedPickIDs))
+
+        // withCarouselMedia keeps the media index when no replacement seeds are passed.
+        let rebound = built.withCarouselMedia(Array(built.ownerMediaPhotos.prefix(1)))
+        #expect(rebound.mediaPhotoSeeds.count == 5)
+        #expect(rebound.ownerMediaPhotos.count == 1)
+    }
+
+    @Test @MainActor func homeDiveScalarSeeding_buddyTagSeeds_fallsBackWhenDiveActivityIDMissing() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+        let owner = UserProfile(
+            appleUserIdentifier: "buddy-tag-fallback",
+            displayName: "Owner"
+        )
+        context.insert(owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        dive.owner = owner
+        context.insert(dive)
+        let buddy = DiveBuddy(displayName: "Alex")
+        context.insert(buddy)
+        let tag = DiveBuddyTag(buddy: buddy, dive: dive)
+        // Simulate legacy / CloudKit row that never received denormalized diveActivityID.
+        tag.diveActivityID = nil
+        context.insert(tag)
+        try context.save()
+
+        let seeds = HomeDiveScalarSeeding.buddyTagSeeds(
+            ownerDiveIDs: [dive.id],
+            activities: [dive],
+            buddyRoster: [buddy],
+            modelContext: context
+        )
+        #expect(seeds.count == 1)
+        #expect(seeds[0].buddyID == buddy.id)
+        #expect(seeds[0].diveActivityID == dive.id)
+        #expect(seeds[0].displayName == "Alex")
+
+        let launch = HomeOverviewAggregateBuilder.buildLaunch(
+            activities: [dive],
+            buddyRoster: [buddy],
+            automaticallyRenumberDives: true,
+            ownerProfileID: owner.id,
+            ownerProfile: owner,
+            modelContext: context
+        )
+        #expect(launch.aggregate.buddyLeaderboard.count == 1)
+        #expect(launch.aggregate.buddyLeaderboard[0].id == buddy.id)
+    }
+
+    @Test @MainActor func homeDiveScalarSeeding_sightingAndMediaBuddySeeds_fallBackWhenDiveActivityIDMissing() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+        let owner = UserProfile(
+            appleUserIdentifier: "sighting-fallback",
+            displayName: "Owner"
+        )
+        context.insert(owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_100),
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        dive.owner = owner
+        context.insert(dive)
+        let sighting = SightingInstance(
+            marineLifeUUID: "ml-uuid-1",
+            sightingDateTime: Date(timeIntervalSince1970: 1_700_000_110),
+            diveActivity: dive
+        )
+        // Simulate legacy / CloudKit row that never received denormalized diveActivityID.
+        sighting.diveActivityID = nil
+        context.insert(sighting)
+        let buddy = DiveBuddy(displayName: "Sam")
+        context.insert(buddy)
+        let media = DiveMediaPhoto(sortOrder: 0, dive: dive)
+        context.insert(media)
+        let mediaTag = DiveMediaBuddyTag(buddy: buddy, mediaPhoto: media, diveActivity: dive)
+        mediaTag.diveActivityID = nil
+        context.insert(mediaTag)
+        try context.save()
+
+        let sightings = HomeDiveScalarSeeding.sightingSeeds(
+            ownerDiveIDs: [dive.id],
+            activities: [dive],
+            commonNameByUUID: ["ml-uuid-1": "Manta"],
+            modelContext: context
+        )
+        #expect(sightings.count == 1)
+        #expect(sightings[0].marineLifeUUID == "ml-uuid-1")
+        #expect(sightings[0].commonName == "Manta")
+        #expect(sightings[0].diveActivityID == dive.id)
+
+        let mediaBuddyTags = HomeDiveScalarSeeding.mediaBuddyTagSeeds(
+            ownerDiveIDs: [dive.id],
+            activities: [dive],
+            modelContext: context
+        )
+        #expect(mediaBuddyTags.count == 1)
+        #expect(mediaBuddyTags[0].buddyID == buddy.id)
+        #expect(mediaBuddyTags[0].diveActivityID == dive.id)
+
+        let instances = HomeDiveScalarSeeding.fetchSightingInstances(
+            ownerDiveIDs: [dive.id],
+            activities: [dive],
+            modelContext: context
+        )
+        #expect(instances.count == 1)
+        #expect(instances[0].marineLifeUUID == "ml-uuid-1")
+    }
+
+    @Test @MainActor func marineLifeCatalogLoader_commonNameMapAndUUIDBind() async throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+        let manta = MarineLife(uuid: "ml-manta", commonName: "Manta Ray")
+        let turtle = MarineLife(uuid: "ml-turtle", commonName: "Green Turtle")
+        context.insert(manta)
+        context.insert(turtle)
+        try context.save()
+
+        let names = await MarineLifeCatalogLoader.fetchCommonNameByUUID(container: dual.container)
+        #expect(names["ml-manta"] == "Manta Ray")
+        #expect(names["ml-turtle"] == "Green Turtle")
+        #expect(MarineLifeCatalogLoader.commonNameByUUID(from: [manta, turtle])["ml-manta"] == "Manta Ray")
+
+        let bound = MarineLifeCatalogLoader.bindModels(uuids: ["ml-manta"], modelContext: context)
+        #expect(bound.count == 1)
+        #expect(bound[0].uuid == "ml-manta")
+        #expect(MarineLifeCatalogLoader.bindModel(uuid: "ml-turtle", modelContext: context)?.commonName == "Green Turtle")
+        #expect(MarineLifeCatalogLoader.bindModel(uuid: "missing", modelContext: context) == nil)
+    }
+
+    @Test func homeOverviewRebuildPresentation_skipsIncidentalUntilInitialBuild() {
+        #expect(
+            HomeOverviewRebuildPresentation.shouldSkipSchedule(
+                isCelebrationShellPrewarmActive: false,
+                hasPerformedInitialHomeBuild: false,
+                source: .incidental
+            )
+        )
+        #expect(
+            !HomeOverviewRebuildPresentation.shouldSkipSchedule(
+                isCelebrationShellPrewarmActive: false,
+                hasPerformedInitialHomeBuild: true,
+                source: .incidental
+            )
+        )
+        #expect(
+            !HomeOverviewRebuildPresentation.shouldSkipSchedule(
+                isCelebrationShellPrewarmActive: false,
+                hasPerformedInitialHomeBuild: false,
+                source: .initialRootAppear
+            )
+        )
     }
 
     @Test func appLaunchSessionRestorePresentation_persistedProfileID_parsesStoredUUID() {
@@ -18282,10 +18746,16 @@ struct GoDiveMVPTests {
         )
         #endif
         #expect(
-            HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: false) == .full
+            HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: false) == .preview
         )
         #expect(
             HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: true) == .preview
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.upgradeStillQuality(isVideo: false) == .full
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.upgradeStillQuality(isVideo: true) == nil
         )
         #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 2, itemCount: 5) == [2, 1, 3])
         #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 0, itemCount: 3) == [0, 1])
@@ -18509,6 +18979,9 @@ struct GoDiveMVPTests {
             ) == 440
         )
         #expect(HomeMediaCarouselPresentation.usesTapGestureForOpenMediaOnScrollPage)
+        #expect(HomeMediaCarouselPresentation.usesSimultaneousTapGestureForOpenMediaOnScrollPage)
+        #expect(HomeMediaCarouselScrollInteractionPresentation.usesUIKitScrollViewTapInstaller)
+        #expect(HomeMediaCarouselScrollInteractionPresentation.usesEagerHorizontalStackForPaging)
     }
 
     @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
@@ -19369,6 +19842,39 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeLifetimeStatsTilesLayout_homePinsSummaryAboveCenteredTiles() {
+        let panelHeight: CGFloat = 400
+        let summaryBand = HomeLifetimeStatsTilesLayout.lifetimeSummaryBandHeight()
+        let tilesAvailable = HomeLifetimeStatsTilesLayout.homeCenteredTilesAvailableHeight(
+            panelHeight: panelHeight,
+            includesLifetimeSummaryHeader: true
+        )
+        #expect(tilesAvailable == panelHeight - summaryBand)
+
+        let tileMin = HomeLifetimeStatsTilesLayout.scrollContentHeight(
+            statRowCount: 2,
+            showsBuddyLeaderboard: true,
+            includesLifetimeSummaryHeader: false
+        )
+        let insets = HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
+            totalHeight: tilesAvailable,
+            statRowCount: 2,
+            showsBuddyLeaderboard: true,
+            includesLifetimeSummaryHeader: false
+        )
+        let summaryTopSlack = HomeLifetimeStatsTilesLayout.homeLifetimeSummaryTopSlack(
+            tileCenteringTopInset: insets.top
+        )
+        #expect(HomeLifetimeStatsTilesLayout.homeLifetimeSummaryTopSlackFraction == 0.5)
+        #expect(abs(summaryTopSlack - insets.top * 0.5) < 0.001)
+        // Halfway between seam-pinned and old fully-centered summary; tiles stay at full top slack.
+        let summaryTopFromSeam = summaryTopSlack + HomeLifetimeStatsTilesLayout.lifetimeSummaryTopInset
+        let tilesTopFromSeam = summaryTopSlack + summaryBand + (insets.top - summaryTopSlack)
+        #expect(summaryTopFromSeam < tilesTopFromSeam)
+        #expect(abs(tilesTopFromSeam - (summaryBand + insets.top)) < 0.001)
+        #expect(abs(tilesAvailable - tileMin - insets.top - insets.bottom) < 0.001)
+    }
+
     @Test func homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInsets_rejectsNonFiniteHeight() {
         let insets = HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
             totalHeight: .infinity,
@@ -19967,6 +20473,50 @@ struct GoDiveMVPTests {
                 isPopulatingRemoteAccountData: false
             )
         )
+        // Main shell mounted but Home first paint (stats + carousel) not ready — keep splash up.
+        #expect(
+            AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: false,
+                showsMainAppShell: true,
+                isHomeLaunchChromeReady: false
+            )
+        )
+        #expect(
+            !AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: false,
+                showsMainAppShell: true,
+                isHomeLaunchChromeReady: true
+            )
+        )
+        // Celebration / post-sign-up gates — shell not showing; do not pin splash on Home chrome.
+        #expect(
+            !AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: false,
+                showsMainAppShell: false,
+                isHomeLaunchChromeReady: false
+            )
+        )
+        // Shell under splash (including fade) must not steal carousel / tab hits.
+        #expect(
+            !AppSessionBootstrapPresentation.launchOverlayAllowsHitTesting(
+                showsMainAppShell: true,
+                isHomeLaunchChromeReady: false
+            )
+        )
+        #expect(
+            !AppSessionBootstrapPresentation.launchOverlayAllowsHitTesting(
+                showsMainAppShell: true,
+                isHomeLaunchChromeReady: true
+            )
+        )
+        #expect(
+            AppSessionBootstrapPresentation.launchOverlayAllowsHitTesting(
+                showsMainAppShell: false
+            )
+        )
     }
 
     @Test func goDiveCloudKitPrivateImportNotification_defaultPollIntervalIsResponsive() {
@@ -20008,8 +20558,169 @@ struct GoDiveMVPTests {
     }
 
     @Test func appLaunchPostOverlayPresentation_defersHeavyWorkAfterFirstFrame() {
-        #expect(AppLaunchPostOverlayPresentation.initialHomeRebuildDeferNanoseconds == 150_000_000)
+        #expect(AppLaunchPostOverlayPresentation.initialHomeRebuildDeferNanoseconds == 0)
+        #expect(AppLaunchPostOverlayPresentation.postChromeHomeEnrichDeferNanoseconds == 500_000_000)
+        #expect(AppLaunchPostOverlayPresentation.postChromeCarouselWarmDeferNanoseconds == 750_000_000)
+        #expect(AppLaunchPostOverlayPresentation.postChromeCatalogBindDeferNanoseconds == 2_000_000_000)
+        #expect(AppLaunchPostOverlayPresentation.postChromePreviewPersistDeferNanoseconds == 1_000_000_000)
         #expect(AppLaunchPostOverlayPresentation.deferredMaintenanceDelaySeconds == 2)
+        #expect(AppLaunchPostOverlayPresentation.deferredMapWarmupDelaySeconds == 2.5)
+    }
+
+    @Test func accountSessionLaunchRestorePresentation_skipsCloudKitWaitWhenLocalProfileExists() {
+        #expect(
+            !AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+                localPreferredProfileExists: true
+            )
+        )
+        #expect(
+            AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+                localPreferredProfileExists: false
+            )
+        )
+    }
+
+    @Test func accountSessionLaunchRestorePresentation_waitPolicyUsesOwnedAndStoreCounts() {
+        #expect(
+            !AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+                localOwnedActivityCount: 3,
+                localPreferredProfileExists: true,
+                storeActivityCount: 3
+            )
+        )
+        #expect(
+            !AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+                localOwnedActivityCount: 0,
+                localPreferredProfileExists: true,
+                storeActivityCount: 5
+            )
+        )
+        #expect(
+            !AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+                localOwnedActivityCount: 0,
+                localPreferredProfileExists: true,
+                storeActivityCount: 0
+            )
+        )
+        #expect(
+            AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+                localOwnedActivityCount: 0,
+                localPreferredProfileExists: false,
+                storeActivityCount: 0
+            )
+        )
+    }
+
+    @Test @MainActor
+    func accountSessionProfileResolution_prefersOwningTwinWithoutCloudKitWait() async throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+
+        let emptyPreferred = UserProfile(appleUserIdentifier: "ck-twin-home", displayName: "Preferred")
+        emptyPreferred.createdAt = Date(timeIntervalSince1970: 2_000)
+        context.insert(emptyPreferred)
+
+        let owningTwin = UserProfile(appleUserIdentifier: "ck-twin-home", displayName: "Owner")
+        owningTwin.createdAt = Date(timeIntervalSince1970: 1_000)
+        context.insert(owningTwin)
+
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 40, maxDepthMeters: 18)
+        dive.owner = owningTwin
+        dive.ownerProfileID = owningTwin.id
+        context.insert(dive)
+        try context.save()
+
+        let resolved = await AccountSessionProfileResolution.resolve(
+            preferredProfileID: emptyPreferred.id,
+            appleUserIdentifier: "ck-twin-home",
+            modelContext: context,
+            waitForCloudKitImport: false
+        )
+        #expect(resolved?.id == owningTwin.id)
+        #expect(resolved?.id != emptyPreferred.id)
+    }
+
+    @Test @MainActor
+    func accountSessionLocalOwnershipHealing_claimsNilAndMissingOwnerUUIDs() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+        let owner = UserProfile(appleUserIdentifier: "heal-owner", displayName: "Healer")
+        context.insert(owner)
+
+        let nilOwned = DiveActivity(source: .manual, startTime: .now, durationMinutes: 20, maxDepthMeters: 10)
+        nilOwned.ownerProfileID = nil
+        context.insert(nilOwned)
+
+        let missingOwnerID = UUID()
+        let zombieOwned = DiveActivity(
+            source: .manual,
+            startTime: .now.addingTimeInterval(-3_600),
+            durationMinutes: 30,
+            maxDepthMeters: 14
+        )
+        zombieOwned.ownerProfileID = missingOwnerID
+        context.insert(zombieOwned)
+        try context.save()
+
+        let healed = try AccountSessionLocalOwnershipHealing.healIfNeeded(
+            for: owner,
+            modelContext: context
+        )
+        #expect(healed >= 2)
+        #expect(nilOwned.ownerProfileID == owner.id)
+        #expect(zombieOwned.ownerProfileID == owner.id)
+        #expect(
+            AccountSessionProfileResolution.totalOwnedActivityCount(
+                appleUserIdentifier: "heal-owner",
+                modelContext: context
+            ) == 2
+        )
+    }
+
+    @Test @MainActor
+    func accountSessionLocalOwnershipHealing_doesNotStealFromLiveOtherProfile() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+        let sessionOwner = UserProfile(appleUserIdentifier: "heal-a", displayName: "A")
+        let other = UserProfile(appleUserIdentifier: "heal-b", displayName: "B")
+        context.insert(sessionOwner)
+        context.insert(other)
+
+        let otherDive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 25, maxDepthMeters: 12)
+        otherDive.owner = other
+        otherDive.ownerProfileID = other.id
+        context.insert(otherDive)
+        try context.save()
+
+        let healed = try AccountSessionLocalOwnershipHealing.healIfNeeded(
+            for: sessionOwner,
+            modelContext: context
+        )
+        #expect(healed == 0)
+        #expect(otherDive.ownerProfileID == other.id)
+    }
+
+    @Test @MainActor
+    func accountSessionLocalOwnershipHealing_adoptsStrandedTwinOwnedDives() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+        let sessionOwner = UserProfile(appleUserIdentifier: "stranded-apple", displayName: "Session")
+        let blankTwin = UserProfile(appleUserIdentifier: "", displayName: "Diver")
+        context.insert(sessionOwner)
+        context.insert(blankTwin)
+
+        let stranded = DiveActivity(source: .manual, startTime: .now, durationMinutes: 35, maxDepthMeters: 16)
+        stranded.owner = blankTwin
+        stranded.ownerProfileID = blankTwin.id
+        context.insert(stranded)
+        try context.save()
+
+        let healed = try AccountSessionLocalOwnershipHealing.healIfNeeded(
+            for: sessionOwner,
+            modelContext: context
+        )
+        #expect(healed >= 1)
+        #expect(stranded.ownerProfileID == sessionOwner.id)
     }
 
     @Test func logbookRootAppearPresentation_defersCacheUntilLogbookTabSelected() {
@@ -30285,6 +30996,35 @@ struct GoDiveMVPTests {
         }
     }
 
+    /// Regression: paused bubbles must not keep a ticking clock (off-tab / Reduce Motion); unpaused
+    /// must be `.animating` so the display-link host starts. `TimelineView(.animation)` was abandoned
+    /// because it stays frozen across tab / navigation switches.
+    @Test func waterBubbleTimelineMode_pausedIsStaticFrame_unpausedIsAnimating() {
+        #expect(WaterBubbleTimelineMode.resolve(reduceMotion: false, animationPaused: true) == .staticFrame)
+        #expect(WaterBubbleTimelineMode.resolve(reduceMotion: false, animationPaused: false) == .animating)
+    }
+
+    @Test func waterBubbleTimelineMode_reduceMotionHidesBubbles() {
+        #expect(WaterBubbleTimelineMode.resolve(reduceMotion: true, animationPaused: false) == .hidden)
+        #expect(WaterBubbleTimelineMode.resolve(reduceMotion: true, animationPaused: true) == .hidden)
+    }
+
+    @Test func waterBubbleTimelineMode_description_matchesDiagnosticsTokens() {
+        #expect(WaterBubbleTimelineMode.hidden.description == "hidden")
+        #expect(WaterBubbleTimelineMode.staticFrame.description == "staticFrame")
+        #expect(WaterBubbleTimelineMode.animating.description == "animating")
+    }
+
+    /// Regression: Tab content must pause bubbles from **live** selection, not a stale mount-time bool.
+    @Test func rootTabSelection_bubblePause_followsLiveSelection() {
+        #expect(RootTabSelectionPresentation.shouldPauseBubbles(for: .fieldGuide, selected: .home))
+        #expect(!RootTabSelectionPresentation.shouldPauseBubbles(for: .fieldGuide, selected: .fieldGuide))
+        #expect(RootTabSelectionPresentation.shouldPauseBubbles(for: .logbook, selected: .explore))
+        #expect(!RootTabSelectionPresentation.shouldPauseBubbles(for: .logbook, selected: .logbook))
+        #expect(RootTabSelectionPresentation.isSelected(.explore, selected: .explore))
+        #expect(!RootTabSelectionPresentation.isSelected(.explore, selected: .search))
+    }
+
     @Test func appHeaderMetrics_heightKey_reduceUsesMax() {
         var value: CGFloat = 2
         AppHeaderMetrics.HeightKey.reduce(value: &value) { 5 }
@@ -30702,8 +31442,8 @@ struct GoDiveMVPTests {
         #expect(defaults.bool(forKey: AppUserSettings.notifyBuddyActivitySharesKey))
         #expect(defaults.bool(forKey: AppUserSettings.notifyGearServiceRemindersKey))
         #expect(defaults.bool(forKey: AppUserSettings.notifyTripRemindersKey))
-        #expect(!defaults.bool(forKey: AppUserSettings.contributeCommunitySightingsKey))
-        #expect(!AppUserSettings.contributeCommunitySightings(userDefaults: defaults))
+        #expect(defaults.bool(forKey: AppUserSettings.contributeCommunitySightingsKey))
+        #expect(AppUserSettings.contributeCommunitySightings(userDefaults: defaults))
     }
 
     @Test func appUserSettings_notificationToggles_defaultOnUntilExplicitlyOff() throws {
@@ -31646,6 +32386,11 @@ struct CrashReportingTests {
     }
 
     @Test func appSwiftDataOwnershipBackfill_updatesLegacyRows() throws {
+        let suiteName = "test.ownershipBackfill.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let species = MarineLife(uuid: "user-marine-life-backfill", commonName: "Backfill")
@@ -31660,9 +32405,14 @@ struct CrashReportingTests {
         context.insert(site)
         try context.save()
 
-        try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)
+        try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context, userDefaults: defaults)
         #expect(species.ownership == .userOwned)
         #expect(site.ownership == .catalogReference)
+
+        species.ownershipRaw = MarineLifeOwnership.catalog.rawValue
+        try context.save()
+        try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context, userDefaults: defaults)
+        #expect(species.ownership == .catalog)
     }
 
     @Test func sightingInstanceCreation_dedupesBySightingUUID() throws {
@@ -31707,6 +32457,11 @@ struct CrashReportingTests {
 
     @Test @MainActor
     func appSwiftDataHybridRowMigration_movesUserSpeciesAndSites() throws {
+        let suiteName = "test.hybridMigration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
 
@@ -31726,7 +32481,10 @@ struct CrashReportingTests {
         context.insert(referenceSite)
         try context.save()
 
-        let result = try AppSwiftDataHybridRowMigration.migrateIfNeeded(modelContext: context)
+        let result = try AppSwiftDataHybridRowMigration.migrateIfNeeded(
+            modelContext: context,
+            userDefaults: defaults
+        )
         #expect(result.migratedSpeciesCount == 1)
         #expect(result.migratedSiteCount == 1)
         #expect(try context.fetchCount(FetchDescriptor<UserMarineLife>()) == 1)
@@ -32471,6 +33229,48 @@ struct CrashReportingTests {
         #expect(
             SnorkelHeartRateProfileChartPresentation.heartRateAxisTopBufferFraction
                 == DiveDepthProfileChartPresentation.depthAxisTopBufferFraction(for: .edgeToEdge)
+        )
+    }
+
+    @Test func profileChartScrubHapticPresentation_firesOnNewSampleAndThrottles() {
+        #expect(!ProfileChartScrubHapticPresentation.shouldPlayScrubHaptic(isUITest: true))
+        #expect(ProfileChartScrubHapticPresentation.shouldPlayScrubHaptic(isUITest: false))
+        #expect(ProfileChartScrubHapticPresentation.minimumIntervalSeconds > 0)
+
+        #expect(
+            ProfileChartScrubHapticPresentation.shouldFireHaptic(
+                forSampleIndex: 3,
+                previousSampleIndex: nil,
+                elapsedSinceLastHapticSeconds: 1
+            )
+        )
+        #expect(
+            !ProfileChartScrubHapticPresentation.shouldFireHaptic(
+                forSampleIndex: 3,
+                previousSampleIndex: 3,
+                elapsedSinceLastHapticSeconds: 1
+            )
+        )
+        #expect(
+            !ProfileChartScrubHapticPresentation.shouldFireHaptic(
+                forSampleIndex: 4,
+                previousSampleIndex: 3,
+                elapsedSinceLastHapticSeconds: 0.01
+            )
+        )
+        #expect(
+            ProfileChartScrubHapticPresentation.shouldFireHaptic(
+                forSampleIndex: 4,
+                previousSampleIndex: 3,
+                elapsedSinceLastHapticSeconds: ProfileChartScrubHapticPresentation.minimumIntervalSeconds
+            )
+        )
+        #expect(
+            !ProfileChartScrubHapticPresentation.shouldFireHaptic(
+                forSampleIndex: nil,
+                previousSampleIndex: 3,
+                elapsedSinceLastHapticSeconds: 1
+            )
         )
     }
 

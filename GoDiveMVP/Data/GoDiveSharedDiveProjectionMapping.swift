@@ -332,6 +332,12 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var tankPressureStartPSI: Double? = nil
         var tankPressureEndPSI: Double? = nil
         var updatedAt: Date? = nil
+        /// First time this projection was shared with buddies (stable; not bumped by media/republish).
+        var sharedAt: Date? = nil
+        /// Denormalized tally maintained by Cloud Function (not written by clients).
+        var likeCount: Int = 0
+        /// Denormalized tally maintained by Cloud Function (not written by clients).
+        var commentCount: Int = 0
 
         nonisolated var resolvedActivityKind: FriendSharedActivityKind {
             activityKind
@@ -405,8 +411,54 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             bottomTimeSeconds: data["bottomTimeSeconds"] as? Int,
             tankPressureStartPSI: data["tankPressureStartPSI"] as? Double,
             tankPressureEndPSI: data["tankPressureEndPSI"] as? Double,
-            updatedAt: dateValue(data["updatedAt"])
+            updatedAt: dateValue(data["updatedAt"]),
+            sharedAt: dateValue(data["sharedAt"]),
+            likeCount: nonNegativeInt(data["likeCount"]),
+            commentCount: nonNegativeInt(data["commentCount"])
         )
+    }
+
+    /// First-share / republish timestamp rules for friend-visible projections.
+    /// - First create: set **`sharedAt`** + **`updatedAt`**.
+    /// - Existing: never overwrite **`sharedAt`**; hydrate it once if missing.
+    /// - Full republish (`bumpUpdatedAt == false`): do not bump **`updatedAt`**.
+    nonisolated static func applyShareTimestampPolicy(
+        to fields: inout [String: Any],
+        projectionAlreadyExists: Bool,
+        bumpUpdatedAt: Bool,
+        existingData: [String: Any]?,
+        activityStartTime: Date?,
+        now: Date = Date()
+    ) {
+        if projectionAlreadyExists, !bumpUpdatedAt {
+            fields.removeValue(forKey: "updatedAt")
+        }
+        // `projectionFields` does not emit sharedAt; strip any accidental caller value.
+        fields.removeValue(forKey: "sharedAt")
+
+        if !projectionAlreadyExists {
+            fields["sharedAt"] = now
+            fields["updatedAt"] = now
+            return
+        }
+
+        if dateValue(existingData?["sharedAt"]) == nil {
+            fields["sharedAt"] = activityStartTime
+                ?? dateValue(existingData?["updatedAt"])
+                ?? now
+        }
+    }
+
+    nonisolated private static func nonNegativeInt(_ value: Any?) -> Int {
+        let parsed: Int?
+        if let int = value as? Int {
+            parsed = int
+        } else if let number = value as? NSNumber {
+            parsed = number.intValue
+        } else {
+            parsed = nil
+        }
+        return max(0, parsed ?? 0)
     }
 
     /// Depth + optional gas overlay series decoded from a friend-visible projection track blob.

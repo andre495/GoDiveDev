@@ -59,7 +59,14 @@ nonisolated enum MarineLifeCommonNameFormatting: Sendable {
 
 /// Idempotent backfill for catalog rows created before common-name normalization.
 enum MarineLifeCommonNameNormalization {
-    static func normalizeStoredCatalogIfNeeded(modelContext: ModelContext) throws {
+    nonisolated static let completedDefaultsKey = "goDiveMarineLifeCommonNameNormalizationComplete"
+
+    static func normalizeStoredCatalogIfNeeded(
+        modelContext: ModelContext,
+        userDefaults: UserDefaults = .standard
+    ) throws {
+        guard !userDefaults.bool(forKey: completedDefaultsKey) else { return }
+
         let species = try modelContext.fetch(FetchDescriptor<MarineLife>())
         var changed = false
         for item in species {
@@ -71,5 +78,10 @@ enum MarineLifeCommonNameNormalization {
         if changed {
             try modelContext.save()
         }
+        userDefaults.set(true, forKey: completedDefaultsKey)
+    }
+
+    static func resetCompletedFlagForTesting(userDefaults: UserDefaults = .standard) {
+        userDefaults.removeObject(forKey: completedDefaultsKey)
     }
 }

@@ -16,7 +16,8 @@ enum GoDiveFriendGraphService: Sendable {
         var totalDiveCount: Int?
     }
 
-    struct FriendEdge: Equatable, Sendable, Identifiable, Hashable {
+    /// **`nonisolated`** so **`LogbookRoute`** / tests can hash & equate without MainActor.
+    nonisolated struct FriendEdge: Equatable, Sendable, Identifiable, Hashable {
         var id: String { friendUID }
         var friendUID: String
         var friendshipID: String

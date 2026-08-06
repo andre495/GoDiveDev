@@ -169,6 +169,7 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var showsStoredDiveEmptyState: Bool
     var bubbleAnimationPaused: Bool
     var scrollToTopNonce: Int
+    var buddyFeedAvatarLookupFingerprint: String = ""
 
     /// Explicit **`nonisolated`** equality — avoids MainActor-isolated synthesis when compared from **`LogbookListSurface`** and unit tests.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -186,5 +187,6 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
             && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
             && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
             && lhs.scrollToTopNonce == rhs.scrollToTopNonce
+            && lhs.buddyFeedAvatarLookupFingerprint == rhs.buddyFeedAvatarLookupFingerprint
     }
 }

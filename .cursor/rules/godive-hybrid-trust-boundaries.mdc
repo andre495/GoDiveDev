@@ -16,7 +16,7 @@ Source: **`GoDiveMVP/cursor/owasp_access_control_policy.md`**, **`hybrid_cloud_s
 | Social directory (display name, interests, avatar URL) | Firestore `users/{uid}` (+ Storage avatar) | **Firebase** only |
 | Friend graph + invites | Firestore `friendships`, `friendInvites` | **Firebase** only |
 | Friend-visible dive **projections** (structured fields; notes/media opt-in) | Firestore `users/{uid}/sharedDives` (+ opt-in Storage previews) | **Firebase** — friends-only read; not a second dive account |
-| Opt-in anonymized **community sightings** + **SiteReports** (1:1 activity; default off) | Staging `ontologySiteReportContributions` + `ontologySightingContributions` → `communitySiteReports` / `communitySightings` + CDN `species_similarity.json` | **Firebase** — no uid/GPS/media/notes on public docs; not the dive log |
+| Anonymized **community sightings** + **SiteReports** (1:1 activity; default on; Settings opt-out) | Staging `ontologySiteReportContributions` + `ontologySightingContributions` → `communitySiteReports` / `communitySightings` + CDN `species_similarity.json` | **Firebase** — no uid/GPS/media/notes on public docs; not the dive log |
 | App catalogs (Marine Life, ODM refs, similarity cache) | SwiftData **catalog** store + CDN | Firebase **Hosting/Storage catalog** — not user private DB |
 
 ## Do

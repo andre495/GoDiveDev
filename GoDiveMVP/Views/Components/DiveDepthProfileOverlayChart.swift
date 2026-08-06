@@ -42,6 +42,7 @@ struct DiveDepthProfileOverlayChart: View {
     @State private var scrubHoldTask: Task<Void, Never>?
     @State private var scrubActive = false
     @State private var scrubDepthIndex: Int?
+    @State private var scrubHaptic = ProfileChartScrubHapticPlayer()
     @State private var chartViewport: DiveDepthProfileChartViewport?
     @State private var panGestureLastTranslationX: CGFloat = 0
 
@@ -142,6 +143,7 @@ struct DiveDepthProfileOverlayChart: View {
                     scrubHoldTask: $scrubHoldTask,
                     scrubActive: $scrubActive,
                     scrubDepthIndex: $scrubDepthIndex,
+                    scrubHaptic: scrubHaptic,
                     scrubHoldDuration: Self.scrubHoldDuration,
                     nearestDepthIndex: { location in
                         nearestDepthIndex(location: location, rect: rect, viewport: viewport)
@@ -172,6 +174,7 @@ struct DiveDepthProfileOverlayChart: View {
                 publishScrubCallout()
             }
         }
+        .modifier(DiveDepthProfileChartDarkAppearance())
     }
 
     private func activeViewport(fullElapsedMax: Double) -> DiveDepthProfileChartViewport {
@@ -452,6 +455,7 @@ struct DiveDepthProfileOverlayChart: View {
         pendingFingerLocation.point = nil
         scrubActive = false
         scrubDepthIndex = nil
+        scrubHaptic.reset()
         if usesPinnedScrubCallout {
             onScrubCalloutChange?(nil)
         }
@@ -478,6 +482,18 @@ struct DiveDepthProfileOverlayChart: View {
 }
 
 // MARK: - Static plot (Equatable — skips O(n) path rebuilds during scrub)
+
+/// Forces dark **`AppTheme`** tokens on profile charts so light mode matches dark water / accent colors.
+struct DiveDepthProfileChartDarkAppearance: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if DiveDepthProfileChartPresentation.forcesDarkAppearance {
+            content.environment(\.colorScheme, .dark)
+        } else {
+            content
+        }
+    }
+}
 
 private final class DiveDepthProfilePendingFingerLocation {
     var point: CGPoint?
@@ -729,6 +745,7 @@ private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
     @Binding var scrubHoldTask: Task<Void, Never>?
     @Binding var scrubActive: Bool
     @Binding var scrubDepthIndex: Int?
+    let scrubHaptic: ProfileChartScrubHapticPlayer
     let scrubHoldDuration: Duration
     let nearestDepthIndex: (CGPoint) -> Int?
     let cancelScrubHoldTask: () -> Void
@@ -771,13 +788,16 @@ private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
                         guard let index = nearestDepthIndex(current) else { return }
                         scrubActive = true
                         scrubDepthIndex = index
+                        scrubHaptic.playIfNeeded(forSampleIndex: index)
                     }
                 } else if scrubActive {
                     if let index = nearestDepthIndex(loc) {
                         scrubDepthIndex = index
+                        scrubHaptic.playIfNeeded(forSampleIndex: index)
                     } else {
                         scrubActive = false
                         scrubDepthIndex = nil
+                        scrubHaptic.playIfNeeded(forSampleIndex: nil)
                     }
                 }
             }

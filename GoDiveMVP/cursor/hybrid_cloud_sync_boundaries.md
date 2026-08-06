@@ -14,7 +14,7 @@ Source of truth for the hybrid architecture on `feature/icloud-hybrid-sync` (Pha
 | App catalogs | Local catalog cache | GoDive CDN (**Firebase Hosting / Storage**) | **Phase 4 / 4b — live** (optional secrets) |
 | Social directory + friends | Firestore `users/{uid}`, `friendInvites`, `friendships` | **Firebase Auth + Firestore** | **Friends graph — live** |
 | Friend-visible dive projections | Firestore `users/{uid}/sharedDives` (+ opt-in Storage previews) | **Firebase** (friends-only read) | **Friends share — live** |
-| Community sighting contributions (opt-in) | SwiftData `SightingInstance` + activity SiteReport (1:1) | Firestore private staging → anonymized `communitySiteReports` + `communitySightings` (with `siteReportId`) + derived CDN similarity | **Live (default off)** |
+| Community sighting contributions (opt-out) | SwiftData `SightingInstance` + activity SiteReport (1:1) | Firestore private staging → anonymized `communitySiteReports` + `communitySightings` (with `siteReportId`) + derived CDN similarity | **Live (default on)** |
 | Crash reports | Local diagnostics rows | GoDive CloudKit **public** database (opt-in) | Existing |
 
 ### Highlighted dependencies
@@ -22,7 +22,7 @@ Source of truth for the hybrid architecture on `feature/icloud-hybrid-sync` (Pha
 | Stack | Role |
 |-------|------|
 | **Apple CloudKit** | Dive-log sync (private) + opt-in crash upload (public). Entitlement container **`iCloud.PrimoSoftware.GoDiveMVP`**. |
-| **Firebase** (SPM: **Core**, **Auth**, **Firestore**, **Storage**; Hosting/Storage for CDN) | Social directory (display name, interests, avatar) + developer catalog CDN + opt-in anonymized community sightings. **Never** stores the dive log / FIT / media bytes. |
+| **Firebase** (SPM: **Core**, **Auth**, **Firestore**, **Storage**; Hosting/Storage for CDN) | Social directory (display name, interests, avatar) + developer catalog CDN + anonymized community sightings (default on; Settings opt-out). **Never** stores the dive log / FIT / media bytes. |
 
 Option A is the chosen approach:
 
@@ -141,7 +141,7 @@ Public profile fields: `displayName`, `handle` (reserved, empty), `photoURL`, `i
 - Same Apple credential also signs into **Firebase Auth**; soft-fail if Firebase is unavailable.
 - **Friends:** QR / shareable link invites only (no directory search). Soft cap **50** friends; invites expire in **7** days.
 - Friend-visible dive projections: when **Share dives with friends** is on and the user has ≥1 friend, the owner’s app mirrors structured dive details to Firestore for friends to read. **Notes** and **media previews** are **opt-in**. Local edits that touch shared dive fields debounce-upsert the affected dive(s) via **`GoDiveFriendShareRefreshCoordinator`** (SwiftData **`didSave`**). The owner’s SwiftData + private CloudKit remain source of truth. FIT/UDDF originals and full Photos libraries are never uploaded.
-- **Community sightings (opt-in, default off):** when **Contribute sightings to community** is on and Firebase Auth is available, each created/imported dive or snorkel mints a **SiteReport** staging doc (`SiteReportGraphExport` + `OntologySiteReportContributionSync`, 1:1 with the activity). Tag add/remove upserts sighting staging (`SightingGraphExport` schema v3 with opaque **`siteReportId`**) after refreshing that report. Cloud Functions mirror into **`communitySiteReports`** and **`communitySightings`** (species, site ids, depth, time-of-day, date, dive|snorkel, siteReportId — **no** Firebase UID, profile ID, media, notes, or GPS). A **scheduled** Function rebuilds **`species_similarity.json`** (including **sameSiteReport**); the app merges CDN **`sightingScore`** with on-device biology on catalog refresh. Opt-out / activity delete marks staging deleted so ingest Functions remove public rows.
+- **Community sightings (default on, user can opt out):** when **Contribute sightings to community** is on and Firebase Auth is available, each created/imported dive or snorkel mints a **SiteReport** staging doc (`SiteReportGraphExport` + `OntologySiteReportContributionSync`, 1:1 with the activity). Tag add/remove upserts sighting staging (`SightingGraphExport` schema v3 with opaque **`siteReportId`**) after refreshing that report. Cloud Functions mirror into **`communitySiteReports`** and **`communitySightings`** (species, site ids, depth, time-of-day, date, dive|snorkel, siteReportId — **no** Firebase UID, profile ID, media, notes, or GPS). A **scheduled** Function rebuilds **`species_similarity.json`** (including **sameSiteReport**); the app merges CDN **`sightingScore`** with on-device biology on catalog refresh. Opt-out / activity delete marks staging deleted so ingest Functions remove public rows.
 - **Delete account** also wipes invites, friendships, shared dives, shared media, and private ontology contribution staging (public community rows cleaned via Admin ingest).
 - `ownerProfileID` for dive rows remains the CloudKit / SwiftData UUID — not the Firebase UID.
 - Deferred: `@handle` uniqueness UI; CloudKit Sharing / co-edit of one dive record.

@@ -100,10 +100,9 @@ enum HomeBuddyLeaderboardPresentation {
     }
 }
 
-/// Main-actor capture of buddy tags from **`DiveActivity`** rows.
+/// Captures buddy tags from **`DiveActivity`** rows (works on main or a background context's models).
 enum HomeBuddyLeaderboardSeeding {
-    @MainActor
-    static func tagInputs(from activities: [DiveActivity]) -> [HomeBuddyLeaderboardPresentation.TagInput] {
+    nonisolated static func tagInputs(from activities: [DiveActivity]) -> [HomeBuddyLeaderboardPresentation.TagInput] {
         activities.flatMap { activity in
             activity.buddies.compactMap { tag -> HomeBuddyLeaderboardPresentation.TagInput? in
                 tagInput(from: tag, diveActivityID: activity.id)
@@ -112,8 +111,7 @@ enum HomeBuddyLeaderboardSeeding {
     }
 
     /// Tag inputs from denormalized **`DiveBuddyTag`** rows — does not require **`DiveActivity.buddies`** to be faulted in (pushed buddy/trip pages).
-    @MainActor
-    static func tagInputs(
+    nonisolated static func tagInputs(
         from diveBuddyTags: [DiveBuddyTag],
         ownerDiveIDs: Set<UUID>
     ) -> [HomeBuddyLeaderboardPresentation.TagInput] {
@@ -124,8 +122,7 @@ enum HomeBuddyLeaderboardSeeding {
         }
     }
 
-    @MainActor
-    private static func tagInput(
+    nonisolated private static func tagInput(
         from tag: DiveBuddyTag,
         diveActivityID: UUID
     ) -> HomeBuddyLeaderboardPresentation.TagInput? {

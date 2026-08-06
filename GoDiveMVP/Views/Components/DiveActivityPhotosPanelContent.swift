@@ -407,9 +407,11 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                             largeDetentMode = .buddies
                             onExpandMarineLifeDetail()
                         } label: {
+                            let sources = DiveBuddyAvatarChipPresentation.sources(for: buddy)
                             DiveActivityBuddyAvatarChip(
                                 displayName: buddy.displayName,
-                                profilePhoto: buddy.profilePhoto,
+                                profilePhoto: sources.localProfilePhoto,
+                                photoURL: sources.photoURL,
                                 avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter,
                                 showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                             )
@@ -418,9 +420,11 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                         .accessibilityHint("Shows buddy details")
                         .accessibilityIdentifier("DiveOverview.MediaBuddyTag.\(buddy.id.uuidString)")
                     } else {
+                        let sources = DiveBuddyAvatarChipPresentation.sources(for: buddy)
                         DiveActivityBuddyAvatarChip(
                             displayName: buddy.displayName,
-                            profilePhoto: buddy.profilePhoto,
+                            profilePhoto: sources.localProfilePhoto,
+                            photoURL: sources.photoURL,
                             avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter,
                             showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                         )

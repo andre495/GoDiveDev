@@ -5,15 +5,13 @@ import SwiftUI
 struct SnorkelActivityNotesEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AccountSession.self) private var accountSession
 
     @Bindable var activity: SnorkelActivity
 
     @State private var draftText: String
+    @State private var friends: [GoDiveFriendGraphService.FriendEdge] = []
     @FocusState private var isNotesFieldFocused: Bool
-
-    private enum NotesPresentation {
-        static let maxCharacterCount = DiveNotesValidation.maxCharacterCount
-    }
 
     init(activity: SnorkelActivity) {
         self.activity = activity
@@ -24,34 +22,34 @@ struct SnorkelActivityNotesEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            TextEditor(text: draftBinding)
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .scrollContentBackground(.hidden)
-                .scrollIndicators(.visible)
-                .focused($isNotesFieldFocused)
-                .padding(.horizontal, AppTheme.Spacing.lg)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        AppGlassToolbarCancelButton(
-                            action: {
-                                isNotesFieldFocused = false
-                                dismiss()
-                            },
-                            accessibilityIdentifier: "SnorkelNotesEditSheet.Cancel"
-                        )
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        AppGlassProminentDoneButton(
-                            action: saveAndDismiss,
-                            accessibilityIdentifier: "SnorkelNotesEditSheet.Done"
-                        )
-                    }
+            GoDiveMentionNotesEditor(
+                text: draftBinding,
+                isFocused: $isNotesFieldFocused,
+                friends: friends
+            )
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: {
+                            isNotesFieldFocused = false
+                            dismiss()
+                        },
+                        accessibilityIdentifier: "SnorkelNotesEditSheet.Cancel"
+                    )
                 }
-                .onAppear {
-                    isNotesFieldFocused = true
+                ToolbarItem(placement: .confirmationAction) {
+                    AppGlassProminentDoneButton(
+                        action: saveAndDismiss,
+                        accessibilityIdentifier: "SnorkelNotesEditSheet.Done"
+                    )
                 }
+            }
+            .onAppear {
+                isNotesFieldFocused = true
+            }
+            .task {
+                friends = (try? await GoDiveFriendGraphService.listFriendEdges()) ?? []
+            }
         }
         .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("SnorkelNotesEditSheet.Root")
@@ -68,7 +66,15 @@ struct SnorkelActivityNotesEditSheet: View {
 
     private func saveAndDismiss() {
         isNotesFieldFocused = false
-        activity.notes = GoDiveInputSanitization.sanitizedNotes(draftText)
+        let notes = GoDiveInputSanitization.sanitizedNotes(draftText)
+        activity.notes = notes
+        GoDiveNotesMentionTagging.tagMentionedFriends(
+            inNotes: notes ?? "",
+            friends: friends,
+            on: activity,
+            owner: accountSession.currentProfile,
+            modelContext: modelContext
+        )
         try? modelContext.save()
         dismiss()
     }

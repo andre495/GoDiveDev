@@ -13,7 +13,10 @@ struct LoggedOutMarketingChrome<Content: View>: View {
         AppHeaderlessPage {
             ZStack {
                 if !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground(animationPaused: bubbleAnimationPaused)
+                    WaterBubbleBackground(
+                        animationPaused: bubbleAnimationPaused,
+                        diagnosticsLabel: "LoggedOut"
+                    )
                     AppTheme.Colors.surface
                         .opacity(LoggedOutMarketingChromeLayout.bubbleScrimOpacity)
                         .ignoresSafeArea()

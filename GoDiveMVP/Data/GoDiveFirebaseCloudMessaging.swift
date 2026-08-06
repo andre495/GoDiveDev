@@ -36,13 +36,32 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         "GoDive.openBuddySharedActivityFromPush"
     )
 
+    /// Posts when user taps a buddy-liked-your-activity notification — open owned dive/snorkel.
+    nonisolated static let openOwnedActivityFromLikeNotification = Notification.Name(
+        "GoDive.openOwnedActivityFromLikePush"
+    )
+
+    /// Posts when user taps a “mentioned you in a comment” notification.
+    nonisolated static let openActivityFromMentionNotification = Notification.Name(
+        "GoDive.openActivityFromMentionPush"
+    )
+
     @MainActor
     static func configureAtLaunch(application: UIApplication) {
         #if canImport(FirebaseMessaging)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         UNUserNotificationCenter.current().delegate = GoDivePushNotificationCenterDelegate.shared
         Messaging.messaging().delegate = GoDiveFirebaseMessagingDelegate.shared
-        application.registerForRemoteNotifications()
+        // Defer APNs registration until after the launch overlay so it does not contend with store open.
+        #endif
+    }
+
+    /// Registers for remote notifications after the first interactive frame (or when push auth is granted).
+    @MainActor
+    static func registerForRemoteNotificationsIfNeeded() {
+        #if canImport(FirebaseMessaging)
+        // Resolve `UIApplication.shared` inside `@MainActor` (not as a default arg — defaults are caller-isolated).
+        UIApplication.shared.registerForRemoteNotifications()
         #endif
     }
 
@@ -74,7 +93,7 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
             return
         }
 
-        UIApplication.shared.registerForRemoteNotifications()
+        registerForRemoteNotificationsIfNeeded()
         await uploadCurrentFCMTokenIfAvailable()
         #endif
     }
@@ -180,6 +199,32 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         if let target = GoDiveBuddyActivityPushPresentation.target(fromUserInfo: userInfo) {
             GoDiveBuddyActivityPushNavigationStore.shared.setPending(target)
             NotificationCenter.default.post(name: openBuddySharedActivityNotification, object: nil)
+            return
+        }
+        if let likedTarget = GoDiveBuddyActivityLikedPushPresentation.target(fromUserInfo: userInfo) {
+            // Likes must not inherit a stale comment deep-link (sheet would open incorrectly).
+            GoDiveOwnedActivityCommentsDeepLinkStore.shared.clear()
+            GoDiveBuddyActivityLikedPushNavigationStore.shared.setPending(likedTarget)
+            NotificationCenter.default.post(name: openOwnedActivityFromLikeNotification, object: nil)
+            return
+        }
+        if let commentedTarget = GoDiveBuddyActivityCommentedPushPresentation.target(fromUserInfo: userInfo) {
+            if GoDiveOwnedActivityCommentsDeepLinkPresentation.opensCommentsFromCommentPush {
+                GoDiveOwnedActivityCommentsDeepLinkStore.shared.setPending(
+                    activityID: commentedTarget.activityID
+                )
+            } else {
+                GoDiveOwnedActivityCommentsDeepLinkStore.shared.clear()
+            }
+            GoDiveBuddyActivityLikedPushNavigationStore.shared.setPending(
+                GoDiveBuddyActivityCommentedPushPresentation.likedPushCompatibleTarget(for: commentedTarget)
+            )
+            NotificationCenter.default.post(name: openOwnedActivityFromLikeNotification, object: nil)
+            return
+        }
+        if let mentionedTarget = GoDiveBuddyActivityMentionedPushPresentation.target(fromUserInfo: userInfo) {
+            GoDiveBuddyActivityMentionedPushNavigationStore.shared.setPending(mentionedTarget)
+            NotificationCenter.default.post(name: openActivityFromMentionNotification, object: nil)
             return
         }
         guard let type = userInfo["type"] as? String,

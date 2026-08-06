@@ -30,12 +30,17 @@ struct FieldGuideView: View {
     @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
     @State private var showsAddSpeciesSheet = false
 
-    private let ownerProfileID: UUID?
-    private let isFieldGuideTabSelected: Bool
+    @Environment(RootTabSelectionStore.self) private var rootTabSelection
 
-    init(ownerProfileID: UUID?, isFieldGuideTabSelected: Bool = true) {
+    private let ownerProfileID: UUID?
+
+    /// Live tab selection via **`RootTabSelectionStore`** (not a stale `Tab` init `let`).
+    private var isFieldGuideTabSelected: Bool {
+        RootTabSelectionPresentation.isSelected(.fieldGuide, selected: rootTabSelection.selected)
+    }
+
+    init(ownerProfileID: UUID?) {
         self.ownerProfileID = ownerProfileID
-        self.isFieldGuideTabSelected = isFieldGuideTabSelected
         let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
@@ -67,10 +72,6 @@ struct FieldGuideView: View {
         }
     }
 
-    private var isNavigatingCatalog: Bool {
-        !path.isEmpty
-    }
-
     private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
         if catalogSnapshots.isEmpty, !marineLifeCatalog.isEmpty {
             return marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
@@ -96,6 +97,16 @@ struct FieldGuideView: View {
         path.isEmpty
     }
 
+    /// Bubbles stay mounted for hub + category/subcategory browse (not opaque detail pushes).
+    private var showsFieldGuideBubbleBackground: Bool {
+        switch path.last {
+        case nil, .category, .subcategory:
+            return true
+        case .speciesDetail, .diveDetail, .diveSite:
+            return false
+        }
+    }
+
     private var showsTopChromeScrim: Bool {
         showsFieldGuideHubChrome
     }
@@ -105,119 +116,127 @@ struct FieldGuideView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            AppHeaderlessPage {
-                GeometryReader { proxy in
-                    let listTopInset = proxy.safeAreaInsets.top + fieldGuideHeaderClearance
-                    let listBottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
-
-                    ZStack(alignment: .top) {
-                        sectionContent(
-                            topInset: listTopInset,
-                            bottomInset: listBottomInset,
-                            safeAreaTop: proxy.safeAreaInsets.top
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        if showsTopChromeScrim {
-                            LogbookTopChromeScrim(
-                                topObstructionHeight: listTopInset,
-                                featherHeight: CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
-                            )
-                                .padding(.top, -proxy.safeAreaInsets.top)
-                                .ignoresSafeArea(edges: .top)
-                                .allowsHitTesting(false)
-                                .zIndex(0.5)
-                        }
-
-                        if showsFieldGuideHubChrome {
-                            FieldGuideTopChrome(
-                                isCollapsed: isFieldGuideHeaderCollapsed,
-                                statusBarSafeAreaTop: proxy.safeAreaInsets.top,
-                                onAddSpecies: { showsAddSpeciesSheet = true }
-                            )
-                            .zIndex(1)
-                        }
-                    }
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
-                    .ignoresSafeArea(edges: .bottom)
-                }
-                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                    if height > 0 { fieldGuideHeaderClearance = height }
-                }
+        // One tab-level bubble layer — avoids stacked frozen TimelineViews on push.
+        ZStack {
+            if showsFieldGuideBubbleBackground, !GoDiveUITestConfiguration.isActive {
+                WaterBubbleBackground(diagnosticsLabel: "FieldGuide")
             }
-            .toolbar(.hidden, for: .navigationBar)
-            .restoresRootTabBarWhenStackIsEmpty(showsFieldGuideRootTabBar)
-            .coalescesNavigationStackPathDuplicates($path)
-            .animation(nil, value: path.count)
-            .navigationDestination(for: FieldGuideRoute.self) { route in
-                switch route {
-                case .category(let summary):
-                    FieldGuideCategoryDetailView(
-                        categoryID: summary.categoryID,
-                        summary: summary,
-                        catalogSnapshots: resolvedCatalogSnapshots,
-                        subcategorySpeciesIndex: resolvedSubcategorySpeciesIndex,
-                        unitSystem: diveDisplayUnitSystem,
-                        onSelectSubcategory: { subcategoryID in
-                            let payload = FieldGuideCatalogIndex.browsePayload(
-                                categoryID: summary.categoryID,
-                                subcategoryID: subcategoryID,
-                                speciesIndex: resolvedSubcategorySpeciesIndex
+
+            NavigationStack(path: $path) {
+                AppHeaderlessPage(showsScreenBackgroundGradient: false) {
+                    GeometryReader { proxy in
+                        let listTopInset = proxy.safeAreaInsets.top + fieldGuideHeaderClearance
+                        let listBottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
+
+                        ZStack(alignment: .top) {
+                            sectionContent(
+                                topInset: listTopInset,
+                                bottomInset: listBottomInset,
+                                safeAreaTop: proxy.safeAreaInsets.top
                             )
-                            pushFieldGuide(.subcategory(payload))
-                        },
-                        onSelectSpecies: { uuid in
-                            pushFieldGuide(.speciesDetail(uuid))
-                        },
-                        onAddSpecies: { showsAddSpeciesSheet = true }
-                    )
-                case .subcategory(let payload):
-                    FieldGuideSubcategorySpeciesView(
-                        payload: payload,
-                        unitSystem: diveDisplayUnitSystem,
-                        catalogSnapshots: resolvedCatalogSnapshots,
-                        onSelectSpecies: { uuid in
-                            pushFieldGuide(.speciesDetail(uuid))
-                        },
-                        onAddSpecies: { showsAddSpeciesSheet = true }
-                    )
-                case .speciesDetail(let marineLifeUUID):
-                    if let species = marineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
-                        FieldGuideMarineLifeDetailView(
-                            species: species,
-                            ownerProfileID: accountSession.currentProfile?.id
-                        ) { activityID in
-                            pushFieldGuide(.diveDetail(activityID))
-                        }
-                    } else if let species = userMarineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
-                        FieldGuideMarineLifeDetailView(
-                            species: species,
-                            ownerProfileID: accountSession.currentProfile?.id
-                        ) { activityID in
-                            pushFieldGuide(.diveDetail(activityID))
-                        }
-                    } else {
-                        missingSpeciesPlaceholder
-                    }
-                case .diveDetail(let id):
-                    if let activity = ownerDiveActivitiesForNavigation.first(where: { $0.id == id }) {
-                        ViewSingleActivity(activity: activity)
-                    } else {
-                        ActivityMissingDestinationPopView {
-                            path.removeAll {
-                                if case .diveDetail(let routeID) = $0 { return routeID == id }
-                                return false
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                            if showsTopChromeScrim {
+                                LogbookTopChromeScrim(
+                                    topObstructionHeight: listTopInset,
+                                    featherHeight: CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
+                                )
+                                    .padding(.top, -proxy.safeAreaInsets.top)
+                                    .ignoresSafeArea(edges: .top)
+                                    .allowsHitTesting(false)
+                                    .zIndex(0.5)
+                            }
+
+                            if showsFieldGuideHubChrome {
+                                FieldGuideTopChrome(
+                                    isCollapsed: isFieldGuideHeaderCollapsed,
+                                    statusBarSafeAreaTop: proxy.safeAreaInsets.top,
+                                    onAddSpecies: { showsAddSpeciesSheet = true }
+                                )
+                                .zIndex(1)
                             }
                         }
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .ignoresSafeArea(.keyboard, edges: .bottom)
+                        .ignoresSafeArea(edges: .bottom)
                     }
-                case .diveSite(let siteID):
-                    ExploreDiveSiteDetailHost(
-                        siteID: siteID,
-                        ownerProfileID: accountSession.currentProfile?.id,
-                        onOpenDive: { pushFieldGuide(.diveDetail($0)) }
-                    )
+                    .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
+                        if height > 0 { fieldGuideHeaderClearance = height }
+                    }
+                }
+                .containerBackground(.clear, for: .navigation)
+                .toolbar(.hidden, for: .navigationBar)
+                .restoresRootTabBarWhenStackIsEmpty(showsFieldGuideRootTabBar)
+                .coalescesNavigationStackPathDuplicates($path)
+                .animation(nil, value: path.count)
+                .navigationDestination(for: FieldGuideRoute.self) { route in
+                    switch route {
+                    case .category(let summary):
+                        FieldGuideCategoryDetailView(
+                            categoryID: summary.categoryID,
+                            summary: summary,
+                            catalogSnapshots: resolvedCatalogSnapshots,
+                            subcategorySpeciesIndex: resolvedSubcategorySpeciesIndex,
+                            unitSystem: diveDisplayUnitSystem,
+                            onSelectSubcategory: { subcategoryID in
+                                let payload = FieldGuideCatalogIndex.browsePayload(
+                                    categoryID: summary.categoryID,
+                                    subcategoryID: subcategoryID,
+                                    speciesIndex: resolvedSubcategorySpeciesIndex
+                                )
+                                pushFieldGuide(.subcategory(payload))
+                            },
+                            onSelectSpecies: { uuid in
+                                pushFieldGuide(.speciesDetail(uuid))
+                            },
+                            onAddSpecies: { showsAddSpeciesSheet = true }
+                        )
+                    case .subcategory(let payload):
+                        FieldGuideSubcategorySpeciesView(
+                            payload: payload,
+                            unitSystem: diveDisplayUnitSystem,
+                            catalogSnapshots: resolvedCatalogSnapshots,
+                            onSelectSpecies: { uuid in
+                                pushFieldGuide(.speciesDetail(uuid))
+                            },
+                            onAddSpecies: { showsAddSpeciesSheet = true }
+                        )
+                    case .speciesDetail(let marineLifeUUID):
+                        if let species = marineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
+                            FieldGuideMarineLifeDetailView(
+                                species: species,
+                                ownerProfileID: accountSession.currentProfile?.id
+                            ) { activityID in
+                                pushFieldGuide(.diveDetail(activityID))
+                            }
+                        } else if let species = userMarineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
+                            FieldGuideMarineLifeDetailView(
+                                species: species,
+                                ownerProfileID: accountSession.currentProfile?.id
+                            ) { activityID in
+                                pushFieldGuide(.diveDetail(activityID))
+                            }
+                        } else {
+                            missingSpeciesPlaceholder
+                        }
+                    case .diveDetail(let id):
+                        if let activity = ownerDiveActivitiesForNavigation.first(where: { $0.id == id }) {
+                            ViewSingleActivity(activity: activity)
+                        } else {
+                            ActivityMissingDestinationPopView {
+                                path.removeAll {
+                                    if case .diveDetail(let routeID) = $0 { return routeID == id }
+                                    return false
+                                }
+                            }
+                        }
+                    case .diveSite(let siteID):
+                        ExploreDiveSiteDetailHost(
+                            siteID: siteID,
+                            ownerProfileID: accountSession.currentProfile?.id,
+                            onOpenDive: { pushFieldGuide(.diveDetail($0)) }
+                        )
+                    }
                 }
             }
         }
@@ -304,19 +323,11 @@ struct FieldGuideView: View {
 
     @ViewBuilder
     private func sectionContent(topInset: CGFloat, bottomInset: CGFloat, safeAreaTop: CGFloat) -> some View {
-        ZStack(alignment: .top) {
-            if !GoDiveUITestConfiguration.isActive {
-                WaterBubbleBackground(
-                    animationPaused: !isFieldGuideTabSelected || isNavigatingCatalog
-                )
-            }
-
-            fieldGuideCatalogListContent(
-                topInset: topInset,
-                bottomInset: bottomInset,
-                safeAreaTop: safeAreaTop
-            )
-        }
+        fieldGuideCatalogListContent(
+            topInset: topInset,
+            bottomInset: bottomInset,
+            safeAreaTop: safeAreaTop
+        )
     }
 
     private func fieldGuideDiveActivityIDs(in path: [FieldGuideRoute]) -> Set<UUID> {
@@ -400,5 +411,6 @@ private struct FieldGuideCatalogEmptyState: View {
 #Preview {
     FieldGuideView(ownerProfileID: nil)
         .environment(AccountSession.shared)
+        .environment(RootTabSelectionStore())
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

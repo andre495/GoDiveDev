@@ -5,10 +5,25 @@ private struct DiveOverviewPanelHeightFractionKey: EnvironmentKey {
     static let defaultValue: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
 }
 
+/// One-shot request for **`OverviewPanelScrollArea`** to `scrollTo` a section id.
+struct DiveOverviewPanelScrollRequest: Equatable, Sendable, Hashable {
+    var sectionID: String
+    var nonce: Int
+}
+
+private struct DiveOverviewPanelScrollRequestKey: EnvironmentKey {
+    static let defaultValue: DiveOverviewPanelScrollRequest? = nil
+}
+
 extension EnvironmentValues {
     var diveOverviewPanelHeightFraction: CGFloat {
         get { self[DiveOverviewPanelHeightFractionKey.self] }
         set { self[DiveOverviewPanelHeightFractionKey.self] = newValue }
+    }
+
+    var diveOverviewPanelScrollRequest: DiveOverviewPanelScrollRequest? {
+        get { self[DiveOverviewPanelScrollRequestKey.self] }
+        set { self[DiveOverviewPanelScrollRequestKey.self] = newValue }
     }
 }
 

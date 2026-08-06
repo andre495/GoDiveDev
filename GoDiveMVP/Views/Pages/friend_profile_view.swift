@@ -138,43 +138,15 @@ struct FriendProfileView: View {
         }
     }
 
-    @ViewBuilder
     private var friendAvatarOverlay: some View {
-        Group {
-            if let photoURL,
-               let url = GoDiveRemoteURLPolicy.sanitizedFirebaseStorageURL(from: photoURL)
-            {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        friendAvatarPlaceholder
-                    }
-                }
-                .frame(width: Layout.avatarDiameter, height: Layout.avatarDiameter)
-                .clipShape(Circle())
-                .overlay {
-                    ProfileAvatarChrome.accentRingOverlay(diameter: Layout.avatarDiameter)
-                }
-            } else {
-                friendAvatarPlaceholder
-            }
-        }
-        .goDiveUserAvatarPin(shows: true, avatarDiameter: Layout.avatarDiameter)
+        FriendSharedMapOwnerAvatarView(
+            displayName: displayName,
+            photoURL: photoURL,
+            diameter: Layout.avatarDiameter
+        )
+        .accessibilityHidden(false)
         .accessibilityLabel(
             "\(displayName), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
-        )
-    }
-
-    private var friendAvatarPlaceholder: some View {
-        ProfileAvatarView(
-            profilePhoto: nil,
-            diameter: Layout.avatarDiameter,
-            iconFont: .system(size: 56),
-            placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
         )
     }
 

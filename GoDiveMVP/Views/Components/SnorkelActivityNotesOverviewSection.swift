@@ -3,6 +3,7 @@ import SwiftUI
 /// Map-tab Notes card for snorkels — same elevated card + ⋯ edit pattern as dive map notes.
 struct SnorkelActivityNotesOverviewSection: View {
     let notes: String?
+    var mentionDisplayNames: [String] = []
     let onEditNotes: () -> Void
 
     private var displayBody: String {
@@ -17,7 +18,9 @@ struct SnorkelActivityNotesOverviewSection: View {
                 DiveActivityEditableRow(
                     label: ActivityNotesPresentation.sectionTitle,
                     value: displayBody,
-                    showsLabel: false
+                    showsLabel: false,
+                    mentionDisplayNames: mentionDisplayNames,
+                    highlightMentions: true
                 )
                 .padding(AppTheme.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)

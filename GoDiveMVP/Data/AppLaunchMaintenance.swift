@@ -20,12 +20,19 @@ enum AppLaunchMaintenance: Sendable {
 
     /// Fast, local correctness — dive numbers, migrations, bundled catalog seed.
     private static func performEssentialTier(container: ModelContainer) async {
+        let essentialSignpost = AppPerformanceSignpost.begin(.launchEssentialMaintenance)
+        defer { AppPerformanceSignpost.end(.launchEssentialMaintenance, signpostID: essentialSignpost) }
+
         let context = ModelContext(container)
         context.autosaveEnabled = true
         do {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
+
+            let seedSignpost = AppPerformanceSignpost.begin(.launchMarineLifeSeed)
             try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+            AppPerformanceSignpost.end(.launchMarineLifeSeed, signpostID: seedSignpost)
+
             try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(modelContext: context)
             try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataHybridRowMigration.migrateIfNeeded(modelContext: context)

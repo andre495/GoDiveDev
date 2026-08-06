@@ -474,7 +474,7 @@ struct DiveActivityVideoPlayerView: View {
     private var loadingPlaceholder: some View {
         ZStack {
             AppTheme.Colors.surfaceMuted.opacity(0.5)
-            ProgressView()
+            GoDiveRotateLoadingIndicator(size: .compact)
         }
     }
 

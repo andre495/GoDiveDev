@@ -17,7 +17,13 @@ enum HomeRoute: Hashable {
     /// Notification row → friend profile.
     case friendProfile(GoDiveFriendGraphService.FriendEdge)
     /// Notification row → friend-shared activity detail (row data already loaded by the list).
-    case buddySharedActivity(LogbookBuddyFeedPresentation.Row)
+    case buddySharedActivity(LogbookBuddyFeedPresentation.Row, opensComments: Bool = false)
+    /// Notification row → your own shared dive/snorkel (like / comment).
+    case ownedSharedActivity(
+        activityID: UUID,
+        activityKind: FriendSharedActivityKind,
+        opensComments: Bool = false
+    )
     /// Equipment service reminder tap → gear detail.
     case equipmentDetail(UUID)
 }

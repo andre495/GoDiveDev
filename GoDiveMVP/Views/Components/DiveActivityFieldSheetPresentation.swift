@@ -12,9 +12,9 @@ extension View {
         modifier(DiveActivityTagsSheetPresentationModifier())
     }
 
-    /// Opaque blue overview-panel modal (notes / buddies / tags / dive conditions).
-    /// Opens at the system **large** detent so it fully covers the ~85% overview panel; no grabber;
-    /// dismiss only via toolbar actions.
+    /// Opaque blue overview-panel modal (notes / buddies / tags / comments / dive conditions).
+    /// Opens at the activity overview **large** detent height (not system full-screen **`.large`**);
+    /// no grabber; dismiss only via toolbar actions.
     func diveActivityOverviewPanelModalSheetPresentation() -> some View {
         modifier(DiveActivityOverviewPanelModalSheetPresentationModifier())
     }
@@ -27,8 +27,9 @@ extension View {
 
 private struct DiveActivityOverviewPanelModalSheetPresentationModifier: ViewModifier {
     func body(content: Content) -> some View {
+        let largeDetent = DiveActivityOverviewDetent.overviewPanelModalLargePresentationDetent()
         content
-            .presentationDetents([.large])
+            .presentationDetents([largeDetent])
             .presentationDragIndicator(.hidden)
             .interactiveDismissDisabled()
             .presentationCornerRadius(AppTheme.Sheet.cornerRadius)

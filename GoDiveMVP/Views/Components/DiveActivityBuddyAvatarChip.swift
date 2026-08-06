@@ -1,9 +1,11 @@
 import SwiftUI
 
 /// Avatar with first-name caption for a dive buddy on overview / details.
+/// Loads local roster JPEG when present, otherwise the linked / friend-graph Storage URL.
 struct DiveActivityBuddyAvatarChip: View {
     let displayName: String
     let profilePhoto: Data?
+    var photoURL: String? = nil
     var avatarDiameter: CGFloat = 56
     var showsGoDiveUserPin: Bool = false
 
@@ -20,13 +22,13 @@ struct DiveActivityBuddyAvatarChip: View {
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: profilePhoto,
+            FriendSharedMapOwnerAvatarView(
+                displayName: displayName,
+                photoURL: photoURL,
                 diameter: avatarDiameter,
-                iconFont: .title3,
-                placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
+                showsGoDiveUserPin: showsGoDiveUserPin,
+                localProfilePhoto: profilePhoto
             )
-            .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: avatarDiameter)
             Text(firstName)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(AppTheme.Colors.textPrimary)

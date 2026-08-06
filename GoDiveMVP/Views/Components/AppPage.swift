@@ -114,7 +114,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
 
             ZStack(alignment: .top) {
                 if showsWaterBubbleBackground, !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground()
+                    WaterBubbleBackground(diagnosticsLabel: "AppPage")
                 }
 
                 content

@@ -1,6 +1,7 @@
 import Foundation
 
-enum LogbookRoute: Hashable {
+/// **`nonisolated`** so unit tests can compare routes without MainActor isolation.
+nonisolated enum LogbookRoute: Hashable {
     /// Full-screen hub: dive / snorkel / connect device.
     case addActivity
     case diveActivityUpload
@@ -17,7 +18,14 @@ enum LogbookRoute: Hashable {
     case tripDetailMedia(tripID: UUID, mediaID: UUID)
     case diveSite(UUID)
     /// Friend-visible dive opened from Activity Log **Buddy Feed**.
-    case buddySharedDive(friendUID: String, diveDocumentID: String)
+    /// When `opensComments` is true, detail presents the comments sheet after appear.
+    /// When `scrollToTaggedBuddies` is true, Map expands and scrolls to the Buddies section.
+    case buddySharedDive(
+        friendUID: String,
+        diveDocumentID: String,
+        opensComments: Bool = false,
+        scrollToTaggedBuddies: Bool = false
+    )
     /// Friend profile from Buddy Feed name tap or post–invite redeem.
     case friendProfile(GoDiveFriendGraphService.FriendEdge)
     /// Buddy / friend profile from unified **Buddies** list (Logbook **Friends** route).

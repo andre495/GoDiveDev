@@ -460,12 +460,9 @@ enum GoDiveSharedMediaUpload: Sendable {
                 log.debug("Shared media Firestore patch skipped — projection doc missing")
                 return
             }
-            try await ref.updateData(
-                [
-                    "mediaItems": rows,
-                    "updatedAt": Date(),
-                ]
-            )
+            // Do not bump `updatedAt` — content-tier URL patches after republish were
+            // making every buddy Home Notification look brand-new (Kathleen flood).
+            try await ref.updateData(["mediaItems": rows])
         } catch {
             log.error("Shared media Firestore patch failed: \(String(describing: error), privacy: .private)")
         }

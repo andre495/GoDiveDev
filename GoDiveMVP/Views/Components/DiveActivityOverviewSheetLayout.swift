@@ -249,76 +249,100 @@ struct OverviewPanelScrollArea<Content: View>: View {
     @Binding var persistedScrollOffsetY: CGFloat
     @ViewBuilder var content: () -> Content
 
+    @Environment(\.diveOverviewPanelScrollRequest) private var scrollRequest
     @State private var lastScrollOffsetY: CGFloat = 0
     @State private var didFireExpandThisGesture = false
     @State private var pendingDetentScrollTask: Task<Void, Never>?
     @State private var scrollRestorationInset: CGFloat = 0
     @State private var acceptsScrollOffsetPersistence = true
+    @State private var lastHandledScrollRequestNonce: Int?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if scrollRestorationInset > 0 {
-                    Color.clear
-                        .frame(height: scrollRestorationInset)
-                        .accessibilityHidden(true)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    if scrollRestorationInset > 0 {
+                        Color.clear
+                            .frame(height: scrollRestorationInset)
+                            .accessibilityHidden(true)
+                    }
+                    content()
                 }
-                content()
+            }
+            .id(contentIdentity)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background {
+                if usesOpaquePanelScrollFadeBackground, topScrollFadeHeight > 0 {
+                    AppOverviewSheetPanelBackground()
+                }
+            }
+            .overviewPanelTopScrollFade(height: topScrollFadeHeight)
+            .scrollDisabled(isScrollDisabled)
+            .scrollIndicators(.hidden)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { _, newOffset in
+                if DiveActivityOverviewScrollRestoration.shouldIgnoreSuddenScrollResetToTop(
+                    proposedOffset: newOffset,
+                    persistedOffset: persistedScrollOffsetY,
+                    lastReportedOffset: lastScrollOffsetY
+                ) {
+                    return
+                }
+                lastScrollOffsetY = newOffset
+                if DiveActivityOverviewScrollRestoration.shouldPersistScrollOffsetBinding(
+                    proposedOffset: newOffset,
+                    acceptsPersistence: acceptsScrollOffsetPersistence
+                ) {
+                    persistedScrollOffsetY = newOffset
+                }
+                handleScrollOffset(newOffset)
+            }
+            .onAppear {
+                acceptsScrollOffsetPersistence = true
+                applyScrollRestorationInsetIfNeeded()
+                performPendingScrollIfNeeded(proxy: proxy)
+            }
+            .onChange(of: contentIdentity) { _, _ in
+                scrollRestorationInset = 0
+                lastScrollOffsetY = 0
+                didFireExpandThisGesture = false
+            }
+            .onChange(of: scrollRequest) { _, _ in
+                performPendingScrollIfNeeded(proxy: proxy)
+            }
+            .onScrollPhaseChange { _, phase in
+                guard phase == .idle || phase == .decelerating else { return }
+                handleScrollEnded()
+            }
+            .onDisappear {
+                acceptsScrollOffsetPersistence = false
+                pendingDetentScrollTask?.cancel()
+                let preserved = DiveActivityOverviewScrollRestoration.preservedScrollOffset(
+                    binding: persistedScrollOffsetY,
+                    lastReportedOffset: lastScrollOffsetY
+                )
+                if preserved > 4 {
+                    persistedScrollOffsetY = preserved
+                }
+                scrollRestorationInset = 0
             }
         }
-        .id(contentIdentity)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background {
-            if usesOpaquePanelScrollFadeBackground, topScrollFadeHeight > 0 {
-                AppOverviewSheetPanelBackground()
+    }
+
+    private func performPendingScrollIfNeeded(proxy: ScrollViewProxy) {
+        guard let scrollRequest,
+              lastHandledScrollRequestNonce != scrollRequest.nonce
+        else { return }
+        lastHandledScrollRequestNonce = scrollRequest.nonce
+        let sectionID = scrollRequest.sectionID
+        Task { @MainActor in
+            // Let large-detent details (Buddies) mount before scrolling.
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.28)) {
+                proxy.scrollTo(sectionID, anchor: .top)
             }
-        }
-        .overviewPanelTopScrollFade(height: topScrollFadeHeight)
-        .scrollDisabled(isScrollDisabled)
-        .scrollIndicators(.hidden)
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            geometry.contentOffset.y
-        } action: { _, newOffset in
-            if DiveActivityOverviewScrollRestoration.shouldIgnoreSuddenScrollResetToTop(
-                proposedOffset: newOffset,
-                persistedOffset: persistedScrollOffsetY,
-                lastReportedOffset: lastScrollOffsetY
-            ) {
-                return
-            }
-            lastScrollOffsetY = newOffset
-            if DiveActivityOverviewScrollRestoration.shouldPersistScrollOffsetBinding(
-                proposedOffset: newOffset,
-                acceptsPersistence: acceptsScrollOffsetPersistence
-            ) {
-                persistedScrollOffsetY = newOffset
-            }
-            handleScrollOffset(newOffset)
-        }
-        .onAppear {
-            acceptsScrollOffsetPersistence = true
-            applyScrollRestorationInsetIfNeeded()
-        }
-        .onChange(of: contentIdentity) { _, _ in
-            scrollRestorationInset = 0
-            lastScrollOffsetY = 0
-            didFireExpandThisGesture = false
-        }
-        .onScrollPhaseChange { _, phase in
-            guard phase == .idle || phase == .decelerating else { return }
-            handleScrollEnded()
-        }
-        .onDisappear {
-            acceptsScrollOffsetPersistence = false
-            pendingDetentScrollTask?.cancel()
-            let preserved = DiveActivityOverviewScrollRestoration.preservedScrollOffset(
-                binding: persistedScrollOffsetY,
-                lastReportedOffset: lastScrollOffsetY
-            )
-            if preserved > 4 {
-                persistedScrollOffsetY = preserved
-            }
-            scrollRestorationInset = 0
         }
     }
 

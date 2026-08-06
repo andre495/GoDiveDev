@@ -21,7 +21,8 @@ struct DiveDepthProfileChartWaterFillView: View {
                 WaterBubbleBackground(
                     animationPaused: !animates,
                     intensity: .chartUnderfill,
-                    showsBackdrop: false
+                    showsBackdrop: false,
+                    diagnosticsLabel: "ChartUnderfill"
                 )
             }
         }

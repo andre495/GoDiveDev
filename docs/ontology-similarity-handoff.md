@@ -158,7 +158,7 @@ SpeciesSimilarityCDNCache → Field Guide Similar species
 
 | Concern | Path |
 |---------|------|
-| Settings opt-in | `AppUserSettings.contributeCommunitySightings` + Settings **Contribute sightings to community** |
+| Settings (default on) | `AppUserSettings.contributeCommunitySightings` + Settings **Contribute sightings to community** |
 | Export mapper | `SightingGraphExport` (v3 + `siteReportId`) + `SiteReportGraphExport` |
 | Sync | `OntologySiteReportContributionSync` (activity 1:1) + `OntologySightingContributionSync` |
 | Untag | `MarineLifeSightingRecorder.untagSpecies*` + tag-sheet toggle-off |

@@ -513,7 +513,7 @@ private struct ActivityFriendShareSettingsForm: View {
 
     private var uploadInProgressBanner: some View {
         HStack(spacing: AppTheme.Spacing.sm) {
-            ProgressView()
+            GoDiveRotateLoadingIndicator()
                 .controlSize(.small)
             Text(ActivityFriendSharePresentation.statusUploadBannerLabel)
                 .font(.subheadline.weight(.semibold))

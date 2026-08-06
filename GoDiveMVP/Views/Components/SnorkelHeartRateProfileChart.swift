@@ -18,6 +18,7 @@ struct SnorkelHeartRateProfileChart: View {
     @State private var scrubHoldTask: Task<Void, Never>?
     @State private var scrubActive = false
     @State private var scrubSampleIndex: Int?
+    @State private var scrubHaptic = ProfileChartScrubHapticPlayer()
 
     var body: some View {
         GeometryReader { geo in
@@ -62,6 +63,7 @@ struct SnorkelHeartRateProfileChart: View {
                 clearScrubState()
             }
         }
+        .modifier(DiveDepthProfileChartDarkAppearance())
     }
 
     private func underCurveFill(in rect: CGRect, maxElapsed: Double, maxBPM: Double) -> some View {
@@ -193,10 +195,12 @@ struct SnorkelHeartRateProfileChart: View {
         let xFrac = (location.x - rect.minX) / max(rect.width, 1)
         let clamped = min(max(xFrac, 0), 1)
         let targetElapsed = Double(clamped) * maxElapsed
-        scrubSampleIndex = SnorkelHeartRateProfileChartPresentation.indexNearestElapsed(
+        let index = SnorkelHeartRateProfileChartPresentation.indexNearestElapsed(
             samples: samples,
             targetElapsed: targetElapsed
         )
+        scrubSampleIndex = index
+        scrubHaptic.playIfNeeded(forSampleIndex: index)
     }
 
     private func publishScrubCallout() {
@@ -226,6 +230,7 @@ struct SnorkelHeartRateProfileChart: View {
         pendingFingerLocation.point = nil
         scrubActive = false
         scrubSampleIndex = nil
+        scrubHaptic.reset()
         if pinsScrubCalloutUnderTabMenu {
             onScrubCalloutChange?(nil)
         }

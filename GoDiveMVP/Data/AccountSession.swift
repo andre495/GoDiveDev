@@ -31,6 +31,8 @@ final class AccountSession {
     private(set) var celebrationFollowsBulkImport = false
     /// Firebase + iCloud population after sign-in / session restore (keeps launch overlay up).
     private(set) var isPopulatingRemoteAccountData = false
+    /// Home lifetime stats + carousel seed painted — clears the launch overlay once the main shell is up.
+    private(set) var isHomeLaunchChromeReady = false
     /// Returning user on a local-only store — private CloudKit reconnect is scheduled for the next cold launch.
     private(set) var pendingICloudDiveLogReconnectOnNextLaunch = false
 
@@ -64,10 +66,23 @@ final class AccountSession {
 
     private init() {}
 
+    /// Call when Home’s first paint is ready (stats + carousel seed, or empty-log full build).
+    func markHomeLaunchChromeReady() {
+        guard !isHomeLaunchChromeReady else { return }
+        withoutImplicitOverlayAnimation {
+            isHomeLaunchChromeReady = true
+        }
+        AppLaunchTimelineLog.event("splash.home_chrome_ready")
+    }
+
     func restoreSession(modelContext: ModelContext) async {
+        let restoreSignpost = AppPerformanceSignpost.begin(.launchSessionRestore)
         defer {
-            isRestoringSession = false
+            withoutImplicitOverlayAnimation {
+                isRestoringSession = false
+            }
             endLaunchBlockingPopulationIfStuck()
+            AppPerformanceSignpost.end(.launchSessionRestore, signpostID: restoreSignpost)
         }
 
         await waitForCloudKitContainerReconnectHandler()
@@ -95,19 +110,75 @@ final class AccountSession {
             return
         }
 
-        let launchWait = AccountSessionProfileResolution.launchImportTimeoutSeconds
+        let localPreferred = try? UserProfileStore.profile(id: preferredID, modelContext: context)
+        let localPreferredMatchesAppleID = localPreferred?
+            .appleUserIdentifier
+            .trimmingCharacters(in: .whitespacesAndNewlines) == appleID
+        context.processPendingChanges()
+        let storeActivityCount =
+            ((try? context.fetchCount(FetchDescriptor<DiveActivity>())) ?? 0)
+            + ((try? context.fetchCount(FetchDescriptor<SnorkelActivity>())) ?? 0)
+        let localOwnedActivityCount = AccountSessionProfileResolution.totalOwnedActivityCount(
+            appleUserIdentifier: appleID,
+            modelContext: context
+        )
+        // Ownership-aware attach; CloudKit poll only when preferred row is missing and store is empty.
+        let waitForCloudKitImport = AccountSessionLaunchRestorePresentation.waitForCloudKitImportOnColdRestore(
+            localOwnedActivityCount: localOwnedActivityCount,
+            localPreferredProfileExists: localPreferredMatchesAppleID,
+            storeActivityCount: storeActivityCount
+        )
+        AppLaunchTimelineLog.splashRestoreBegan(
+            waitForCloudKit: waitForCloudKitImport,
+            storeActivityCount: storeActivityCount,
+            localOwnedActivityCount: localOwnedActivityCount
+        )
+
+        var healedRows = 0
         if let attached = try? await attachSessionProfile(
             preferredProfileID: preferredID,
             appleUserIdentifier: appleID,
             fallbackContext: context,
-            waitForCloudKitImport: true,
-            importTimeoutSeconds: launchWait
+            waitForCloudKitImport: waitForCloudKitImport,
+            importTimeoutSeconds: AccountSessionProfileResolution.launchImportTimeoutSeconds
         ) {
             persistSession(profile: attached)
             _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+            // Adopt nil-owner + missing-profile UUID rows before Home mounts (do not wait for
+            // totalOwnedActivityCount > 0 — that chicken-and-egg left Home empty forever).
+            if let owner = currentProfile {
+                healedRows = (try? AccountSessionLocalOwnershipHealing.healIfNeeded(
+                    for: owner,
+                    modelContext: context
+                )) ?? 0
+                if healedRows > 0 {
+                    AppLaunchTimelineLog.homeOwnershipHealed(rowCount: healedRows)
+                }
+            }
+            if let refreshed = try? await attachSessionProfile(
+                preferredProfileID: preferredID,
+                appleUserIdentifier: appleID,
+                fallbackContext: context,
+                waitForCloudKitImport: false
+            ) {
+                persistSession(profile: refreshed)
+                _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+            }
         } else {
             currentProfile = nil
         }
+
+        let ownedAfterRestore: Int = {
+            guard let ownerID = currentProfile?.id else { return 0 }
+            return (try? context.fetchCount(
+                FetchDescriptor<DiveActivity>(predicate: #Predicate { $0.ownerProfileID == ownerID })
+            )) ?? 0
+        }()
+        AppLaunchTimelineLog.splashRestoreEnded(
+            attached: currentProfile != nil,
+            ownedDiveCount: ownedAfterRestore,
+            healedRowCount: healedRows
+        )
 
         let profileIDForDeferred = currentProfile?.id ?? preferredID
         Task { @MainActor in
@@ -174,6 +245,14 @@ final class AccountSession {
             context.processPendingChanges()
             _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
 
+            // Heal before counting — nil-owner / missing-profile rows never increment owned totals.
+            if let owner = currentProfile {
+                _ = try? AccountSessionLocalOwnershipHealing.healIfNeeded(
+                    for: owner,
+                    modelContext: context
+                )
+            }
+
             let totalForAppleID = AccountSessionProfileResolution.totalOwnedActivityCount(
                 appleUserIdentifier: appleID,
                 modelContext: context
@@ -188,15 +267,7 @@ final class AccountSession {
                     persistSession(profile: attached)
                     _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
                     if let owner = currentProfile {
-                        _ = try? DiveActivityOwnership.claimUnownedDives(
-                            for: owner,
-                            modelContext: context
-                        )
-                        _ = try? SnorkelActivityOwnership.claimUnownedSnorkels(
-                            for: owner,
-                            modelContext: context
-                        )
-                        _ = try? DiveBuddyOwnership.claimUnownedBuddies(
+                        _ = try? AccountSessionLocalOwnershipHealing.healIfNeeded(
                             for: owner,
                             modelContext: context
                         )
@@ -731,6 +802,7 @@ final class AccountSession {
         celebrationFollowsBulkImport = false
         pendingICloudDiveLogReconnectOnNextLaunch = false
         pendingNewAccountPermissions = false
+        isHomeLaunchChromeReady = false
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
         GoDiveFirestoreUserProfileMapping.clearCachedFirebaseUID()

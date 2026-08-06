@@ -46,6 +46,8 @@ enum ActivityDeleteSuccessPresentation: Sendable {
             switch route {
             case .diveDetail(let id), .diveMedia(diveID: let id, mediaID: _):
                 return id != activityID
+            case .ownedSharedActivity(let id, _, _):
+                return id != activityID
             default:
                 return true
             }

@@ -6,9 +6,16 @@ struct DiveActivityEditableRow: View {
     let value: String
     var showsLabel: Bool = true
     var signaturePreviewData: Data?
+    /// When non-empty (or `highlightMentions` is true), `@mentions` in `value` use mention color.
+    var mentionDisplayNames: [String] = []
+    var highlightMentions: Bool = false
 
     private var showsSignaturePreview: Bool {
         DiveSignatureDataFormatting.hasDisplayableContent(signaturePreviewData)
+    }
+
+    private var shouldHighlightMentions: Bool {
+        highlightMentions || !mentionDisplayNames.isEmpty
     }
 
     var body: some View {
@@ -20,6 +27,12 @@ struct DiveActivityEditableRow: View {
             }
             if showsSignaturePreview, let signaturePreviewData {
                 DiveSignaturePreview(data: signaturePreviewData)
+            } else if shouldHighlightMentions {
+                GoDiveMentionText(
+                    text: value,
+                    knownDisplayNames: mentionDisplayNames,
+                    font: .body
+                )
             } else {
                 Text(value)
                     .font(.body)

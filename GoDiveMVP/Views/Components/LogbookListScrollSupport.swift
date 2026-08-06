@@ -352,9 +352,91 @@ extension View {
     }
 
     /// Pull-to-refresh on Activity Log **Buddy Feed** (list, empty, and initial loading scroll surfaces).
-    func logbookBuddyFeedPullToRefresh(action: @escaping () async -> Void) -> some View {
-        refreshable {
-            await action()
+    /// Shows a small accent spinner under the logbook header while Firebase reloads the feed.
+    func logbookBuddyFeedPullToRefresh(
+        topInset: CGFloat = 0,
+        action: @escaping () async -> Void
+    ) -> some View {
+        modifier(LogbookBuddyFeedPullToRefreshModifier(topInset: topInset, action: action))
+    }
+}
+
+/// Pull-to-refresh chrome for Buddy Feed — system pull gesture + visible in-flight spinner.
+/// Keeps the feed locked (and the system refresh offset held) until the Firebase reload
+/// and minimum hold finish, then releases scroll.
+private struct LogbookBuddyFeedPullToRefreshModifier: ViewModifier {
+    let topInset: CGFloat
+    let action: () async -> Void
+
+    @State private var isRefreshing = false
+
+    func body(content: Content) -> some View {
+        content
+            // Hold the list still while the spinner runs; re-enable when refresh completes.
+            .scrollDisabled(isRefreshing)
+            .refreshable {
+                await performRefresh()
+            }
+            .overlay(alignment: .top) {
+                if isRefreshing {
+                    GoDiveRotateLoadingIndicator(
+                        accessibilityLabel: LogbookBuddyFeedPullToRefreshPresentation.spinnerAccessibilityLabel,
+                        accessibilityIdentifier:
+                            LogbookBuddyFeedPullToRefreshPresentation.spinnerAccessibilityIdentifier
+                    )
+                        .padding(.top, topInset + LogbookBuddyFeedPullToRefreshPresentation.spinnerTopPadding)
+                        .transition(
+                            .opacity.combined(
+                                with: .scale(
+                                    scale: LogbookBuddyFeedPullToRefreshPresentation.spinnerAppearScale
+                                )
+                            )
+                        )
+                }
+            }
+            .animation(
+                .easeInOut(duration: LogbookBuddyFeedPullToRefreshPresentation.spinnerAnimationDuration),
+                value: isRefreshing
+            )
+    }
+
+    @MainActor
+    private func performRefresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        LogbookBuddyFeedPullToRefreshPresentation.playRefreshTriggeredHaptic()
+        defer { isRefreshing = false }
+
+        let startedAt = Date()
+        await action()
+        let elapsed = Date().timeIntervalSince(startedAt)
+        let remaining = LogbookBuddyFeedPullToRefreshPresentation.minimumHoldDurationSeconds - elapsed
+        if remaining > 0 {
+            try? await Task.sleep(for: .seconds(remaining))
         }
+    }
+}
+
+/// Tokens for Buddy Feed pull-to-refresh in-flight chrome.
+enum LogbookBuddyFeedPullToRefreshPresentation: Sendable {
+    nonisolated static let spinnerTopPadding: CGFloat = AppTheme.Spacing.sm
+    nonisolated static let spinnerAppearScale: CGFloat = 0.85
+    nonisolated static let spinnerAnimationDuration: TimeInterval = 0.2
+    /// Keep the pull / spinner visible at least this long before releasing the feed.
+    nonisolated static let minimumHoldDurationSeconds: TimeInterval = 0.55
+    nonisolated static let refreshHapticIntensity: CGFloat = 0.85
+    nonisolated static let symbolName = GoDiveRotateLoadingPresentation.symbolName
+    nonisolated static let symbolRotateSpeed = GoDiveRotateLoadingPresentation.rotateSpeed
+    nonisolated static let spinnerAccessibilityIdentifier = "Logbook.BuddyFeed.RefreshSpinner"
+    nonisolated static let spinnerAccessibilityLabel = "Refreshing buddy feed"
+
+    /// Light medium impact when the user crosses the pull-to-refresh threshold.
+    @MainActor
+    static func playRefreshTriggeredHaptic() {
+        #if canImport(UIKit)
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.prepare()
+        generator.impactOccurred(intensity: refreshHapticIntensity)
+        #endif
     }
 }

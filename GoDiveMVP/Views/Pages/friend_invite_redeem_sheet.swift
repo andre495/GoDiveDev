@@ -22,7 +22,7 @@ struct FriendInviteRedeemSheet: View {
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
             if isLoading {
-                ProgressView()
+                GoDiveRotateLoadingIndicator()
             } else if let errorMessage {
                 Text(errorMessage)
                     .font(.body)

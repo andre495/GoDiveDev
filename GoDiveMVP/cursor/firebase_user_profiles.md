@@ -85,7 +85,9 @@ Helpers: `GoDiveFirebaseAuthSession`, `GoDiveFirestoreUserProfileSync`, `GoDiveF
 |------------|---------|
 | `friendInvites/{token}` | QR / link invites (`fromUid`, status, expiry) |
 | `friendships/{sortedUidPair}` | Mutual friendship (`members`, `status`, `inviteToken`) |
-| `users/{uid}/sharedDives/{diveId}` | Friend-visible dive projections (notes/media opt-in) |
+| `users/{uid}/sharedDives/{diveId}` | Friend-visible dive projections (notes/media opt-in); CF-owned `likeCount` / `commentCount` |
+| `users/{uid}/sharedDives/{diveId}/likes/{likerUid}` | Friend likes (create/delete own); owner push via `notifyBuddyActivityLiked` |
+| `users/{uid}/sharedDives/{diveId}/comments/{commentId}` | Owner/friend comments; owner push via `notifyBuddyActivityCommented` |
 | Storage `users/{uid}/sharedMedia/...` | Opt-in preview JPEGs |
 
 Client helpers: `GoDiveFriendGraphService`, `GoDiveSharedDiveProjectionSync`, `GoDiveFriendInviteURL` (`godive://invite/{token}` + `https://godiveios.com/invite/{token}`).

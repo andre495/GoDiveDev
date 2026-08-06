@@ -4,8 +4,14 @@ import SwiftUI
 struct FriendSharedLogbookView: View {
     let friend: GoDiveFriendGraphService.FriendEdge
 
-    @State private var dives: [GoDiveSharedDiveProjectionMapping.FriendVisibleDive] = []
+    @Environment(AccountSession.self) private var accountSession
+    @State private var rows: [LogbookBuddyFeedPresentation.Row] = []
     @State private var isLoading = true
+    @State private var avatarLookup: BuddyFeedAvatarLookup = .empty
+    /// Comment icon → push detail with comments sheet (caption still uses nested `NavigationLink`).
+    @State private var commentsDetailRow: LogbookBuddyFeedPresentation.Row?
+    /// “with” avatar tap → Map scrolled to tagged buddies.
+    @State private var taggedBuddiesDetailRow: LogbookBuddyFeedPresentation.Row?
 
     var body: some View {
         AppHeaderlessPage {
@@ -27,27 +33,30 @@ struct FriendSharedLogbookView: View {
                 .padding(.vertical, AppTheme.Spacing.sm)
 
                 if isLoading {
-                    ProgressView()
+                    GoDiveRotateLoadingIndicator()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if dives.isEmpty {
+                } else if rows.isEmpty {
                     emptyState
                 } else {
                     List {
-                        ForEach(dives) { dive in
-                            let row = LogbookBuddyFeedPresentation.Row(
-                                id: LogbookBuddyFeedPresentation.rowID(
-                                    friendUID: friend.friendUID,
-                                    diveDocumentID: dive.id
-                                ),
-                                friendUID: friend.friendUID,
-                                friendDisplayName: friend.displayName,
-                                friendPhotoURL: friend.photoURL,
-                                dive: dive
-                            )
-                            LogbookBuddyFeedNavigableTile(row: row) { isolatesHero in
+                        ForEach(rows) { row in
+                            LogbookBuddyFeedNavigableTile(
+                                row: row,
+                                avatarLookup: avatarLookup,
+                                onOpenFriendProfile: nil,
+                                onToggleLike: {
+                                    toggleLike(row)
+                                },
+                                onOpenComments: {
+                                    commentsDetailRow = row
+                                },
+                                onOpenTaggedBuddies: {
+                                    taggedBuddiesDetailRow = row
+                                }
+                            ) {
                                 NavigationLink {
                                     FriendSharedDiveDetailView(
-                                        dive: dive,
+                                        dive: row.dive,
                                         friendName: friend.displayName,
                                         friendPhotoURL: friend.photoURL,
                                         friendUID: friend.friendUID
@@ -55,7 +64,8 @@ struct FriendSharedLogbookView: View {
                                 } label: {
                                     LogbookBuddyFeedTileView(
                                         row: row,
-                                        part: isolatesHero ? .body : .full
+                                        part: .caption,
+                                        avatarLookup: avatarLookup
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -79,6 +89,24 @@ struct FriendSharedLogbookView: View {
         }
         .hidesBottomTabBarWhenPushed()
         .task { await load() }
+        .navigationDestination(item: $commentsDetailRow) { row in
+            FriendSharedDiveDetailView(
+                dive: row.dive,
+                friendName: friend.displayName,
+                friendPhotoURL: friend.photoURL,
+                friendUID: friend.friendUID,
+                opensCommentsOnAppear: true
+            )
+        }
+        .navigationDestination(item: $taggedBuddiesDetailRow) { row in
+            FriendSharedDiveDetailView(
+                dive: row.dive,
+                friendName: friend.displayName,
+                friendPhotoURL: friend.photoURL,
+                friendUID: friend.friendUID,
+                scrollToTaggedBuddiesOnAppear: true
+            )
+        }
         .accessibilityIdentifier("FriendSharedLogbook.Root")
     }
 
@@ -99,6 +127,63 @@ struct FriendSharedLogbookView: View {
     private func load() async {
         isLoading = true
         defer { isLoading = false }
-        dives = await GoDiveSharedDiveProjectionSync.fetchFriendSharedDives(friendUID: friend.friendUID)
+        let friends = (try? await GoDiveFriendGraphService.listFriendEdges()) ?? [friend]
+        avatarLookup = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: GoDiveFirebaseAuthSession.currentFirebaseUID(),
+            currentLocalProfilePhoto: accountSession.currentProfile?.profilePhoto,
+            friends: friends
+        )
+        let dives = await GoDiveSharedDiveProjectionSync.fetchFriendSharedDives(
+            friendUID: friend.friendUID
+        )
+        let baseRows = dives.map { dive in
+            LogbookBuddyFeedPresentation.Row(
+                id: LogbookBuddyFeedPresentation.rowID(
+                    friendUID: friend.friendUID,
+                    diveDocumentID: dive.id
+                ),
+                friendUID: friend.friendUID,
+                friendDisplayName: friend.displayName,
+                friendPhotoURL: friend.photoURL,
+                dive: dive
+            )
+        }
+        let likedRowIDs = await GoDiveSharedActivityLikeSync.likedRowIDsForCurrentUser(among: baseRows)
+        rows = LogbookBuddyFeedPresentation.enrichingRows(baseRows, likedRowIDs: likedRowIDs)
+    }
+
+    @MainActor
+    private func toggleLike(_ row: LogbookBuddyFeedPresentation.Row) {
+        guard let latest = rows.first(where: { $0.id == row.id }) else { return }
+        let nextLiked = !latest.currentUserHasLiked
+        let optimistic = LogbookBuddyFeedPresentation.rowApplyingLikeToggle(latest, liked: nextLiked)
+        rows = LogbookBuddyFeedPresentation.replacingRow(optimistic, in: rows)
+        let displayName = accountSession.currentProfile?.displayName ?? "A dive buddy"
+        let ownerUID = latest.friendUID
+        let activityID = latest.dive.id
+        let rowID = latest.id
+        Task { @MainActor in
+            let succeeded = await GoDiveSharedActivityLikeSync.setLiked(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                liked: nextLiked,
+                likerDisplayName: displayName
+            )
+            guard let current = rows.first(where: { $0.id == rowID }) else { return }
+            if !succeeded {
+                if current.currentUserHasLiked == nextLiked {
+                    rows = LogbookBuddyFeedPresentation.replacingRow(latest, in: rows)
+                }
+                return
+            }
+            if current.currentUserHasLiked != nextLiked {
+                _ = await GoDiveSharedActivityLikeSync.setLiked(
+                    ownerUID: ownerUID,
+                    activityID: activityID,
+                    liked: current.currentUserHasLiked,
+                    likerDisplayName: displayName
+                )
+            }
+        }
     }
 }

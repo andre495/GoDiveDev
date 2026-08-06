@@ -120,7 +120,7 @@ struct DiveMarineLifeTagPickerSheet: View {
     @ViewBuilder
     private var pickerContent: some View {
         if !hasLoadedCatalog, catalog.isEmpty {
-            ProgressView()
+            GoDiveRotateLoadingIndicator()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if catalog.isEmpty {
             ContentUnavailableView(

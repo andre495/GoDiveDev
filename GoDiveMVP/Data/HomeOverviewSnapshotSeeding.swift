@@ -36,37 +36,158 @@ struct HomeOverviewBuildInput: Sendable {
     let referenceDate: Date
 }
 
+/// Result of the ms-scale Home launch capture (stats + media index seeds; no JPEG objects).
+struct HomeOverviewLaunchCapture: Sendable {
+    let input: HomeOverviewBuildInput
+    let mediaPhotoSeeds: [HomeOverviewMediaPhotoSeed]
+}
+
 /// Main-actor capture of owner dive relationships into Sendable Home build inputs.
 enum HomeOverviewSnapshotSeeding {
+    /// Cold-launch capture — scalar dives + denormalized buddy/trip/media **index** (no sighting walks, no JPEG retain).
+    @MainActor
+    static func captureLaunch(
+        activities: [DiveActivity],
+        buddyRoster: [DiveBuddy],
+        automaticallyRenumberDives: Bool,
+        displayUnits: DiveDisplayUnitSystem,
+        ownerProfileID: UUID?,
+        ownerProfile: UserProfile?,
+        modelContext: ModelContext,
+        referenceDate: Date = .now
+    ) -> HomeOverviewLaunchCapture {
+        let selfBuddyID = resolveSelfBuddyID(ownerProfile: ownerProfile, modelContext: modelContext)
+        let ownerDiveIDs = Set(activities.map(\.id))
+        let tripMaps = HomeDiveScalarSeeding.tripMaps(activities: activities, modelContext: modelContext)
+        let siteMaps = HomeDiveScalarSeeding.siteMaps(from: activities)
+        let activitySeeds = HomeDiveScalarSeeding.activitySeeds(
+            from: activities,
+            tripIDByActivityID: tripMaps.tripIDByActivityID
+        )
+        let buddyTagSeeds = HomeDiveScalarSeeding.buddyTagSeeds(
+            ownerDiveIDs: ownerDiveIDs,
+            activities: activities,
+            buddyRoster: buddyRoster,
+            modelContext: modelContext
+        )
+
+        // Media index is loaded after stats paint (see **`buildLaunchAsync`**) so JPEG/relationship
+        // fallback never blocks lifetime stats.
+        let input = HomeOverviewBuildInput(
+            activitySeeds: activitySeeds,
+            tripSeeds: tripMaps.tripSeeds,
+            diveSiteIDByActivityID: siteMaps.diveSiteIDByActivityID,
+            linkedSiteDisplayNameByID: siteMaps.linkedSiteDisplayNameByID,
+            buddyTagSeeds: buddyTagSeeds,
+            mediaPhotoSeeds: [],
+            sightingSeeds: [],
+            mediaBuddyTagSeeds: [],
+            automaticallyRenumberDives: automaticallyRenumberDives,
+            displayUnits: displayUnits,
+            ownerProfileID: ownerProfileID,
+            selfBuddyID: selfBuddyID,
+            referenceDate: referenceDate
+        )
+        return HomeOverviewLaunchCapture(input: input, mediaPhotoSeeds: [])
+    }
+
+    /// Full capture on an explicit context — safe on a background **`ModelContext`** (Home enrich)
+    /// or the main context. Pass a pre-resolved **`selfBuddyID`**; do not resolve profiles here.
+    nonisolated static func capture(
+        activities: [DiveActivity],
+        commonNameByUUID: [String: String],
+        automaticallyRenumberDives: Bool,
+        displayUnits: DiveDisplayUnitSystem,
+        ownerProfileID: UUID?,
+        selfBuddyID: UUID?,
+        modelContext: ModelContext,
+        referenceDate: Date = .now,
+        buddyRoster: [DiveBuddy] = []
+    ) -> HomeOverviewBuildInput {
+        let ownerDiveIDs = Set(activities.map(\.id))
+
+        // Denormalized fetches — avoid faulting every dive’s sightings / media buddy tags.
+        let mediaPhotoSeeds = HomeDiveScalarSeeding.mediaPhotoSeeds(
+            ownerDiveIDs: ownerDiveIDs,
+            activities: activities,
+            modelContext: modelContext
+        )
+        let sightingSeeds = HomeDiveScalarSeeding.sightingSeeds(
+            ownerDiveIDs: ownerDiveIDs,
+            activities: activities,
+            commonNameByUUID: commonNameByUUID,
+            modelContext: modelContext
+        )
+        let mediaBuddyTagSeeds = HomeDiveScalarSeeding.mediaBuddyTagSeeds(
+            ownerDiveIDs: ownerDiveIDs,
+            activities: activities,
+            modelContext: modelContext
+        )
+        let tripMaps = HomeDiveScalarSeeding.tripMaps(activities: activities, modelContext: modelContext)
+        let siteMaps = HomeDiveScalarSeeding.siteMaps(from: activities)
+        let activitySeeds = HomeDiveScalarSeeding.activitySeeds(
+            from: activities,
+            tripIDByActivityID: tripMaps.tripIDByActivityID
+        )
+        let buddyTagSeeds = HomeDiveScalarSeeding.buddyTagSeeds(
+            ownerDiveIDs: ownerDiveIDs,
+            activities: activities,
+            buddyRoster: buddyRoster,
+            modelContext: modelContext
+        )
+
+        return HomeOverviewBuildInput(
+            activitySeeds: activitySeeds,
+            tripSeeds: tripMaps.tripSeeds,
+            diveSiteIDByActivityID: siteMaps.diveSiteIDByActivityID,
+            linkedSiteDisplayNameByID: siteMaps.linkedSiteDisplayNameByID,
+            buddyTagSeeds: buddyTagSeeds,
+            mediaPhotoSeeds: mediaPhotoSeeds,
+            sightingSeeds: sightingSeeds,
+            mediaBuddyTagSeeds: mediaBuddyTagSeeds,
+            automaticallyRenumberDives: automaticallyRenumberDives,
+            displayUnits: displayUnits,
+            ownerProfileID: ownerProfileID,
+            selfBuddyID: selfBuddyID,
+            referenceDate: referenceDate
+        )
+    }
+
+    /// Full capture including media / sightings / media buddy tags (tests / previews; main actor).
     @MainActor
     static func capture(
         activities: [DiveActivity],
-        marineLifeCatalog: [MarineLife],
+        commonNameByUUID: [String: String],
         automaticallyRenumberDives: Bool,
         displayUnits: DiveDisplayUnitSystem,
         ownerProfileID: UUID?,
         ownerProfile: UserProfile?,
         modelContext: ModelContext?,
-        referenceDate: Date = .now
+        referenceDate: Date = .now,
+        buddyRoster: [DiveBuddy] = []
     ) -> HomeOverviewBuildInput {
-        let selfBuddyID: UUID?
-        if let ownerProfile, let modelContext {
-            selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
-                owner: ownerProfile,
-                modelContext: modelContext
+        let selfBuddyID = resolveSelfBuddyID(ownerProfile: ownerProfile, modelContext: modelContext)
+        if let modelContext {
+            return capture(
+                activities: activities,
+                commonNameByUUID: commonNameByUUID,
+                automaticallyRenumberDives: automaticallyRenumberDives,
+                displayUnits: displayUnits,
+                ownerProfileID: ownerProfileID,
+                selfBuddyID: selfBuddyID,
+                modelContext: modelContext,
+                referenceDate: referenceDate,
+                buddyRoster: buddyRoster
             )
-        } else {
-            selfBuddyID = nil
         }
-
         let ownerDiveIDs = Set(activities.map(\.id))
-        var mediaPhotoSeeds: [HomeOverviewMediaPhotoSeed] = []
-        var sightingSeeds: [HomeOverviewSightingSeed] = []
-        var mediaBuddyTagSeeds: [HomeMediaHighlightBuddyTagInput] = []
 
+        var mediaSeeds: [HomeOverviewMediaPhotoSeed] = []
+        var sightings: [HomeOverviewSightingSeed] = []
+        var mediaBuddyTags: [HomeMediaHighlightBuddyTagInput] = []
         for activity in activities {
             for photo in activity.mediaPhotos {
-                mediaPhotoSeeds.append(
+                mediaSeeds.append(
                     HomeOverviewMediaPhotoSeed(
                         id: photo.id,
                         diveActivityID: photo.diveActivityID ?? activity.id,
@@ -76,23 +197,20 @@ enum HomeOverviewSnapshotSeeding {
                     )
                 )
             }
-
             for sighting in activity.marineLifeSightings {
-                let commonName = marineLifeCatalog.first(where: { $0.uuid == sighting.marineLifeUUID })?.commonName
-                    ?? sighting.marineLifeUUID
-                sightingSeeds.append(
+                let uuid = sighting.marineLifeUUID
+                sightings.append(
                     HomeOverviewSightingSeed(
                         mediaPhotoID: sighting.mediaPhotoID,
                         diveActivityID: sighting.diveActivityID ?? activity.id,
-                        marineLifeUUID: sighting.marineLifeUUID,
-                        commonName: commonName
+                        marineLifeUUID: uuid,
+                        commonName: commonNameByUUID[uuid] ?? uuid
                     )
                 )
             }
-
             for tag in activity.mediaBuddyTags {
                 guard let buddyID = tag.buddyID ?? tag.buddy?.id else { continue }
-                mediaBuddyTagSeeds.append(
+                mediaBuddyTags.append(
                     HomeMediaHighlightBuddyTagInput(
                         mediaPhotoID: tag.mediaPhotoID,
                         diveActivityID: tag.diveActivityID ?? activity.id,
@@ -104,42 +222,30 @@ enum HomeOverviewSnapshotSeeding {
                 )
             }
         }
-
-        mediaPhotoSeeds.sort { lhs, rhs in
+        mediaSeeds.sort { lhs, rhs in
             if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
             return lhs.id.uuidString < rhs.id.uuidString
         }
-
-        mediaBuddyTagSeeds = mediaBuddyTagSeeds.filter { tag in
+        let mediaPhotoSeeds = mediaSeeds
+        let sightingSeeds = sightings
+        let mediaBuddyTagSeeds = mediaBuddyTags.filter { tag in
             guard let diveID = tag.diveActivityID else { return false }
             return ownerDiveIDs.contains(diveID)
         }
 
-        let diveSiteIDByActivityID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0.diveSiteID) })
-        var linkedSiteDisplayNameByID: [UUID: String] = [:]
-        for activity in activities {
-            guard let siteID = activity.diveSiteID else { continue }
-            if linkedSiteDisplayNameByID[siteID] != nil { continue }
-            if let resolved = activity.resolvedLinkedSite,
-               let name = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: resolved)
-                ?? DiveSiteFormValidation.sanitizedSiteName(resolved.siteName)
-            {
-                linkedSiteDisplayNameByID[siteID] = name
-                continue
-            }
-            if let imported = activity.siteName.flatMap(DiveSiteFormValidation.sanitizedSiteName)
-                ?? activity.resolvedSiteName.flatMap(DiveSiteFormValidation.sanitizedSiteName)
-            {
-                linkedSiteDisplayNameByID[siteID] = imported
-            }
-        }
+        // Tests / previews without a live context — fall back to legacy relationship capture.
+        let tripMaps: (tripIDByActivityID: [UUID: UUID], tripSeeds: [LogbookTripSnapshotSeed]) =
+            ([:], LogbookTripSnapshotSeeding.tripSeeds(from: activities))
+        let siteMaps = HomeDiveScalarSeeding.siteMaps(from: activities)
+        let activitySeeds = LogbookActivitySnapshotSeeding.seeds(from: activities)
+        let buddyTagSeeds = HomeBuddyLeaderboardSeeding.tagInputs(from: activities)
 
         return HomeOverviewBuildInput(
-            activitySeeds: LogbookActivitySnapshotSeeding.seeds(from: activities),
-            tripSeeds: LogbookTripSnapshotSeeding.tripSeeds(from: activities),
-            diveSiteIDByActivityID: diveSiteIDByActivityID,
-            linkedSiteDisplayNameByID: linkedSiteDisplayNameByID,
-            buddyTagSeeds: HomeBuddyLeaderboardSeeding.tagInputs(from: activities),
+            activitySeeds: activitySeeds,
+            tripSeeds: tripMaps.tripSeeds,
+            diveSiteIDByActivityID: siteMaps.diveSiteIDByActivityID,
+            linkedSiteDisplayNameByID: siteMaps.linkedSiteDisplayNameByID,
+            buddyTagSeeds: buddyTagSeeds,
             mediaPhotoSeeds: mediaPhotoSeeds,
             sightingSeeds: sightingSeeds,
             mediaBuddyTagSeeds: mediaBuddyTagSeeds,
@@ -148,6 +254,18 @@ enum HomeOverviewSnapshotSeeding {
             ownerProfileID: ownerProfileID,
             selfBuddyID: selfBuddyID,
             referenceDate: referenceDate
+        )
+    }
+
+    @MainActor
+    private static func resolveSelfBuddyID(
+        ownerProfile: UserProfile?,
+        modelContext: ModelContext?
+    ) -> UUID? {
+        guard let ownerProfile, let modelContext else { return nil }
+        return DiveBuddySelfRepresentation.resolveSelfBuddyID(
+            owner: ownerProfile,
+            modelContext: modelContext
         )
     }
 }

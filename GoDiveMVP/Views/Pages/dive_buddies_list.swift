@@ -72,7 +72,7 @@ struct DiveBuddiesListView: View {
             content: {
             if showsLoadingChrome {
                 AppScrollUnderHeaderEmptyState {
-                    ProgressView()
+                    GoDiveRotateLoadingIndicator()
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, AppTheme.Spacing.lg)
                 }
@@ -432,7 +432,7 @@ private struct BuddiesListRowView: View {
         Button(action: onInvite) {
             Group {
                 if isInviting {
-                    ProgressView()
+                    GoDiveRotateLoadingIndicator()
                         .controlSize(.mini)
                 } else {
                     Text(BuddiesListPresentation.inviteButtonTitle)
@@ -460,38 +460,39 @@ private struct BuddiesListAvatarView: View {
         GoDiveUserAvatarPinPresentation.showsGoDiveUserPin(isFriend: row.isFriend)
     }
 
-    var body: some View {
-        avatarContent
-            .frame(width: diameter, height: diameter)
-            .clipShape(Circle())
-            .overlay {
-                if row.buddy == nil {
-                    ProfileAvatarChrome.accentRingOverlay(diameter: diameter)
-                }
-            }
-            .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: diameter)
-    }
-
     @ViewBuilder
-    private var avatarContent: some View {
+    var body: some View {
         if let buddy = row.buddy {
-            ProfileAvatarView(
-                profilePhoto: buddy.profilePhoto,
-                diameter: diameter,
-                iconFont: .title3,
-                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
+            let sources = DiveBuddyAvatarChipPresentation.sources(
+                for: buddy,
+                lookup: BuddyFeedAvatarLookup.make(
+                    currentFirebaseUID: nil,
+                    currentLocalProfilePhoto: nil,
+                    friends: row.friendEdge.map { [$0] } ?? []
+                )
             )
-        } else if let urlString = row.friendEdge?.photoURL, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    friendInitialsPlaceholder
-                }
-            }
+            FriendSharedMapOwnerAvatarView(
+                displayName: buddy.displayName,
+                photoURL: sources.photoURL ?? row.friendEdge?.photoURL,
+                diameter: diameter,
+                showsGoDiveUserPin: showsGoDiveUserPin,
+                localProfilePhoto: sources.localProfilePhoto
+            )
+        } else if let urlString = row.friendEdge?.photoURL {
+            FriendSharedMapOwnerAvatarView(
+                displayName: row.displayName,
+                photoURL: urlString,
+                diameter: diameter,
+                showsGoDiveUserPin: showsGoDiveUserPin
+            )
         } else {
             friendInitialsPlaceholder
+                .frame(width: diameter, height: diameter)
+                .clipShape(Circle())
+                .overlay {
+                    ProfileAvatarChrome.accentRingOverlay(diameter: diameter)
+                }
+                .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: diameter)
         }
     }
 

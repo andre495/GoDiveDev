@@ -400,7 +400,7 @@ private struct CertificationCardPhotoPickerRowContent: View {
             }
             Spacer(minLength: 0)
             if showsScanningIndicator {
-                ProgressView()
+                GoDiveRotateLoadingIndicator(size: .compact)
                     .accessibilityHidden(true)
             }
         }

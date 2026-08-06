@@ -28,7 +28,7 @@ struct FriendInviteShareSheet: View {
                             .frame(width: qrSize, height: qrSize)
                             .accessibilityLabel("Friend invite QR code")
                     } else {
-                        ProgressView()
+                        GoDiveRotateLoadingIndicator(size: .compact)
                             .frame(width: qrSize, height: qrSize)
                             .accessibilityLabel("Generating friend invite QR code")
                     }

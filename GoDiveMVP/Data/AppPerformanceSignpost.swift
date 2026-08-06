@@ -10,7 +10,10 @@ enum AppPerformanceSignpost {
 
     enum Interval: String {
         case launchContainerLoad = "LaunchContainerLoad"
+        case launchSessionRestore = "LaunchSessionRestore"
         case launchSessionValidation = "LaunchSessionValidation"
+        case launchEssentialMaintenance = "LaunchEssentialMaintenance"
+        case launchMarineLifeSeed = "LaunchMarineLifeSeed"
         case homeOverviewRebuild = "HomeOverviewRebuild"
         case homeOverviewCompute = "HomeOverviewCompute"
         case tripDetailContentRebuild = "TripDetailContentRebuild"

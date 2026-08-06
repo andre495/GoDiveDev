@@ -27,4 +27,7 @@ enum BlueSheetTopChromePresentation: Sendable {
 
     /// Home **`AppHeader`** trailing profile control — ~**20%** larger than the original **48** pt chrome avatar.
     nonisolated static let homeProfileAvatarDiameter: CGFloat = 48 * 1.2
+
+    /// Home hero chrome must not claim empty header hits — carousel pans under the wordmark band.
+    nonisolated static let homeHeaderBlocksHitsInEmptyChrome = false
 }

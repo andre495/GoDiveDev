@@ -46,7 +46,7 @@ struct BuddiesListRosterBuddyDetailHost: View {
         if let buddy = buddies.first {
             ViewDiveBuddyDetails(buddy: buddy)
         } else {
-            ProgressView()
+            GoDiveRotateLoadingIndicator()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }

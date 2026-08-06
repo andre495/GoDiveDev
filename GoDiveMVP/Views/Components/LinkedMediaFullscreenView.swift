@@ -929,8 +929,7 @@ private struct LinkedMediaFullscreenLinkedDiveCover: View {
             } else if !hasResolvedActivity {
                 ZStack {
                     Color.black.ignoresSafeArea()
-                    ProgressView()
-                        .tint(.white)
+                    GoDiveRotateLoadingIndicator(size: .compact, tint: .white)
                 }
             } else {
                 ZStack {

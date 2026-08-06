@@ -4,6 +4,18 @@ import Foundation
 /// Read-only presentation helpers for friend-visible activity detail (dives + snorkels).
 enum FriendSharedActivityDetailPresentation: Sendable {
 
+    /// Large-detent **Map** panel blocks under the stats box (social before shared content).
+    enum MapLargeDetentDetailsBlock: String, CaseIterable, Sendable, Equatable {
+        case social
+        case readOnlySections
+    }
+
+    /// Like / comment / compose, then notes / marine life / buddies (and other read-only sections).
+    nonisolated static let mapLargeDetentDetailsBlockOrder: [MapLargeDetentDetailsBlock] = [
+        .social,
+        .readOnlySections,
+    ]
+
     struct SnorkelDerivedSnapshot: Sendable, Equatable {
         var heartRateSamples: [SnorkelHeartRateProfileSample]
         var trackCoordinates: [DiveCoordinate]
@@ -290,14 +302,18 @@ enum FriendSharedActivityDetailPresentation: Sendable {
         var id: String
         var displayName: String
         var profilePhoto: Data?
+        /// Friend Storage URL when local JPEG is missing (`linkedPhotoURL` / friend graph).
+        var photoURL: String?
         var showsGoDiveUserPin: Bool
     }
 
     /// Maps shared **`taggedBuddies`** to display rows, substituting local name/photo when
-    /// **`linkedFirebaseUID`** matches a roster buddy on this device.
+    /// **`linkedFirebaseUID`** matches a roster buddy on this device. Falls back to
+    /// **`linkedPhotoURL`** / **`avatarLookup`** so linked GoDive friends still show avatars.
     nonisolated static func mapTaggedBuddyDisplayRows(
         from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
-        localRoster: [DiveBuddy]
+        localRoster: [DiveBuddy],
+        avatarLookup: BuddyFeedAvatarLookup = .empty
     ) -> [TaggedBuddyDisplayRow] {
         let rosterByLinkedUID = Dictionary(
             localRoster.compactMap { buddy -> (String, DiveBuddy)? in
@@ -314,10 +330,15 @@ enum FriendSharedActivityDetailPresentation: Sendable {
             let uid = tagged.firebaseUID?.trimmingCharacters(in: .whitespacesAndNewlines)
             let isGoDiveUser = uid.map { !$0.isEmpty } ?? false
             if let uid, !uid.isEmpty, let localBuddy = rosterByLinkedUID[uid] {
+                let sources = DiveBuddyAvatarChipPresentation.sources(
+                    for: localBuddy,
+                    lookup: avatarLookup
+                )
                 return TaggedBuddyDisplayRow(
                     id: uid,
                     displayName: localBuddy.displayName,
-                    profilePhoto: localBuddy.profilePhoto,
+                    profilePhoto: sources.localProfilePhoto,
+                    photoURL: sources.photoURL,
                     showsGoDiveUserPin: true
                 )
             }
@@ -327,10 +348,17 @@ enum FriendSharedActivityDetailPresentation: Sendable {
             } else {
                 rowID = sharedName
             }
+            let sources = DiveBuddyAvatarChipPresentation.sources(
+                profilePhoto: nil,
+                linkedPhotoURL: nil,
+                firebaseUID: uid,
+                lookup: avatarLookup
+            )
             return TaggedBuddyDisplayRow(
                 id: rowID,
                 displayName: sharedName,
-                profilePhoto: nil,
+                profilePhoto: sources.localProfilePhoto,
+                photoURL: sources.photoURL,
                 showsGoDiveUserPin: isGoDiveUser
             )
         }

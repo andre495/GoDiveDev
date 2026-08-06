@@ -111,7 +111,7 @@ From **Home**, tap your avatar (top of the screen) to open **Profile**:
 
 - Buddy-style blue sheet: your tagged media in the header, photo on the seam  
 - Name and dive count beside your avatar  
-- Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies**)  
+- Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies** or the dive-count / bottom-time summary line)  
 - Sheet **Details** page: DAN insurance number and featured certification (tap the cert to open it; **View all certifications** when you have more than one)  
 - Tap the blue **⋯** beside your name to **Edit Profile**. Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, and **Settings**. **Sign Out** is under **Settings → Advanced**.  
 - Change your photo by tapping the avatar on Profile

@@ -88,7 +88,13 @@ struct DiveActivityEditableSectionsView: View {
     }
 
     private func row(for fieldID: DiveActivityEditableFieldID) -> some View {
-        DiveActivityEditableRow(
+        let isNotes = fieldID == .notes
+        let mentionNames: [String] = isNotes
+            ? GoDiveMentionPresentation.knownDisplayNames(
+                taggedBuddyNames: activity.buddies.compactMap { $0.buddy?.displayName }
+            )
+            : []
+        return DiveActivityEditableRow(
             label: DiveActivityEditableCatalog.label(for: fieldID),
             value: DiveActivityFieldEditing.displayValue(
                 for: fieldID,
@@ -96,8 +102,10 @@ struct DiveActivityEditableSectionsView: View {
                 displayUnits: displayUnits,
                 profileGasStats: profileGasStats
             ),
-            showsLabel: fieldID != .notes,
-            signaturePreviewData: fieldID == .diveSignature ? activity.diveSignatureData : nil
+            showsLabel: !isNotes,
+            signaturePreviewData: fieldID == .diveSignature ? activity.diveSignatureData : nil,
+            mentionDisplayNames: mentionNames,
+            highlightMentions: isNotes
         )
         .accessibilityIdentifier("DiveOverview.Field.\(fieldID.rawValue)")
     }

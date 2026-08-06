@@ -18,6 +18,7 @@ struct DiveDepthProfileChart: View {
     @State private var scrubHoldTask: Task<Void, Never>?
     @State private var scrubActive = false
     @State private var scrubSampleIndex: Int?
+    @State private var scrubHaptic = ProfileChartScrubHapticPlayer()
 
     var body: some View {
         GeometryReader { geo in
@@ -57,6 +58,7 @@ struct DiveDepthProfileChart: View {
                 clearScrubState()
             }
         }
+        .modifier(DiveDepthProfileChartDarkAppearance())
     }
 
     private var chartMaxElapsed: Double {
@@ -175,18 +177,26 @@ struct DiveDepthProfileChart: View {
                         guard !Task.isCancelled else { return }
                         guard let current = fingerLocationInChart else { return }
                         scrubActive = true
-                        scrubSampleIndex = nearestSampleIndex(location: current, rect: rect, maxElapsed: maxElapsed)
-                        notifyScrubSampleIfNeeded()
+                        applyScrubSampleIndex(
+                            nearestSampleIndex(location: current, rect: rect, maxElapsed: maxElapsed)
+                        )
                     }
                 } else if scrubActive {
-                    scrubSampleIndex = nearestSampleIndex(location: loc, rect: rect, maxElapsed: maxElapsed)
-                    notifyScrubSampleIfNeeded()
+                    applyScrubSampleIndex(
+                        nearestSampleIndex(location: loc, rect: rect, maxElapsed: maxElapsed)
+                    )
                 }
             }
             .onEnded { _ in
                 cancelScrubHoldTask()
                 clearScrubState()
             }
+    }
+
+    private func applyScrubSampleIndex(_ index: Int) {
+        scrubSampleIndex = index
+        scrubHaptic.playIfNeeded(forSampleIndex: index)
+        notifyScrubSampleIfNeeded()
     }
 
     private func cancelScrubHoldTask() {
@@ -198,6 +208,7 @@ struct DiveDepthProfileChart: View {
         fingerLocationInChart = nil
         scrubActive = false
         scrubSampleIndex = nil
+        scrubHaptic.reset()
         onScrubSampleChange?(nil)
     }
 

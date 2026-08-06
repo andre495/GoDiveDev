@@ -20,4 +20,4 @@ Example species IRI: `https://www.godiveios.com/marine-life/species/marine-life-
 ## In the app
 
 - Field Guide species pages show **Similar species** (on-device biology, plus community scores when you opt in).
-- Settings → **Contribute sightings to community** (off by default) shares anonymized SiteReports and tagged sightings for the scheduled similarity cache — never your name, photos, notes, or exact GPS.
+- Settings → **Contribute sightings to community** (on by default) shares anonymized SiteReports and tagged sightings for the scheduled similarity cache — never your name, photos, notes, or exact GPS.

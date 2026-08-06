@@ -8,6 +8,16 @@ enum LogbookBuddyFeedPresentation: Sendable {
         var friendDisplayName: String
         var friendPhotoURL: String?
         var dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+        /// Whether the signed-in viewer has liked this shared activity.
+        var currentUserHasLiked: Bool = false
+
+        var likeCount: Int {
+            dive.likeCount
+        }
+
+        var commentCount: Int {
+            dive.commentCount
+        }
     }
 
     /// One page in the Buddy Feed tile hero pager (featured media, depth chart / swim map, or placeholder).
@@ -169,7 +179,10 @@ enum LogbookBuddyFeedPresentation: Sendable {
                 || left.friendUID != right.friendUID
                 || left.friendDisplayName != right.friendDisplayName
                 || left.friendPhotoURL != right.friendPhotoURL
+                || left.currentUserHasLiked != right.currentUserHasLiked
                 || left.dive.id != right.dive.id
+                || left.dive.likeCount != right.dive.likeCount
+                || left.dive.commentCount != right.dive.commentCount
                 || left.dive.profileTrackBase64 != right.dive.profileTrackBase64
                 || left.dive.swimTrackBase64 != right.dive.swimTrackBase64
                 || left.dive.mediaItems != right.dive.mediaItems
@@ -306,6 +319,220 @@ enum LogbookBuddyFeedPresentation: Sendable {
         for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     ) -> String? {
         GoDiveSharedDiveProjectionMapping.regionCountryDisplayLine(for: dive)
+    }
+
+    // MARK: - Social post chrome
+
+    /// Apple OK-hand emoji used as a mask for the tinted like control.
+    nonisolated static let likeEmoji = "👌"
+    nonisolated static let likeAccessibilityLabel = "Like"
+    nonisolated static let unlikeAccessibilityLabel = "Unlike"
+    nonisolated static let withTaggedDiversLabel = "with"
+    nonisolated static let maxVisibleTaggedBuddyAvatars = 4
+
+    /// Compact Instagram-style relative timestamp for the post header (`5m`, `2h`, `3d`, `2w`, or abbreviated date).
+    nonisolated static func postTimestampText(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> String? {
+        compactRelativeTimestamp(for: dive.startTime, now: now, calendar: calendar)
+    }
+
+    /// Compact relative timestamp (`5m`, `2h`, …) for comments and feed posts.
+    nonisolated static func compactRelativeTimestamp(
+        for date: Date?,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> String? {
+        guard let date else { return nil }
+        let seconds = now.timeIntervalSince(date)
+        if seconds < 0 {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        if seconds < 60 { return "now" }
+        if seconds < 3_600 {
+            return "\(Int(seconds / 60))m"
+        }
+        if seconds < 86_400 {
+            return "\(Int(seconds / 3_600))h"
+        }
+        if seconds < 86_400 * 7 {
+            return "\(Int(seconds / 86_400))d"
+        }
+        if seconds < 86_400 * 28 {
+            return "\(Int(seconds / (86_400 * 7)))w"
+        }
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            return date.formatted(.dateTime.month(.abbreviated).day())
+        }
+        return date.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    /// One-line activity verb under the friend name (e.g. "logged a dive").
+    nonisolated static func postActivityVerb(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> String {
+        switch dive.resolvedActivityKind {
+        case .scubaDive:
+            "logged a dive"
+        case .snorkel:
+            "logged a snorkel"
+        }
+    }
+
+    /// Trimmed shared notes for the post caption (nil when empty / not shared).
+    nonisolated static func postNotesPreview(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> String? {
+        guard let notes = dive.notes?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !notes.isEmpty
+        else { return nil }
+        return notes
+    }
+
+    /// Tagged divers shown on the Buddy Feed post ("with" row).
+    struct FeedTaggedBuddy: Equatable, Hashable, Sendable, Identifiable {
+        var id: String
+        var displayName: String
+        var firebaseUID: String?
+        /// Always **`false`** on Buddy Feed “with” chips (no GoDive pin).
+        var showsGoDiveUserPin: Bool
+    }
+
+    /// Buddy Feed “with” avatars never show the GoDive user pin.
+    nonisolated static let feedTaggedBuddyShowsGoDiveUserPin = false
+
+    /// Overview-panel scroll target for Map **Buddies** after tapping a feed “with” avatar.
+    nonisolated static let taggedBuddiesPanelScrollSectionID = "FriendSharedActivity.TaggedBuddies"
+
+    /// Delay after push so the Map large detent mounts before scrolling to Buddies.
+    nonisolated static let scrollToTaggedBuddiesAfterNavigationDelayMilliseconds = 320
+
+    nonisolated static func shouldScrollToTaggedBuddiesOnAppear(
+        scrollToTaggedBuddiesOnAppear: Bool,
+        alreadyConsumed: Bool
+    ) -> Bool {
+        scrollToTaggedBuddiesOnAppear && !alreadyConsumed
+    }
+
+    nonisolated static func feedTaggedBuddies(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> [FeedTaggedBuddy] {
+        dive.taggedBuddies.compactMap { tagged in
+            let name = tagged.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return nil }
+            let uid = tagged.firebaseUID?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedUID = (uid?.isEmpty == false) ? uid : nil
+            let id = resolvedUID ?? name
+            return FeedTaggedBuddy(
+                id: id,
+                displayName: name,
+                firebaseUID: resolvedUID,
+                showsGoDiveUserPin: feedTaggedBuddyShowsGoDiveUserPin
+            )
+        }
+    }
+
+    nonisolated static func visibleFeedTaggedBuddies(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> [FeedTaggedBuddy] {
+        Array(feedTaggedBuddies(for: dive).prefix(maxVisibleTaggedBuddyAvatars))
+    }
+
+    nonisolated static func overflowTaggedBuddyCount(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> Int {
+        max(0, feedTaggedBuddies(for: dive).count - maxVisibleTaggedBuddyAvatars)
+    }
+
+    /// First-name list for the "with" caption when few buddies are tagged (no overflow).
+    nonisolated static func withTaggedBuddyNamesLine(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> String? {
+        let buddies = feedTaggedBuddies(for: dive)
+        guard !buddies.isEmpty, buddies.count <= maxVisibleTaggedBuddyAvatars else { return nil }
+        let names = buddies.map { DiveBuddyPresentation.firstName(from: $0.displayName) }
+        switch names.count {
+        case 1:
+            return names[0]
+        case 2:
+            return "\(names[0]) & \(names[1])"
+        default:
+            let leading = names.dropLast().joined(separator: ", ")
+            return "\(leading) & \(names[names.count - 1])"
+        }
+    }
+
+    nonisolated static func likeAccessibilityLabel(isLiked: Bool) -> String {
+        isLiked ? unlikeAccessibilityLabel : likeAccessibilityLabel
+    }
+
+    /// Visible like tally next to the OK-hand control (`nil` when zero and not liked by the viewer).
+    nonisolated static func likeCountLabel(count: Int, isLikedByCurrentUser: Bool) -> String? {
+        let safe = max(0, count)
+        if safe == 0 { return isLikedByCurrentUser ? "1" : nil }
+        return "\(safe)"
+    }
+
+    nonisolated static let commentAccessibilityLabel = "Comments"
+    nonisolated static let commentSymbolName = "bubble.right"
+
+    /// Visible comment tally next to the comment control (`nil` when zero).
+    nonisolated static func commentCountLabel(count: Int) -> String? {
+        let safe = max(0, count)
+        return safe > 0 ? "\(safe)" : nil
+    }
+
+    /// Applies an optimistic comment-count delta after a successful local post (or delete).
+    nonisolated static func rowApplyingCommentCountDelta(_ row: Row, delta: Int) -> Row {
+        var next = row
+        var dive = row.dive
+        dive.commentCount = max(0, row.dive.commentCount + delta)
+        next.dive = dive
+        return next
+    }
+
+    /// Compact relative timestamp for a comment (`5m`, `2h`, …) — same rules as feed post times.
+    nonisolated static func commentTimestampText(
+        createdAt: Date?,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> String? {
+        compactRelativeTimestamp(for: createdAt, now: now, calendar: calendar)
+    }
+
+    /// Applies an optimistic like / unlike to a feed row (immediate tally).
+    nonisolated static func rowApplyingLikeToggle(_ row: Row, liked: Bool) -> Row {
+        var next = row
+        next.currentUserHasLiked = liked
+        var dive = row.dive
+        if liked, !row.currentUserHasLiked {
+            dive.likeCount = row.dive.likeCount + 1
+        } else if !liked, row.currentUserHasLiked {
+            dive.likeCount = max(0, row.dive.likeCount - 1)
+        }
+        next.dive = dive
+        return next
+    }
+
+    /// Merges server-known like docs into feed rows (`likedRowIDs` = `friendUID_activityID`).
+    nonisolated static func enrichingRows(
+        _ rows: [Row],
+        likedRowIDs: Set<String>
+    ) -> [Row] {
+        rows.map { row in
+            var next = row
+            next.currentUserHasLiked = likedRowIDs.contains(row.id)
+            return next
+        }
+    }
+
+    /// Replaces one row in the list after a like toggle (preserves order).
+    nonisolated static func replacingRow(_ row: Row, in rows: [Row]) -> [Row] {
+        rows.map { existing in
+            existing.id == row.id ? row : existing
+        }
     }
 
     /// Shared media with the owner's featured preview first when known.

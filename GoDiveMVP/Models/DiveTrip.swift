@@ -97,7 +97,7 @@ extension DiveTrip {
     }
 
     /// Resolved trip label for lists and headers.
-    var displayTitle: String {
+    nonisolated var displayTitle: String {
         let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !trimmed.isEmpty { return trimmed }
         let countryLine = countries

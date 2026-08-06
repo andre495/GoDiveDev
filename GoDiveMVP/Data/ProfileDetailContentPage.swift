@@ -24,6 +24,9 @@ enum ProfileDetailContentPagerPresentation: Sendable {
     /// Profile **Diver stats** shows lifetime tiles only — no Home **Top buddies** band.
     nonisolated static let showsBuddyLeaderboardOnDiverStats = false
 
+    /// Profile **Diver stats** omits the Home **X dives | X hr bottom time** line (dive count stays on the pinned identity row).
+    nonisolated static let showsLifetimeSummaryOnDiverStats = false
+
     nonisolated static let diverStatsPageTitle = "Diver stats"
     nonisolated static let detailsPageTitle = "Details"
     nonisolated static let danSectionTitle = "DAN insurance"

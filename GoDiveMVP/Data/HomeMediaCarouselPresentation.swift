@@ -184,9 +184,12 @@ enum HomeMediaCarouselPresentation: Sendable {
         return max(geometryHeight, 1)
     }
 
-    /// Open-media control on a scroll page must not be a full-bleed **`Button`** — that steals
-    /// the paging pan. Use **`onTapGesture`** (scroll wins on drag; tap still opens media).
+    /// Open-media must not be a full-bleed **`Button`** / per-page SwiftUI tap — those steal pans.
+    /// Production uses **`HomeMediaCarouselScrollTapInstaller`** on the paging scroll view.
     nonisolated static let usesTapGestureForOpenMediaOnScrollPage = true
+
+    /// SwiftUI fallback only when the UIKit installer is off.
+    nonisolated static let usesSimultaneousTapGestureForOpenMediaOnScrollPage = true
 
     /// Media band from screen top through the blue-sheet overlap to the hero floor (viewport coordinates).
     nonisolated static func featuredMediaBottomYFromTop(

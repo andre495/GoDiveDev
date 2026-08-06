@@ -73,7 +73,8 @@ struct ProfileDetailContentPager: View {
             unitSystem: unitSystem,
             onOpenLeaderboard: onOpenLeaderboard,
             onOpenBuddy: { _ in },
-            includesBuddyLeaderboard: ProfileDetailContentPagerPresentation.showsBuddyLeaderboardOnDiverStats
+            includesBuddyLeaderboard: ProfileDetailContentPagerPresentation.showsBuddyLeaderboardOnDiverStats,
+            includesLifetimeSummaryHeader: ProfileDetailContentPagerPresentation.showsLifetimeSummaryOnDiverStats
         )
         .id(lifetimeStatsContentFingerprint)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

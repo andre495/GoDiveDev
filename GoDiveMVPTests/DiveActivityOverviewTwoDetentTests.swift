@@ -90,4 +90,27 @@ import Testing
             #expect(DiveActivityOverviewDetent(presentationDetent: presentation) == detent)
         }
     }
+
+    @Test @MainActor func overviewPanelModal_usesActivityLargeDetentHeight() {
+        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let modal = DiveActivityOverviewDetent.overviewPanelModalLargePresentationDetent(
+            context: context
+        )
+        let activityLarge = DiveActivityOverviewDetent.large.presentationDetent(
+            screenHeight: context.layoutHeight,
+            screenWidth: context.screenWidth,
+            topSafeInset: context.topSafeInset,
+            bottomSafeInset: context.bottomSafeInset
+        )
+        #expect(modal == activityLarge)
+        #expect(
+            DiveActivityOverviewDetent(
+                presentationDetent: modal,
+                screenHeight: context.layoutHeight,
+                screenWidth: context.screenWidth,
+                topSafeInset: context.topSafeInset,
+                bottomSafeInset: context.bottomSafeInset
+            ) == .large
+        )
+    }
 }

@@ -18,10 +18,17 @@ struct ViewSingleSnorkelActivity: View {
 
     @Bindable var activity: SnorkelActivity
     var initialMediaFocusID: UUID? = nil
+    /// Comment push deep link — present the comments sheet once after Map social mounts.
+    var opensCommentsOnAppear: Bool = false
 
-    init(activity: SnorkelActivity, initialMediaFocusID: UUID? = nil) {
+    init(
+        activity: SnorkelActivity,
+        initialMediaFocusID: UUID? = nil,
+        opensCommentsOnAppear: Bool = false
+    ) {
         self._activity = Bindable(wrappedValue: activity)
         self.initialMediaFocusID = initialMediaFocusID
+        self.opensCommentsOnAppear = opensCommentsOnAppear
         _pendingInitialMediaFocusID = State(initialValue: initialMediaFocusID)
         if initialMediaFocusID != nil {
             _selectedActivityTab = State(initialValue: .camera)
@@ -31,6 +38,7 @@ struct ViewSingleSnorkelActivity: View {
         }
     }
 
+    @State private var didConsumeOpenCommentsOnAppear = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
@@ -548,7 +556,9 @@ struct ViewSingleSnorkelActivity: View {
             linkedCatalogSiteID: activity.diveSiteID,
             onOpenLinkedSite: openLinkedDiveSiteOverview,
             regionCountryLine: overviewMapHeaderRegionCountryLine,
-            onEditNotes: { showsMapNotesEditSheet = true }
+            onEditNotes: { showsMapNotesEditSheet = true },
+            opensCommentsOnAppear: opensCommentsOnAppear && !didConsumeOpenCommentsOnAppear,
+            onOpenCommentsOnAppearConsumed: { didConsumeOpenCommentsOnAppear = true }
         )
     }
 

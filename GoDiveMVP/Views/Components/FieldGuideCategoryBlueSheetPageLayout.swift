@@ -122,7 +122,7 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
     @State private var isHeaderCollapsed = false
 
     var body: some View {
-        AppHeaderlessPage {
+        AppHeaderlessPage(showsScreenBackgroundGradient: false) {
             GeometryReader { proxy in
                 let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
                 let listTopInset = AppScrollUnderHeaderListLayout.listTopInset(
@@ -133,11 +133,8 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
                     safeAreaBottom: proxy.safeAreaInsets.bottom
                 )
 
+                // Bubbles come from Field Guide’s single tab-level layer (transparent page).
                 ZStack(alignment: .top) {
-                    if !GoDiveUITestConfiguration.isActive {
-                        WaterBubbleBackground()
-                    }
-
                     List {
                         Color.clear
                             .frame(height: listTopInset)
@@ -208,6 +205,7 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
                 if height > 0 { headerClearance = height }
             }
         }
+        .containerBackground(.clear, for: .navigation)
         .toolbar(.hidden, for: .navigationBar)
         .accessibilityIdentifier(accessibilityRootIdentifier)
     }

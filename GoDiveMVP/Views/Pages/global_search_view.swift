@@ -233,7 +233,10 @@ struct GlobalSearchView: View {
 
     private func genericSearchPage(safeAreaTop: CGFloat, containerWidth: CGFloat) -> some View {
         ZStack(alignment: .top) {
-            ProfileBubbleBackgroundLayer(animationPaused: areIdleBubblesPaused)
+            ProfileBubbleBackgroundLayer(
+                animationPaused: areIdleBubblesPaused,
+                diagnosticsLabel: "Search"
+            )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             GlobalSearchContextTokensView(

@@ -173,7 +173,7 @@ enum SettingsPresentation: Sendable {
     enum ContributeCommunitySightings {
         nonisolated static let title = "Contribute sightings to community"
         nonisolated static let infoMessage =
-            "When on, GoDive shares anonymized marine-life sightings (species, dive site id, depth, time of day, and date — not your name, photos, notes, or exact GPS) with the community similarity graph. Similar species rankings update on a schedule, not every tag. Off by default; requires a GoDive social sign-in."
+            "When on, GoDive shares anonymized marine-life sightings (species, dive site id, depth, time of day, and date — not your name, photos, notes, or exact GPS) with the community similarity graph. Similar species rankings update on a schedule, not every tag. On by default; requires a GoDive social sign-in. Turn off anytime to stop contributing."
     }
 
     enum Notifications {

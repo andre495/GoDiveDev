@@ -32,7 +32,7 @@ struct ExploreDiveSiteDetailHost: View {
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .padding()
             } else {
-                ProgressView()
+                GoDiveRotateLoadingIndicator()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }

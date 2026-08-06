@@ -89,7 +89,7 @@ When **on**, full-quality shared photos and videos **upload** only on Wi‑Fi. T
 
 ### Contribute sightings to community
 
-When **on**, GoDive may share **anonymized** marine-life sightings and per-activity site reports (species, dive-site id, depth, time of day, date, and conditions — **not** your name, photos, notes, or exact GPS) so the community similarity graph can improve Field Guide **Similar species**. **Off** by default. Requires a GoDive social sign-in. Turning it **on** can backfill your existing activities; turning it **off** removes your contributions from the community mirror.
+When **on**, GoDive may share **anonymized** marine-life sightings and per-activity site reports (species, dive-site id, depth, time of day, date, and conditions — **not** your name, photos, notes, or exact GPS) so the community similarity graph can improve Field Guide **Similar species**. **On** by default. Requires a GoDive social sign-in. Turning it **on** can backfill your existing activities; turning it **off** removes your contributions from the community mirror.
 
 ## Notifications
 

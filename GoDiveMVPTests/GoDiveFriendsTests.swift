@@ -1024,6 +1024,830 @@ struct GoDiveFriendsTests {
         )
     }
 
+    @Test func buddyFeed_postTimestampText_formatsCompactRelativeUnits() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        func dive(start: Date) -> GoDiveSharedDiveProjectionMapping.FriendVisibleDive {
+            GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+                id: "ts",
+                activityKind: .scubaDive,
+                startTime: start,
+                durationMinutes: nil,
+                maxDepthMeters: nil,
+                averageDepthMeters: nil,
+                diveNumber: nil,
+                siteName: "Reef",
+                locationName: nil,
+                region: nil,
+                country: nil,
+                swimDistanceMeters: nil,
+                entryLatitude: nil,
+                entryLongitude: nil,
+                notes: nil,
+                activityTagNames: [],
+                sightings: [],
+                taggedBuddies: [],
+                equipmentSummary: [],
+                mediaPreviews: [],
+                profileTrackBase64: nil,
+                swimTrackBase64: nil,
+                gasType: nil,
+                oxygenMix: nil,
+                tankVolumeDescription: nil,
+                waterTempMinCelsius: nil,
+                bottomTimeSeconds: nil
+            )
+        }
+
+        #expect(
+            LogbookBuddyFeedPresentation.postTimestampText(
+                for: dive(start: now.addingTimeInterval(-30)),
+                now: now
+            ) == "now"
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.postTimestampText(
+                for: dive(start: now.addingTimeInterval(-5 * 60)),
+                now: now
+            ) == "5m"
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.postTimestampText(
+                for: dive(start: now.addingTimeInterval(-3 * 3_600)),
+                now: now
+            ) == "3h"
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.postTimestampText(
+                for: dive(start: now.addingTimeInterval(-2 * 86_400)),
+                now: now
+            ) == "2d"
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.postTimestampText(
+                for: dive(start: now.addingTimeInterval(-14 * 86_400)),
+                now: now
+            ) == "2w"
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.postTimestampText(
+                for: dive(start: now),
+                now: now
+            ) == "now"
+        )
+    }
+
+    @Test func buddyFeed_postSocialChrome_taggedBuddiesNotesAndLikeCopy() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "social-1",
+            activityKind: .scubaDive,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            region: nil,
+            country: nil,
+            swimDistanceMeters: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: "  Crystal clear day  ",
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [
+                .init(displayName: "Alex Rivera", firebaseUID: "uid-alex"),
+                .init(displayName: "Sam Lee", firebaseUID: nil),
+                .init(displayName: "Pat", firebaseUID: "uid-pat"),
+                .init(displayName: "Jordan Kim", firebaseUID: "uid-jordan"),
+                .init(displayName: "Casey", firebaseUID: "uid-casey"),
+            ],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+
+        #expect(LogbookBuddyFeedPresentation.postActivityVerb(for: dive) == "logged a dive")
+        #expect(LogbookBuddyFeedPresentation.postNotesPreview(for: dive) == "Crystal clear day")
+        #expect(LogbookBuddyFeedPresentation.feedTaggedBuddies(for: dive).count == 5)
+        #expect(LogbookBuddyFeedPresentation.visibleFeedTaggedBuddies(for: dive).count == 4)
+        #expect(LogbookBuddyFeedPresentation.overflowTaggedBuddyCount(for: dive) == 1)
+        #expect(LogbookBuddyFeedPresentation.withTaggedBuddyNamesLine(for: dive) == nil)
+
+        let twoBuddies = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "social-2",
+            activityKind: .snorkel,
+            startTime: nil,
+            durationMinutes: nil,
+            maxDepthMeters: nil,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: nil,
+            locationName: "Bay",
+            region: nil,
+            country: nil,
+            swimDistanceMeters: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: "   ",
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [
+                .init(displayName: "Alex Rivera", firebaseUID: "uid-alex"),
+                .init(displayName: "Sam Lee", firebaseUID: nil),
+            ],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(LogbookBuddyFeedPresentation.postActivityVerb(for: twoBuddies) == "logged a snorkel")
+        #expect(LogbookBuddyFeedPresentation.postNotesPreview(for: twoBuddies) == nil)
+        #expect(LogbookBuddyFeedPresentation.withTaggedBuddyNamesLine(for: twoBuddies) == "Alex & Sam")
+        #expect(
+            !LogbookBuddyFeedPresentation.feedTaggedBuddies(for: twoBuddies)[0].showsGoDiveUserPin
+        )
+        #expect(
+            !LogbookBuddyFeedPresentation.feedTaggedBuddies(for: twoBuddies)[1].showsGoDiveUserPin
+        )
+        #expect(!LogbookBuddyFeedPresentation.feedTaggedBuddyShowsGoDiveUserPin)
+        #expect(LogbookBuddyFeedPresentation.likeEmoji == "👌")
+        #expect(
+            LogbookBuddyFeedPresentation.feedTaggedBuddies(for: twoBuddies)[0].firebaseUID == "uid-alex"
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.shouldScrollToTaggedBuddiesOnAppear(
+                scrollToTaggedBuddiesOnAppear: true,
+                alreadyConsumed: false
+            )
+        )
+        #expect(
+            !LogbookBuddyFeedPresentation.shouldScrollToTaggedBuddiesOnAppear(
+                scrollToTaggedBuddiesOnAppear: true,
+                alreadyConsumed: true
+            )
+        )
+        #expect(
+            !LogbookBuddyFeedPresentation.taggedBuddiesPanelScrollSectionID.isEmpty
+        )
+        #expect(LogbookBuddyFeedPresentation.likeAccessibilityLabel(isLiked: false) == "Like")
+        #expect(LogbookBuddyFeedPresentation.likeAccessibilityLabel(isLiked: true) == "Unlike")
+        #expect(LogbookBuddyFeedPresentation.likeCountLabel(count: 0, isLikedByCurrentUser: false) == nil)
+        #expect(LogbookBuddyFeedPresentation.likeCountLabel(count: 0, isLikedByCurrentUser: true) == "1")
+        #expect(LogbookBuddyFeedPresentation.likeCountLabel(count: 3, isLikedByCurrentUser: false) == "3")
+    }
+
+    @Test func buddyFeedAvatarLookup_resolvesMeLocalAndFriendRemote() {
+        let meJPEG = Data([0xFF, 0xD8, 0xFF, 0x01])
+        let friends = [
+            GoDiveFriendGraphService.friendEdge(
+                friendUID: "uid-alex",
+                displayName: "Alex",
+                photoURL: "https://firebasestorage.googleapis.com/v0/b/t/o/alex.jpg?alt=media"
+            ),
+        ]
+        let lookup = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: "uid-me",
+            currentLocalProfilePhoto: meJPEG,
+            currentRemotePhotoURL: "https://firebasestorage.googleapis.com/v0/b/t/o/stale.jpg?alt=media",
+            friends: friends
+        )
+
+        let me = BuddyFeedAvatarPresentation.resolve(firebaseUID: "uid-me", lookup: lookup)
+        #expect(me.localProfilePhoto == meJPEG)
+        #expect(me.photoURL == nil)
+
+        let friend = BuddyFeedAvatarPresentation.resolve(firebaseUID: "uid-alex", lookup: lookup)
+        #expect(friend.photoURL?.contains("alex.jpg") == true)
+        #expect(friend.localProfilePhoto == nil)
+
+        let unknown = BuddyFeedAvatarPresentation.resolve(firebaseUID: "uid-other", lookup: lookup)
+        #expect(unknown.photoURL == nil)
+        #expect(unknown.localProfilePhoto == nil)
+
+        let meRemoteOnly = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: "uid-me",
+            currentLocalProfilePhoto: nil,
+            currentRemotePhotoURL: "https://firebasestorage.googleapis.com/v0/b/t/o/me.jpg?alt=media",
+            friends: []
+        )
+        let meFallback = BuddyFeedAvatarPresentation.resolve(
+            firebaseUID: "uid-me",
+            lookup: meRemoteOnly
+        )
+        #expect(meFallback.localProfilePhoto == nil)
+        #expect(meFallback.photoURL?.contains("me.jpg") == true)
+
+        let seed = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: nil,
+            currentLocalProfilePhoto: nil,
+            friends: friends
+        )
+        let session = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: "uid-me",
+            currentLocalProfilePhoto: meJPEG,
+            friends: []
+        )
+        let merged = BuddyFeedAvatarLookup.merging(seed: seed, session: session)
+        #expect(merged.currentFirebaseUID == "uid-me")
+        #expect(merged.currentLocalProfilePhoto == meJPEG)
+        #expect(merged.friendPhotoURLByUID["uid-alex"] != nil)
+        #expect(!merged.equatableFingerprint.isEmpty)
+
+        let taggedDive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "avatar-prefetch-1",
+            activityKind: .scubaDive,
+            startTime: nil,
+            durationMinutes: nil,
+            maxDepthMeters: nil,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: "Reef",
+            locationName: nil,
+            region: nil,
+            country: nil,
+            swimDistanceMeters: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [
+                .init(displayName: "Alex Rivera", firebaseUID: "uid-alex"),
+            ],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let prefetch = GoDiveRemoteAvatarPresentation.buddyFeedAvatarPrefetchURLs(
+            rows: [
+                LogbookBuddyFeedPresentation.Row(
+                    id: "r1",
+                    friendUID: "uid-owner",
+                    friendDisplayName: "Owner",
+                    friendPhotoURL: "https://firebasestorage.googleapis.com/v0/b/t/o/owner.jpg?alt=media",
+                    dive: taggedDive
+                ),
+            ],
+            startIndex: 0,
+            avatarLookup: lookup
+        )
+        #expect(prefetch.contains(where: { $0.contains("owner.jpg") }))
+        #expect(prefetch.contains(where: { $0.contains("alex.jpg") }))
+    }
+
+    @Test func buddyFeed_rowApplyingLikeToggle_updatesTallyOptimistically() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "liked-1",
+            activityKind: .scubaDive,
+            startTime: nil,
+            durationMinutes: nil,
+            maxDepthMeters: nil,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: "Reef",
+            locationName: nil,
+            region: nil,
+            country: nil,
+            swimDistanceMeters: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil,
+            likeCount: 2
+        )
+        let row = LogbookBuddyFeedPresentation.Row(
+            id: "friend_liked-1",
+            friendUID: "friend",
+            friendDisplayName: "Blake",
+            friendPhotoURL: nil,
+            dive: dive,
+            currentUserHasLiked: false
+        )
+        let liked = LogbookBuddyFeedPresentation.rowApplyingLikeToggle(row, liked: true)
+        #expect(liked.currentUserHasLiked)
+        #expect(liked.likeCount == 3)
+
+        let unliked = LogbookBuddyFeedPresentation.rowApplyingLikeToggle(liked, liked: false)
+        #expect(!unliked.currentUserHasLiked)
+        #expect(unliked.likeCount == 2)
+
+        let enriched = LogbookBuddyFeedPresentation.enrichingRows(
+            [row],
+            likedRowIDs: ["friend_liked-1"]
+        )
+        #expect(enriched[0].currentUserHasLiked)
+
+        #expect(
+            GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+                id: "x",
+                data: ["likeCount": 4, "activityKind": "scubaDive"]
+            ).likeCount == 4
+        )
+        #expect(
+            GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+                id: "x",
+                data: ["likeCount": -2, "activityKind": "scubaDive"]
+            ).likeCount == 0
+        )
+    }
+
+    @Test func sharedActivityLike_pathAndDisplayNameHelpers() {
+        #expect(
+            GoDiveSharedActivityLikeSync.likeDocumentPath(
+                ownerUID: "owner",
+                activityID: "act",
+                likerUID: "liker"
+            ) == "users/owner/sharedDives/act/likes/liker"
+        )
+        #expect(
+            GoDiveSharedActivityLikeSync.rowID(
+                fromLikeDocumentPath: "users/owner/sharedDives/act/likes/liker"
+            ) == "owner_act"
+        )
+        #expect(
+            GoDiveSharedActivityLikeSync.rowID(fromLikeDocumentPath: "users/owner/sharedDives/act")
+                == nil
+        )
+        #expect(GoDiveSharedActivityLikeSync.sanitizedLikeDisplayName("  Alex  ") == "Alex")
+        #expect(GoDiveSharedActivityLikeSync.sanitizedLikeDisplayName("   ") == "A dive buddy")
+        let long = String(repeating: "a", count: 100)
+        #expect(GoDiveSharedActivityLikeSync.sanitizedLikeDisplayName(long).count == 80)
+    }
+
+    @Test func buddyActivityLikedPush_targetAndCopy() {
+        let activityID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let info: [AnyHashable: Any] = [
+            "type": "buddy_activity_liked",
+            "friendUID": "liker-1",
+            "activityID": activityID.uuidString,
+            "activityKind": "snorkel",
+        ]
+        let target = GoDiveBuddyActivityLikedPushPresentation.target(fromUserInfo: info)
+        #expect(target?.likerUID == "liker-1")
+        #expect(target?.activityID == activityID)
+        #expect(target?.activityKind == .snorkel)
+        #expect(
+            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: target!)
+                == .snorkelDetail(activityID)
+        )
+        #expect(
+            GoDiveBuddyActivityLikedPushPresentation.notificationBody(
+                likerDisplayName: "Sam",
+                activityKind: .scubaDive
+            ) == "Sam liked your dive."
+        )
+        #expect(
+            GoDiveBuddyActivityLikedPushPresentation.target(fromUserInfo: [
+                "type": "buddy_activity_shared",
+                "friendUID": "x",
+                "activityID": activityID.uuidString,
+            ]) == nil
+        )
+    }
+
+    @Test func sharedActivityComment_sanitizeAndParseHelpers() {
+        #expect(
+            GoDiveSharedActivityCommentSync.commentsCollectionPath(
+                ownerUID: "owner",
+                activityID: "act"
+            ) == "users/owner/sharedDives/act/comments"
+        )
+        #expect(GoDiveSharedActivityCommentSync.sanitizedCommentDisplayName("  Alex  ") == "Alex")
+        #expect(GoDiveSharedActivityCommentSync.sanitizedCommentDisplayName("   ") == "A dive buddy")
+        let longName = String(repeating: "a", count: 100)
+        #expect(GoDiveSharedActivityCommentSync.sanitizedCommentDisplayName(longName).count == 80)
+
+        #expect(GoDiveSharedActivityCommentSync.sanitizedCommentText("  Nice dive  ") == "Nice dive")
+        #expect(GoDiveSharedActivityCommentSync.sanitizedCommentText("   ") == nil)
+        let longText = String(
+            repeating: "b",
+            count: GoDiveSharedActivityCommentSync.maxCommentTextLength + 20
+        )
+        #expect(
+            GoDiveSharedActivityCommentSync.sanitizedCommentText(longText)?.count
+                == GoDiveSharedActivityCommentSync.maxCommentTextLength
+        )
+
+        let parsed = GoDiveSharedActivityCommentSync.parseComment(
+            id: "c1",
+            data: [
+                "authorUid": "author-1",
+                "displayName": "Blake",
+                "text": "Looks great!",
+                "createdAt": Date(timeIntervalSince1970: 1_700_000_000),
+                "mentionedUids": ["uid-a", "author-1", "uid-a", "  uid-b  "],
+            ]
+        )
+        #expect(parsed?.id == "c1")
+        #expect(parsed?.authorUID == "author-1")
+        #expect(parsed?.displayName == "Blake")
+        #expect(parsed?.text == "Looks great!")
+        #expect(parsed?.mentionedUIDs == ["uid-a", "uid-b"])
+
+        #expect(
+            GoDiveSharedActivityCommentSync.parseComment(
+                id: "empty",
+                data: ["authorUid": "a", "displayName": "B", "text": "  "]
+            ) == nil
+        )
+    }
+
+    @Test func buddyFeed_commentCountParseAndOptimisticDelta() {
+        #expect(
+            GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+                id: "x",
+                data: ["commentCount": 5, "activityKind": "scubaDive"]
+            ).commentCount == 5
+        )
+        #expect(
+            GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+                id: "x",
+                data: ["commentCount": -3, "activityKind": "scubaDive"]
+            ).commentCount == 0
+        )
+        #expect(LogbookBuddyFeedPresentation.commentCountLabel(count: 0) == nil)
+        #expect(LogbookBuddyFeedPresentation.commentCountLabel(count: 2) == "2")
+
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "cmt-1",
+            activityKind: .scubaDive,
+            startTime: nil,
+            durationMinutes: nil,
+            maxDepthMeters: nil,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: "Reef",
+            locationName: nil,
+            region: nil,
+            country: nil,
+            swimDistanceMeters: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil,
+            likeCount: 0,
+            commentCount: 1
+        )
+        let row = LogbookBuddyFeedPresentation.Row(
+            id: "friend_cmt-1",
+            friendUID: "friend",
+            friendDisplayName: "Blake",
+            friendPhotoURL: nil,
+            dive: dive
+        )
+        let bumped = LogbookBuddyFeedPresentation.rowApplyingCommentCountDelta(row, delta: 1)
+        #expect(bumped.commentCount == 2)
+        let floored = LogbookBuddyFeedPresentation.rowApplyingCommentCountDelta(row, delta: -5)
+        #expect(floored.commentCount == 0)
+
+        let now = Date()
+        #expect(
+            LogbookBuddyFeedPresentation.commentTimestampText(
+                createdAt: now.addingTimeInterval(-120),
+                now: now
+            ) == "2m"
+        )
+    }
+
+    @Test func buddyActivityCommentsSheetTarget_keyboardFlagAffectsIdentity() {
+        let base = BuddyActivityCommentsSheetTarget(
+            ownerUID: "owner",
+            activityID: "act",
+            seedCommentCount: 2,
+            activatesKeyboard: false
+        )
+        let withKeyboard = BuddyActivityCommentsSheetTarget(
+            ownerUID: "owner",
+            activityID: "act",
+            seedCommentCount: 2,
+            activatesKeyboard: true
+        )
+        #expect(base.id != withKeyboard.id)
+        #expect(base.id.hasSuffix("_view"))
+        #expect(withKeyboard.id.hasSuffix("_kb"))
+        #expect(
+            BuddyActivityCommentsPresentation.composePlaceholder == "Add a comment…"
+        )
+        #expect(BuddyActivityCommentsPresentation.keyboardActivationDelayMilliseconds > 0)
+        #expect(
+            BuddyActivityCommentsPresentation.openCommentsAfterNavigationDelayMilliseconds > 0
+        )
+        #expect(
+            BuddyActivityCommentsPresentation.shouldPresentCommentsOnAppear(
+                opensCommentsOnAppear: true,
+                alreadyConsumed: false
+            )
+        )
+        #expect(
+            !BuddyActivityCommentsPresentation.shouldPresentCommentsOnAppear(
+                opensCommentsOnAppear: true,
+                alreadyConsumed: true
+            )
+        )
+        #expect(
+            !BuddyActivityCommentsPresentation.shouldPresentCommentsOnAppear(
+                opensCommentsOnAppear: false,
+                alreadyConsumed: false
+            )
+        )
+        // Parent one-shot consume must block remounts (Map tab leave/return).
+        #expect(
+            !BuddyActivityCommentsPresentation.shouldPresentCommentsOnAppear(
+                opensCommentsOnAppear: false,
+                alreadyConsumed: true
+            )
+        )
+    }
+
+    @Test func logbookRoute_buddySharedDive_opensCommentsFlagIsPartOfIdentity() {
+        let viewOnly = LogbookRoute.buddySharedDive(
+            friendUID: "friend-1",
+            diveDocumentID: "dive-1"
+        )
+        let withComments = LogbookRoute.buddySharedDive(
+            friendUID: "friend-1",
+            diveDocumentID: "dive-1",
+            opensComments: true
+        )
+        let withBuddies = LogbookRoute.buddySharedDive(
+            friendUID: "friend-1",
+            diveDocumentID: "dive-1",
+            scrollToTaggedBuddies: true
+        )
+        #expect(viewOnly != withComments)
+        #expect(viewOnly != withBuddies)
+        #expect(withComments != withBuddies)
+        if case .buddySharedDive(_, _, let opens, let scrollBuddies) = withComments {
+            #expect(opens)
+            #expect(!scrollBuddies)
+        } else {
+            Issue.record("Expected buddySharedDive")
+        }
+        if case .buddySharedDive(_, _, let opens, let scrollBuddies) = viewOnly {
+            #expect(!opens)
+            #expect(!scrollBuddies)
+        } else {
+            Issue.record("Expected buddySharedDive")
+        }
+        if case .buddySharedDive(_, _, let opens, let scrollBuddies) = withBuddies {
+            #expect(!opens)
+            #expect(scrollBuddies)
+        } else {
+            Issue.record("Expected buddySharedDive")
+        }
+    }
+
+    @Test func mentionPresentation_activeInsertExtractAndSanitize() {
+        let alex = GoDiveFriendGraphService.friendEdge(
+            friendUID: "uid-alex",
+            displayName: "Alex Smith"
+        )
+        let sam = GoDiveFriendGraphService.friendEdge(
+            friendUID: "uid-sam",
+            displayName: "Sam"
+        )
+        let friends = [alex, sam]
+
+        let typing = "Saw @Al"
+        let active = GoDiveMentionPresentation.activeMention(
+            in: typing,
+            utf16Caret: (typing as NSString).length,
+            friends: friends
+        )
+        #expect(active?.query == "Al")
+        let matches = GoDiveMentionPresentation.matchingFriends(query: "Al", friends: friends)
+        #expect(matches.map(\.friendUID) == ["uid-alex"])
+
+        let inserted = GoDiveMentionPresentation.insertMention(
+            displayName: "Alex Smith",
+            into: typing,
+            active: active!
+        )
+        #expect(inserted.text == "Saw @Alex Smith ")
+        #expect(
+            GoDiveMentionPresentation.activeMention(
+                in: inserted.text,
+                utf16Caret: inserted.caretUTF16,
+                friends: friends
+            ) == nil
+        )
+
+        let body = "Dive with @Alex Smith and @Sam today"
+        #expect(
+            GoDiveMentionPresentation.mentionedUIDs(in: body, friends: friends)
+                == ["uid-alex", "uid-sam"]
+        )
+        #expect(
+            GoDiveMentionPresentation.mentionedUIDs(
+                in: body,
+                friends: friends,
+                excludingUID: "uid-sam"
+            ) == ["uid-alex"]
+        )
+        #expect(
+            GoDiveMentionPresentation.sanitizedMentionedUIDs(
+                [" uid-alex ", "uid-alex", "", "uid-me"],
+                excludingUID: "uid-me"
+            ) == ["uid-alex"]
+        )
+        #expect(
+            GoDiveNotesMentionTagging.friendUIDsNeedingTag(
+                notes: "Hello @Sam",
+                friends: friends,
+                alreadyTaggedFirebaseUIDs: []
+            ) == ["uid-sam"]
+        )
+        #expect(
+            GoDiveNotesMentionTagging.friendUIDsNeedingTag(
+                notes: "Hello @Sam",
+                friends: friends,
+                alreadyTaggedFirebaseUIDs: ["uid-sam"]
+            ).isEmpty
+        )
+        let midAt = "a@b"
+        let atIndex = midAt.index(midAt.startIndex, offsetBy: 1)
+        #expect(!GoDiveMentionPresentation.isValidMentionStart(midAt, at: atIndex))
+        #expect(GoDiveMentionPresentation.isValidMentionStart("@Sam", at: "@Sam".startIndex))
+        #expect(
+            GoDiveMentionAttributedTextPresentation.mentionSubstrings(
+                in: "Hi @Alex Smith and @Sam!",
+                knownDisplayNames: ["Alex Smith", "Sam"]
+            ) == ["@Alex Smith", "@Sam"]
+        )
+        #expect(
+            GoDiveMentionAttributedTextPresentation.displayedMentionNames(
+                in: "Hi @Alex Smith and @Sam!",
+                knownDisplayNames: ["Alex Smith", "Sam"]
+            ) == ["Alex Smith", "Sam"]
+        )
+        #expect(
+            GoDiveMentionAttributedTextPresentation.displayedMentionNames(
+                in: "solo @Blake token",
+                knownDisplayNames: []
+            ) == ["Blake"]
+        )
+        let styled = GoDiveMentionAttributedTextPresentation.attributedString(
+            text: "Hi @Sam",
+            knownDisplayNames: ["Sam"],
+            baseForeground: .primary,
+            mentionForeground: .blue
+        )
+        #expect(String(styled.characters) == "Hi Sam")
+    }
+
+    @Test func buddyActivityMentionedPush_targetOwnedVsSharedRoutes() {
+        let activityID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let info: [AnyHashable: Any] = [
+            "type": "buddy_activity_mentioned",
+            "friendUID": "author-1",
+            "ownerUID": "owner-9",
+            "activityID": activityID.uuidString,
+            "activityKind": "snorkel",
+        ]
+        let target = GoDiveBuddyActivityMentionedPushPresentation.target(fromUserInfo: info)
+        #expect(target?.authorUID == "author-1")
+        #expect(target?.ownerUID == "owner-9")
+        #expect(target?.activityID == activityID)
+        #expect(target?.activityKind == .snorkel)
+        #expect(
+            !GoDiveBuddyActivityMentionedPushPresentation.isOwnedActivity(
+                target: target!,
+                currentFirebaseUID: "someone-else"
+            )
+        )
+        #expect(
+            GoDiveBuddyActivityMentionedPushPresentation.isOwnedActivity(
+                target: target!,
+                currentFirebaseUID: "owner-9"
+            )
+        )
+        #expect(
+            GoDiveBuddyActivityMentionedPushPresentation.sharedLogbookRoute(for: target!)
+                == .buddySharedDive(
+                    friendUID: "owner-9",
+                    diveDocumentID: activityID.uuidString,
+                    opensComments: true
+                )
+        )
+        #expect(
+            GoDiveBuddyActivityMentionedPushPresentation.ownedLogbookRoute(for: target!)
+                == .snorkelDetail(activityID)
+        )
+        #expect(
+            GoDiveBuddyActivityMentionedPushPresentation.notificationBody(
+                authorDisplayName: "Sam",
+                commentText: "  hey @you  "
+            ) == "Sam mentioned you in a comment: hey @you"
+        )
+        #expect(
+            GoDiveBuddyActivityMentionedPushPresentation.target(fromUserInfo: [
+                "type": "buddy_activity_commented",
+                "friendUID": "x",
+                "ownerUID": "y",
+                "activityID": activityID.uuidString,
+            ]) == nil
+        )
+    }
+
+    @Test func buddyActivityCommentedPush_targetAndCopy() {
+        let activityID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let info: [AnyHashable: Any] = [
+            "type": "buddy_activity_commented",
+            "friendUID": "author-1",
+            "activityID": activityID.uuidString,
+            "activityKind": "scubaDive",
+        ]
+        let target = GoDiveBuddyActivityCommentedPushPresentation.target(fromUserInfo: info)
+        #expect(target?.authorUID == "author-1")
+        #expect(target?.activityID == activityID)
+        #expect(target?.activityKind == .scubaDive)
+        #expect(
+            GoDiveBuddyActivityCommentedPushPresentation.logbookRoute(for: target!)
+                == .diveDetail(activityID)
+        )
+        #expect(
+            GoDiveBuddyActivityCommentedPushPresentation.notificationBody(
+                authorDisplayName: "Sam",
+                activityKind: .snorkel
+            ) == "Sam commented on your snorkel."
+        )
+        #expect(
+            GoDiveBuddyActivityCommentedPushPresentation.notificationBody(
+                authorDisplayName: "Sam",
+                activityKind: .scubaDive,
+                commentText: "  Nice   reef  "
+            ) == "Sam commented on your dive: Nice reef"
+        )
+        let longComment = String(
+            repeating: "a",
+            count: GoDiveBuddyActivityCommentedPushPresentation.commentPreviewMaxCharacters + 10
+        )
+        let preview = GoDiveBuddyActivityCommentedPushPresentation.commentNotificationPreview(
+            longComment
+        )
+        #expect(preview?.count == GoDiveBuddyActivityCommentedPushPresentation.commentPreviewMaxCharacters)
+        #expect(preview?.hasSuffix("…") == true)
+        #expect(
+            GoDiveBuddyActivityCommentedPushPresentation.notificationBody(
+                authorDisplayName: "Sam",
+                activityKind: .scubaDive,
+                commentText: longComment
+            ).contains(": \(preview!)")
+        )
+        let likedCompatible = GoDiveBuddyActivityCommentedPushPresentation.likedPushCompatibleTarget(
+            for: target!
+        )
+        #expect(likedCompatible.likerUID == "author-1")
+        #expect(likedCompatible.activityID == activityID)
+        #expect(
+            GoDiveBuddyActivityCommentedPushPresentation.target(fromUserInfo: [
+                "type": "buddy_activity_liked",
+                "friendUID": "x",
+                "activityID": activityID.uuidString,
+            ]) == nil
+        )
+    }
+
     @Test func friendsPresentation_friendCountLabel() {
         #expect(GoDiveFriendsPresentation.friendCountLabel(0) == "0 friends")
         #expect(GoDiveFriendsPresentation.friendCountLabel(1) == "1 friend")
@@ -1265,6 +2089,33 @@ struct GoDiveFriendsTests {
             isSignedIn: true
         )
         #expect(kind == .noFriends)
+    }
+
+    @Test func buddyFeed_pullToRefreshPresentation_exposesSpinnerChrome() {
+        #expect(
+            LogbookBuddyFeedPullToRefreshPresentation.spinnerAccessibilityIdentifier
+                == "Logbook.BuddyFeed.RefreshSpinner"
+        )
+        #expect(
+            LogbookBuddyFeedPullToRefreshPresentation.spinnerAccessibilityLabel
+                == "Refreshing buddy feed"
+        )
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.spinnerTopPadding == AppTheme.Spacing.sm)
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.spinnerAppearScale > 0)
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.spinnerAppearScale < 1)
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.spinnerAnimationDuration > 0)
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.minimumHoldDurationSeconds > 0)
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.refreshHapticIntensity > 0)
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.refreshHapticIntensity <= 1)
+        #expect(
+            LogbookBuddyFeedPullToRefreshPresentation.symbolName
+                == GoDiveRotateLoadingPresentation.symbolName
+        )
+        #expect(LogbookBuddyFeedPullToRefreshPresentation.symbolRotateSpeed > 0)
+        #expect(
+            GoDiveRotateLoadingPresentation.symbolName == "arrow.trianglehead.2.clockwise"
+        )
+        #expect(GoDiveRotateLoadingPresentation.rotateSpeed > 0)
     }
 
     @Test func buddyFeed_autoRefreshOnlyOnRootBuddyFeedSegment() {
@@ -1781,6 +2632,20 @@ struct GoDiveFriendsTests {
         #expect(!LogbookBuddyFeedPresentation.rowsEqual([left], [right]))
     }
 
+    @Test func buddyFeed_heroPager_pageSizeFillsContainerAndClipsOverflow() {
+        let size = CGSize(width: 320, height: LogbookBuddyFeedTileLayout.heroHeight)
+        #expect(
+            LogbookBuddyFeedHeroPagerPresentation.pageSize(containerSize: size)
+                == size
+        )
+        #expect(
+            LogbookBuddyFeedHeroPagerPresentation.pageSize(
+                containerSize: CGSize(width: -10, height: -10)
+            ) == .zero
+        )
+        #expect(LogbookBuddyFeedHeroPagerPresentation.clipsOverflowingPageContent)
+    }
+
     @Test func buddyFeed_heroPages_featuredMediaFirstThenChart() throws {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let profileTrack = try #require(
@@ -2025,6 +2890,126 @@ struct GoDiveFriendsTests {
         )
         #expect(FriendSharedActivityDetailPresentation.diveNumberChip(for: snorkel) == nil)
         #expect(FriendSharedActivityDetailPresentation.diveNumberPlainLabel(for: snorkel) == "#5")
+    }
+
+    @Test func friendSharedDetail_mapLargeDetent_placesSocialAboveReadOnlySections() {
+        #expect(
+            FriendSharedActivityDetailPresentation.mapLargeDetentDetailsBlockOrder
+                == [.social, .readOnlySections]
+        )
+    }
+
+    @Test func ownedActivityMapSocial_showsOnlyWhenPublishedAndSignedIn() {
+        #expect(
+            OwnedActivityMapSocialPresentation.shouldShowSocial(
+                isPublishedWithFriends: true,
+                firebaseUID: "uid-1"
+            )
+        )
+        #expect(
+            !OwnedActivityMapSocialPresentation.shouldShowSocial(
+                isPublishedWithFriends: false,
+                firebaseUID: "uid-1"
+            )
+        )
+        #expect(
+            !OwnedActivityMapSocialPresentation.shouldShowSocial(
+                isPublishedWithFriends: true,
+                firebaseUID: nil
+            )
+        )
+        #expect(
+            !OwnedActivityMapSocialPresentation.shouldShowSocial(
+                isPublishedWithFriends: true,
+                firebaseUID: "   "
+            )
+        )
+        #expect(!OwnedActivityMapSocialPresentation.allowsOwnerLiking)
+    }
+
+    @Test @MainActor func ownedActivityCommentsDeepLink_consumesMatchingActivityOnce() {
+        let activityID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        let otherID = UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!
+        let store = GoDiveOwnedActivityCommentsDeepLinkStore.shared
+        store.clear()
+        store.setPending(activityID: activityID)
+        #expect(!store.consume(activityID: otherID))
+        #expect(store.consume(activityID: activityID))
+        #expect(!store.consume(activityID: activityID))
+        #expect(GoDiveOwnedActivityCommentsDeepLinkPresentation.opensCommentsFromCommentPush)
+    }
+
+    /// Cold start: drain pending push routes only after main shell + Home chrome are ready.
+    @Test func rootPushDeepLinkFlush_requiresShellAndHomeChrome() {
+        #expect(
+            !GoDiveRootPushDeepLinkFlushPresentation.canOpenPendingRoutes(
+                showsMainAppShell: false,
+                isHomeLaunchChromeReady: false
+            )
+        )
+        #expect(
+            !GoDiveRootPushDeepLinkFlushPresentation.canOpenPendingRoutes(
+                showsMainAppShell: true,
+                isHomeLaunchChromeReady: false
+            )
+        )
+        #expect(
+            !GoDiveRootPushDeepLinkFlushPresentation.canOpenPendingRoutes(
+                showsMainAppShell: false,
+                isHomeLaunchChromeReady: true
+            )
+        )
+        #expect(
+            GoDiveRootPushDeepLinkFlushPresentation.canOpenPendingRoutes(
+                showsMainAppShell: true,
+                isHomeLaunchChromeReady: true
+            )
+        )
+    }
+
+    /// Tap like → Logbook owned detail **without** comments sheet; tap comment → same route **with** sheet.
+    @Test @MainActor func ownedActivityPushTap_likeClearsComments_commentSetsComments() {
+        let activityID = UUID(uuidString: "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD")!
+        let comments = GoDiveOwnedActivityCommentsDeepLinkStore.shared
+        let likedNav = GoDiveBuddyActivityLikedPushNavigationStore.shared
+        comments.clear()
+        likedNav.clear()
+
+        // Stale comment deep link must not survive a like tap.
+        comments.setPending(activityID: activityID)
+        let likeInfo: [AnyHashable: Any] = [
+            "type": "buddy_activity_liked",
+            "friendUID": "liker-1",
+            "activityID": activityID.uuidString,
+            "activityKind": "scubaDive",
+        ]
+        GoDiveFirebaseCloudMessaging.handleNotificationResponse(userInfo: likeInfo)
+        #expect(!comments.consume(activityID: activityID))
+        let likeTarget = likedNav.consumePendingTarget()
+        #expect(likeTarget?.activityID == activityID)
+        #expect(
+            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: likeTarget!)
+                == .diveDetail(activityID)
+        )
+
+        let commentInfo: [AnyHashable: Any] = [
+            "type": "buddy_activity_commented",
+            "friendUID": "author-1",
+            "activityID": activityID.uuidString,
+            "activityKind": "snorkel",
+        ]
+        GoDiveFirebaseCloudMessaging.handleNotificationResponse(userInfo: commentInfo)
+        #expect(comments.consume(activityID: activityID))
+        let commentNavTarget = likedNav.consumePendingTarget()
+        #expect(commentNavTarget?.activityID == activityID)
+        #expect(commentNavTarget?.activityKind == .snorkel)
+        #expect(
+            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: commentNavTarget!)
+                == .snorkelDetail(activityID)
+        )
+
+        comments.clear()
+        likedNav.clear()
     }
 
     @Test func friendSharedDetail_tankHeroPresentation_matchesOwnedDiveRules() {
@@ -2402,6 +3387,95 @@ struct GoDiveFriendsTests {
         #expect(readBack == payload)
     }
 
+    @Test func goDiveRemoteAvatarPresentation_buddyFeedPrefetch_dedupesSameFriend() {
+        let photo = "https://firebasestorage.googleapis.com/v0/b/t/o/avatar.jpg?alt=media"
+        let diveA = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "a",
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "A",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        var diveB = diveA
+        diveB.id = "b"
+        let rows: [LogbookBuddyFeedPresentation.Row] = [
+            .init(
+                id: "f_a",
+                friendUID: "friend",
+                friendDisplayName: "Pat",
+                friendPhotoURL: photo,
+                dive: diveA
+            ),
+            .init(
+                id: "f_b",
+                friendUID: "friend",
+                friendDisplayName: "Pat",
+                friendPhotoURL: photo,
+                dive: diveB
+            ),
+        ]
+        let urls = GoDiveRemoteAvatarPresentation.buddyFeedAvatarPrefetchURLs(
+            rows: rows,
+            startIndex: 0,
+            count: 12
+        )
+        #expect(urls == [photo])
+        #expect(GoDiveRemoteAvatarPresentation.cacheKey(for: photo) == photo)
+        #expect(GoDiveRemoteAvatarPresentation.cacheKey(for: "https://example.com/x.jpg") == nil)
+    }
+
+    @Test @MainActor func goDiveRemoteAvatarImageCache_memoryHitAfterDiskLoad() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        GoDiveSharedMediaCache.testingRootDirectory = root
+        GoDiveRemoteAvatarImageCache.shared.removeAllForTesting()
+        defer {
+            GoDiveSharedMediaCache.testingRootDirectory = nil
+            GoDiveRemoteAvatarImageCache.shared.removeAllForTesting()
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let url = "https://firebasestorage.googleapis.com/v0/b/t/o/avatar-\(UUID().uuidString).jpg?alt=media"
+        // Minimal valid 1×1 PNG
+        let png = Data(
+            base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5X1kUAAAAASUVORK5CYII="
+        )!
+        _ = try await GoDiveSharedMediaCache.shared.storeForTesting(
+            data: png,
+            remoteURLString: url,
+            tier: .thumb
+        )
+
+        let first = await GoDiveRemoteAvatarImageCache.shared.image(
+            for: url,
+            allowsNetworkFetch: false
+        )
+        #expect(first != nil)
+        #expect(GoDiveRemoteAvatarImageCache.shared.cachedImage(for: url) != nil)
+        let second = await GoDiveRemoteAvatarImageCache.shared.image(
+            for: url,
+            allowsNetworkFetch: false
+        )
+        #expect(second === first)
+    }
+
     @Test func goDiveSharedMediaCache_resolvedPlaybackURL_prefersCachedFile() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -2732,6 +3806,11 @@ struct GoDiveFriendsTests {
         localAlex.linkedFirebaseUID = "uid-alex"
         localAlex.profilePhoto = Data([0x01, 0x02])
 
+        let localSam = DiveBuddy(displayName: "Sam Rivera", owner: owner)
+        localSam.linkedFirebaseUID = "uid-sam"
+        localSam.linkedPhotoURL =
+            "https://firebasestorage.googleapis.com/v0/b/t/o/sam.jpg?alt=media"
+
         let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
             id: "map-buddies",
             startTime: Date(),
@@ -2765,18 +3844,93 @@ struct GoDiveFriendsTests {
 
         let rows = FriendSharedActivityDetailPresentation.mapTaggedBuddyDisplayRows(
             from: dive,
-            localRoster: [localAlex]
+            localRoster: [localAlex, localSam]
         )
         #expect(rows.count == 3)
         #expect(rows[0].displayName == "Alex Kim")
         #expect(rows[0].profilePhoto == Data([0x01, 0x02]))
+        #expect(rows[0].photoURL == nil)
         #expect(rows[0].showsGoDiveUserPin)
         #expect(rows[1].displayName == "Sam Rivera")
         #expect(rows[1].profilePhoto == nil)
+        #expect(rows[1].photoURL?.contains("sam.jpg") == true)
         #expect(rows[1].showsGoDiveUserPin)
         #expect(rows[2].displayName == "Jamie")
         #expect(rows[2].profilePhoto == nil)
+        #expect(rows[2].photoURL == nil)
         #expect(!rows[2].showsGoDiveUserPin)
+    }
+
+    @Test func diveBuddyAvatarChip_sourcesPreferLocalThenLinkedURLThenLookup() {
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0x01])
+        let linkedURL = "https://firebasestorage.googleapis.com/v0/b/t/o/linked.jpg?alt=media"
+        let graphURL = "https://firebasestorage.googleapis.com/v0/b/t/o/graph.jpg?alt=media"
+        let lookup = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: "uid-me",
+            currentLocalProfilePhoto: nil,
+            friends: [
+                GoDiveFriendGraphService.friendEdge(
+                    friendUID: "uid-graph",
+                    displayName: "Graph",
+                    photoURL: graphURL
+                ),
+            ]
+        )
+
+        let localFirst = DiveBuddyAvatarChipPresentation.sources(
+            profilePhoto: jpeg,
+            linkedPhotoURL: linkedURL,
+            firebaseUID: "uid-graph",
+            lookup: lookup
+        )
+        #expect(localFirst.localProfilePhoto == jpeg)
+        #expect(localFirst.photoURL == nil)
+
+        let linkedFallback = DiveBuddyAvatarChipPresentation.sources(
+            profilePhoto: nil,
+            linkedPhotoURL: linkedURL,
+            firebaseUID: "uid-graph",
+            lookup: lookup
+        )
+        #expect(linkedFallback.localProfilePhoto == nil)
+        #expect(linkedFallback.photoURL == linkedURL)
+
+        let graphFallback = DiveBuddyAvatarChipPresentation.sources(
+            profilePhoto: nil,
+            linkedPhotoURL: nil,
+            firebaseUID: "uid-graph",
+            lookup: lookup
+        )
+        #expect(graphFallback.photoURL == graphURL)
+    }
+
+    @Test func buddyFeedAvatarLookup_rosterFallbacksFillMissingFriendPhotoURL() {
+        let owner = UserProfile(appleUserIdentifier: "roster-avatar-fallback", displayName: "Viewer")
+        let roster = DiveBuddy(displayName: "Alex", owner: owner)
+        roster.linkedFirebaseUID = "uid-alex"
+        roster.linkedPhotoURL =
+            "https://firebasestorage.googleapis.com/v0/b/t/o/roster-alex.jpg?alt=media"
+        roster.profilePhoto = Data([0xAA, 0xBB])
+
+        let friendsWithoutPhoto = [
+            GoDiveFriendGraphService.friendEdge(
+                friendUID: "uid-alex",
+                displayName: "Alex",
+                photoURL: nil
+            ),
+        ]
+        let lookup = BuddyFeedAvatarLookup.make(
+            currentFirebaseUID: "uid-me",
+            currentLocalProfilePhoto: nil,
+            friends: friendsWithoutPhoto,
+            rosterBuddies: [roster]
+        )
+        let resolved = BuddyFeedAvatarPresentation.resolve(
+            firebaseUID: "uid-alex",
+            lookup: lookup
+        )
+        #expect(resolved.localProfilePhoto == Data([0xAA, 0xBB]))
+        #expect(resolved.photoURL?.contains("roster-alex.jpg") == true)
     }
 
     @Test func sharedDiveProjection_writesMediaBuddyTagsWhenMediaShared() {
@@ -3970,6 +5124,7 @@ struct GoDiveFriendsTests {
         kind: FriendSharedActivityKind = .scubaDive,
         startTime: Date?,
         updatedAt: Date? = nil,
+        sharedAt: Date? = nil,
         siteName: String? = nil,
         taggedBuddies: [GoDiveSharedDiveProjectionMapping.TaggedBuddySnapshot] = []
     ) -> GoDiveSharedDiveProjectionMapping.FriendVisibleDive {
@@ -3997,7 +5152,8 @@ struct GoDiveFriendsTests {
             tankVolumeDescription: nil,
             waterTempMinCelsius: nil,
             bottomTimeSeconds: nil,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            sharedAt: sharedAt
         )
     }
 
@@ -4094,23 +5250,173 @@ struct GoDiveFriendsTests {
         #expect(items.isEmpty)
     }
 
-    @Test func homeNotifications_activityDate_prefersUpdatedAtOverStartTime() {
+    @Test func homeNotifications_items_includeOwnedLikesAndComments() {
+        let activityID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let friend = GoDiveFriendGraphService.FriendEdge(
+            friendUID: "friend-sam",
+            friendshipID: "f1",
+            displayName: "Sam",
+            photoURL: "https://firebasestorage.googleapis.com/v0/b/t/o/sam.jpg?alt=media",
+            profileHeroURL: nil,
+            profileHeroMediaKind: nil,
+            totalDiveCount: nil,
+            since: Date(timeIntervalSince1970: 1_600_000_000)
+        )
+        let likeEvent = HomeNotificationsOwnedSocialSync.Event(
+            id: "like-\(activityID.uuidString)-friend-sam",
+            kind: .like,
+            activityID: activityID,
+            activityKind: .scubaDive,
+            actorUID: "friend-sam",
+            actorDisplayName: "Sam",
+            createdAt: Date(timeIntervalSince1970: 1_700_300_000),
+            siteName: "Blue Hole",
+            commentText: nil
+        )
+        let commentEvent = HomeNotificationsOwnedSocialSync.Event(
+            id: "comment-\(activityID.uuidString)-c1",
+            kind: .comment,
+            activityID: activityID,
+            activityKind: .snorkel,
+            actorUID: "friend-sam",
+            actorDisplayName: "Sam",
+            createdAt: Date(timeIntervalSince1970: 1_700_400_000),
+            siteName: "Bay",
+            commentText: "  Crystal clear water today  "
+        )
+
+        let items = HomeNotificationsPresentation.items(
+            friends: [friend],
+            activityRows: [],
+            ownedSocialEvents: [likeEvent, commentEvent]
+        )
+        #expect(items.count == 3)
+        #expect(items[0].id == commentEvent.id)
+        #expect(
+            items[0].message
+                == "Sam commented on your snorkel: Crystal clear water today"
+        )
+        #expect(items[0].detail == "Crystal clear water today")
+        #expect(items[0].friendPhotoURL?.contains("sam.jpg") == true)
+        if case .buddyActivityCommented(let target) = items[0].kind {
+            #expect(target.activityID == activityID)
+            #expect(target.activityKind == .snorkel)
+            #expect(target.opensComments)
+        } else {
+            Issue.record("Expected commented kind")
+        }
+
+        #expect(items[1].id == likeEvent.id)
+        #expect(items[1].message == "Sam liked your dive.")
+        #expect(items[1].detail == "Blue Hole")
+        if case .buddyActivityLiked(let target) = items[1].kind {
+            #expect(target.activityID == activityID)
+            #expect(!target.opensComments)
+        } else {
+            Issue.record("Expected liked kind")
+        }
+
+        #expect(items[2].id == "friend-friend-sam")
+        #expect(
+            HomeNotificationsPresentation.activityLikedMessage(
+                displayName: "Sam",
+                activityKind: .scubaDive
+            ) == "Sam liked your dive."
+        )
+        #expect(
+            HomeNotificationsPresentation.activityCommentedMessage(
+                displayName: "Sam",
+                activityKind: .scubaDive
+            ) == "Sam commented on your dive"
+        )
+        #expect(
+            HomeNotificationsPresentation.commentedNotificationDetail(
+                commentText: "  Great dive  ",
+                siteName: "Blue Hole"
+            ) == "Great dive"
+        )
+        #expect(
+            HomeNotificationsPresentation.commentedNotificationDetail(
+                commentText: "   ",
+                siteName: "Blue Hole"
+            ) == "Blue Hole"
+        )
+        #expect(
+            GoDiveBuddyActivityCommentedPushPresentation.notificationBody(
+                authorDisplayName: "Sam",
+                activityKind: .scubaDive,
+                commentText: "Nice reef"
+            ) == "Sam commented on your dive: Nice reef"
+        )
+    }
+
+    @Test func homeNotifications_activityDate_prefersSharedAtThenUpdatedAtThenStartTime() {
+        let shared = Date(timeIntervalSince1970: 1_700_100_000)
         let updated = Date(timeIntervalSince1970: 1_700_200_000)
-        let dive = makeNotificationTestDive(
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let withShared = makeNotificationTestDive(
             id: "d",
-            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            startTime: start,
+            updatedAt: updated,
+            sharedAt: shared
+        )
+        #expect(HomeNotificationsPresentation.activityDate(for: withShared) == shared)
+
+        let updatedOnly = makeNotificationTestDive(
+            id: "d1",
+            startTime: start,
             updatedAt: updated
         )
-        #expect(HomeNotificationsPresentation.activityDate(for: dive) == updated)
+        #expect(HomeNotificationsPresentation.activityDate(for: updatedOnly) == updated)
 
         let startOnly = makeNotificationTestDive(
             id: "d2",
-            startTime: Date(timeIntervalSince1970: 1_700_000_000)
+            startTime: start
         )
-        #expect(
-            HomeNotificationsPresentation.activityDate(for: startOnly)
-                == Date(timeIntervalSince1970: 1_700_000_000)
+        #expect(HomeNotificationsPresentation.activityDate(for: startOnly) == start)
+    }
+
+    @Test func sharedDiveProjection_shareTimestampPolicy_protectsFirstShareTime() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let priorUpdate = Date(timeIntervalSince1970: 1_750_000_000)
+
+        var firstCreate: [String: Any] = ["updatedAt": Date(timeIntervalSince1970: 1)]
+        GoDiveSharedDiveProjectionMapping.applyShareTimestampPolicy(
+            to: &firstCreate,
+            projectionAlreadyExists: false,
+            bumpUpdatedAt: true,
+            existingData: nil,
+            activityStartTime: start,
+            now: now
         )
+        #expect(firstCreate["sharedAt"] as? Date == now)
+        #expect(firstCreate["updatedAt"] as? Date == now)
+
+        var republish: [String: Any] = ["updatedAt": now, "siteName": "Reef"]
+        GoDiveSharedDiveProjectionMapping.applyShareTimestampPolicy(
+            to: &republish,
+            projectionAlreadyExists: true,
+            bumpUpdatedAt: false,
+            existingData: ["updatedAt": priorUpdate],
+            activityStartTime: start,
+            now: now
+        )
+        #expect(republish["updatedAt"] == nil)
+        #expect(republish["sharedAt"] as? Date == start)
+
+        var alreadyShared: [String: Any] = ["updatedAt": now]
+        let originalShared = Date(timeIntervalSince1970: 1_720_000_000)
+        GoDiveSharedDiveProjectionMapping.applyShareTimestampPolicy(
+            to: &alreadyShared,
+            projectionAlreadyExists: true,
+            bumpUpdatedAt: false,
+            existingData: ["sharedAt": originalShared, "updatedAt": priorUpdate],
+            activityStartTime: start,
+            now: now
+        )
+        #expect(alreadyShared["sharedAt"] == nil)
+        #expect(alreadyShared["updatedAt"] == nil)
     }
 
     @Test func homeNotifications_hasUnread_gatesOnLastSeen() {
@@ -4139,6 +5445,118 @@ struct GoDiveFriendsTests {
             )
         )
         #expect(!HomeNotificationsPresentation.hasUnread(items: [], lastSeenAt: nil))
+    }
+
+    @Test func homeNotifications_isUnreadAndReadRowStyle_useLastSeenWatermark() {
+        let newer = Date(timeIntervalSince1970: 1_700_000_100)
+        let older = Date(timeIntervalSince1970: 1_700_000_000)
+        let seenAt = Date(timeIntervalSince1970: 1_700_000_050)
+
+        #expect(HomeNotificationsPresentation.isUnread(itemDate: newer, lastSeenAt: nil))
+        #expect(HomeNotificationsPresentation.isUnread(itemDate: older, lastSeenAt: nil))
+        #expect(HomeNotificationsPresentation.isUnread(itemDate: newer, lastSeenAt: seenAt))
+        #expect(!HomeNotificationsPresentation.isUnread(itemDate: older, lastSeenAt: seenAt))
+        #expect(!HomeNotificationsPresentation.isUnread(itemDate: seenAt, lastSeenAt: seenAt))
+
+        #expect(HomeNotificationsPresentation.rowOpacity(isUnread: true) == 1)
+        #expect(HomeNotificationsPresentation.rowOpacity(isUnread: false) == 0.48)
+        #expect(HomeNotificationsPresentation.usesSemiboldTitle(isUnread: true))
+        #expect(!HomeNotificationsPresentation.usesSemiboldTitle(isUnread: false))
+    }
+
+    @Test func homeNotifications_sections_newIsUnreadAndRecent_olderIncludesAllPastTwoWeeks() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let seenAt = now.addingTimeInterval(-3 * 24 * 60 * 60)
+        let unreadRecent = HomeNotificationsPresentation.Item(
+            id: "unread-recent",
+            kind: .friendConnected(
+                GoDiveFriendGraphService.friendEdge(friendUID: "a", displayName: "A")
+            ),
+            date: now.addingTimeInterval(-1 * 24 * 60 * 60),
+            friendDisplayName: "A",
+            friendPhotoURL: nil,
+            message: "A is now your dive buddy",
+            detail: nil
+        )
+        let readRecent = HomeNotificationsPresentation.Item(
+            id: "read-recent",
+            kind: .friendConnected(
+                GoDiveFriendGraphService.friendEdge(friendUID: "b", displayName: "B")
+            ),
+            date: now.addingTimeInterval(-5 * 24 * 60 * 60),
+            friendDisplayName: "B",
+            friendPhotoURL: nil,
+            message: "B is now your dive buddy",
+            detail: nil
+        )
+        let unreadOlderThanTwoWeeks = HomeNotificationsPresentation.Item(
+            id: "unread-old",
+            kind: .friendConnected(
+                GoDiveFriendGraphService.friendEdge(friendUID: "c", displayName: "C")
+            ),
+            date: now.addingTimeInterval(-20 * 24 * 60 * 60),
+            friendDisplayName: "C",
+            friendPhotoURL: nil,
+            message: "C is now your dive buddy",
+            detail: nil
+        )
+        let readOlderThanTwoWeeks = HomeNotificationsPresentation.Item(
+            id: "read-old",
+            kind: .friendConnected(
+                GoDiveFriendGraphService.friendEdge(friendUID: "d", displayName: "D")
+            ),
+            date: now.addingTimeInterval(-30 * 24 * 60 * 60),
+            friendDisplayName: "D",
+            friendPhotoURL: nil,
+            message: "D is now your dive buddy",
+            detail: nil
+        )
+
+        #expect(
+            HomeNotificationsPresentation.belongsInNewSection(
+                itemDate: unreadRecent.date,
+                lastSeenAt: seenAt,
+                now: now
+            )
+        )
+        #expect(
+            !HomeNotificationsPresentation.belongsInNewSection(
+                itemDate: readRecent.date,
+                lastSeenAt: seenAt,
+                now: now
+            )
+        )
+        #expect(
+            !HomeNotificationsPresentation.belongsInNewSection(
+                itemDate: unreadOlderThanTwoWeeks.date,
+                lastSeenAt: seenAt,
+                now: now
+            )
+        )
+        #expect(
+            !HomeNotificationsPresentation.belongsInNewSection(
+                itemDate: readOlderThanTwoWeeks.date,
+                lastSeenAt: seenAt,
+                now: now
+            )
+        )
+
+        let split = HomeNotificationsPresentation.sections(
+            items: [
+                unreadRecent,
+                readRecent,
+                unreadOlderThanTwoWeeks,
+                readOlderThanTwoWeeks,
+            ],
+            lastSeenAt: seenAt,
+            now: now
+        )
+        #expect(split.newItems.map(\.id) == ["unread-recent"])
+        #expect(split.older.map(\.id) == ["read-recent", "unread-old", "read-old"])
+
+        #expect(HomeNotificationsPresentation.newSectionTitle == "New")
+        #expect(HomeNotificationsPresentation.olderSectionTitle == "Older")
+        #expect(HomeNotificationsPresentation.newSectionRecency == 14 * 24 * 60 * 60)
     }
 
     @Test func homeNotifications_lastSeenStore_roundTrip() {

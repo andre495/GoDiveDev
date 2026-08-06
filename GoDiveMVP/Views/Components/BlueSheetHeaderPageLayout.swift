@@ -81,6 +81,9 @@ struct BlueSheetHeaderPageLayout<
             }
 
             topChrome(context.safeTop, context.topInset)
+                // Hug measured chrome height so an expanded ZStack proposal cannot steal hero pans.
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .top)
                 // Above hero / fish overlay so header actions (Home **×**, bell, profile) win hits
                 // over UIKit paged **`TabView`** surfaces in the hero band.
                 .zIndex(10)

@@ -35,13 +35,15 @@ struct AppLaunchOverlay: View {
                     .position(x: centerX, y: titleCenterY)
 
                 if showsProgressIndicator {
-                    ProgressView()
-                        .tint(launchTitleColor)
+                    GoDiveRotateLoadingIndicator(
+                        size: .large,
+                        tint: launchTitleColor,
+                        accessibilityLabel: "Loading"
+                    )
                         .position(
                             x: centerX,
                             y: AppLaunchLayout.progressCenterY(titleCenterY: titleCenterY)
                         )
-                        .accessibilityLabel("Loading")
                 }
             }
         }
@@ -66,5 +68,5 @@ struct AppLaunchOverlay: View {
 }
 
 #Preview {
-    AppLaunchOverlay(showsProgressIndicator: true)
+    AppLaunchOverlay()
 }

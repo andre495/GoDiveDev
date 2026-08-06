@@ -33,12 +33,17 @@ struct ExploreView: View {
     @State private var showsAddDiveSiteSheet = false
     @State private var appliedScopeCacheSyncToken: String?
 
-    private let ownerProfileID: UUID?
-    private let isExploreTabSelected: Bool
+    @Environment(RootTabSelectionStore.self) private var rootTabSelection
 
-    init(ownerProfileID: UUID?, isExploreTabSelected: Bool = true) {
+    private let ownerProfileID: UUID?
+
+    /// Live tab selection via **`RootTabSelectionStore`** (not a stale `Tab` init `let`).
+    private var isExploreTabSelected: Bool {
+        RootTabSelectionPresentation.isSelected(.explore, selected: rootTabSelection.selected)
+    }
+
+    init(ownerProfileID: UUID?) {
         self.ownerProfileID = ownerProfileID
-        self.isExploreTabSelected = isExploreTabSelected
         let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
@@ -173,6 +178,11 @@ struct ExploreView: View {
             applyDefaultSiteScopeIfNeeded()
             rebuildScopeCacheOnAppearIfNeeded()
             Task { await loadDiveSiteCatalogIfNeeded() }
+            warmMapsIfExploreSelected()
+        }
+        .onChange(of: isExploreTabSelected) { _, selected in
+            guard selected else { return }
+            warmMapsIfExploreSelected()
         }
         .task(id: ownerProfileID) {
             async let loadedMarineLife = loadMarineLifeCatalogIfNeeded()
@@ -200,7 +210,7 @@ struct ExploreView: View {
 
             ZStack(alignment: .top) {
                 if viewMode == .list, !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground(animationPaused: !isExploreTabSelected)
+                    WaterBubbleBackground(diagnosticsLabel: "Explore")
                 }
 
                 Group {
@@ -531,6 +541,14 @@ struct ExploreView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
+    private func warmMapsIfExploreSelected() {
+        guard isExploreTabSelected else { return }
+        MapKitWarmup.warmUpIfNeeded()
+        #if canImport(GoogleMaps)
+        GoogleMapsWarmup.warmUpIfNeeded()
+        #endif
+    }
+
     private func loadMarineLifeCatalogIfNeeded() async {
         guard !hasLoadedMarineLifeCatalog || marineLifeCatalog.isEmpty else { return }
         marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
@@ -572,5 +590,6 @@ private struct ExploreDiveSiteListSectionHeader: View {
 
 #Preview {
     ExploreView(ownerProfileID: nil)
+        .environment(RootTabSelectionStore())
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

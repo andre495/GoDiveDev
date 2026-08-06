@@ -64,12 +64,16 @@ struct BlueSheetHomeTopChrome<Leading: View, Trailing: View>: View {
                 title: title,
                 showsBackButton: false,
                 statusBarSafeAreaTop: safeTop,
+                blocksHitsInEmptyChrome: BlueSheetTopChromePresentation.homeHeaderBlocksHitsInEmptyChrome,
                 trailingContent: { trailingContent() },
                 leadingContent: { leadingContent() }
             )
             .frame(maxWidth: .infinity, alignment: .top)
             .zIndex(1)
         }
+        // Hug header height — parent blue-sheet ZStack proposes full-screen height.
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 }
 

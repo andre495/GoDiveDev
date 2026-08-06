@@ -17,7 +17,9 @@ struct AppSessionRootView: View {
     private var showsBootstrapOverlay: Bool {
         AppSessionBootstrapPresentation.showsLaunchOverlay(
             isRestoringSession: accountSession.isRestoringSession,
-            isPopulatingRemoteAccountData: accountSession.isPopulatingRemoteAccountData
+            isPopulatingRemoteAccountData: accountSession.isPopulatingRemoteAccountData,
+            showsMainAppShell: accountSession.showsMainAppShell,
+            isHomeLaunchChromeReady: accountSession.isHomeLaunchChromeReady
         )
     }
 
@@ -54,11 +56,27 @@ struct AppSessionRootView: View {
             }
 
             if showsBootstrapOverlay {
-                AppLaunchOverlay(showsProgressIndicator: true)
+                AppLaunchOverlay()
+                    .allowsHitTesting(
+                        AppSessionBootstrapPresentation.launchOverlayAllowsHitTesting(
+                            showsMainAppShell: accountSession.showsMainAppShell,
+                            isHomeLaunchChromeReady: accountSession.isHomeLaunchChromeReady
+                        )
+                    )
                     .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
+        .onChange(of: showsBootstrapOverlay) { wasShowing, isShowing in
+            if wasShowing, !isShowing {
+                AppLaunchTimelineLog.splashOverlayHidden(
+                    isRestoringSession: accountSession.isRestoringSession,
+                    isPopulatingRemoteAccountData: accountSession.isPopulatingRemoteAccountData,
+                    showsMainAppShell: accountSession.showsMainAppShell,
+                    isHomeLaunchChromeReady: accountSession.isHomeLaunchChromeReady
+                )
+            }
+        }
         .animation(.easeInOut(duration: 0.2), value: accountSession.showsNewAccountWelcome)
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpInterests)
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpProfileSetup)
@@ -85,6 +103,7 @@ struct AppSessionRootView: View {
         }
         .onChange(of: accountSession.showsMainAppShell) { _, showsShell in
             if showsShell {
+                AppLaunchTimelineLog.splashMainShellVisible()
                 presentPendingFriendInviteIfNeeded()
             }
         }

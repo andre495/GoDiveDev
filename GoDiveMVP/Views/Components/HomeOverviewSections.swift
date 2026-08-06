@@ -299,58 +299,75 @@ struct HomeMediaCarouselSection: View {
             )
     }
 
+    private func openMediaForActiveSlide() {
+        let index = activeLogicalSlideIndex
+        guard highlights.indices.contains(index) else { return }
+        let highlight = highlights[index]
+        onOpenMedia(highlight.diveActivityID, highlight.mediaID)
+    }
+
+    @ViewBuilder
+    private var carouselPages: some View {
+        ForEach(0..<highlights.count, id: \.self) { pagerIndex in
+            let highlight = highlights[pagerIndex]
+            Group {
+                if let media = mediaByID[highlight.mediaID] {
+                    let pagePlaybackActive = isPagerPagePlaybackActive(pagerIndex)
+                    HomeMediaCarouselPage(
+                        highlight: highlight,
+                        media: media,
+                        slideIndex: pagerIndex,
+                        slideCount: highlights.count,
+                        pageWidth: containerWidth,
+                        pageHeight: resolvedCarouselContentHeight,
+                        isVideoPlaybackActive: pagePlaybackActive,
+                        shouldPrepareVideo: shouldPrepareVideo(for: pagerIndex),
+                        isAutoAdvanceActive: isAutoAdvanceEnabled && pagePlaybackActive,
+                        loopsSlidePlayback: HomeMediaCarouselPresentation.shouldLoopCarouselVideo(
+                            isPagePlaybackActive: pagePlaybackActive
+                        ),
+                        playbackResumeToken: pagePlaybackActive ? playbackResumeToken : 0,
+                        playbackAllowed: isPlaybackAllowed,
+                        showsBottomChrome: !showsMarineLifeOverlay,
+                        onSlideFinished: { finishSlide(at: pagerIndex) },
+                        onOpenDive: { onOpenDive(highlight.diveActivityID) },
+                        onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
+                        taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
+                        isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
+                        onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
+                        selfBuddyID: selfBuddyID,
+                        onOpenBuddy: onOpenBuddy
+                    )
+                } else {
+                    Color.black
+                }
+            }
+            .containerRelativeFrame(.horizontal, count: 1, span: 1, spacing: 0)
+            .frame(height: resolvedCarouselContentHeight, alignment: .top)
+            .id(pagerIndex)
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
-            // ScrollView paging — same approach as dive Media. The old looping paged TabView
-            // desynced after wrap and swallowed swipes; this keeps 1:1 pages and reliable pans.
+            // Eager HStack paging (≤3 slides). LazyHStack + per-page SwiftUI taps made forward
+            // pans / open-media taps unreliable; UIKit tap requires the scroll pan to fail.
             ScrollView(.horizontal, showsIndicators: false) {
                 // **`.top`** — default center alignment vertically shifts pages when the scroll
                 // container’s height disagrees with the page, pulling media above the sheet seam.
-                LazyHStack(alignment: .top, spacing: 0) {
-                    ForEach(0..<highlights.count, id: \.self) { pagerIndex in
-                        let highlight = highlights[pagerIndex]
-                        Group {
-                            if let media = mediaByID[highlight.mediaID] {
-                                let pagePlaybackActive = isPagerPagePlaybackActive(pagerIndex)
-                                HomeMediaCarouselPage(
-                                    highlight: highlight,
-                                    media: media,
-                                    slideIndex: pagerIndex,
-                                    slideCount: highlights.count,
-                                    pageWidth: containerWidth,
-                                    pageHeight: resolvedCarouselContentHeight,
-                                    isVideoPlaybackActive: pagePlaybackActive,
-                                    shouldPrepareVideo: shouldPrepareVideo(for: pagerIndex),
-                                    isAutoAdvanceActive: isAutoAdvanceEnabled && pagePlaybackActive,
-                                    loopsSlidePlayback: HomeMediaCarouselPresentation.shouldLoopCarouselVideo(
-                                        isPagePlaybackActive: pagePlaybackActive
-                                    ),
-                                    playbackResumeToken: pagePlaybackActive ? playbackResumeToken : 0,
-                                    playbackAllowed: isPlaybackAllowed,
-                                    showsBottomChrome: !showsMarineLifeOverlay,
-                                    onSlideFinished: { finishSlide(at: pagerIndex) },
-                                    onOpenMedia: { onOpenMedia(highlight.diveActivityID, highlight.mediaID) },
-                                    onOpenDive: { onOpenDive(highlight.diveActivityID) },
-                                    onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
-                                    taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
-                                    isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
-                                    onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
-                                    selfBuddyID: selfBuddyID,
-                                    onOpenBuddy: onOpenBuddy
-                                )
-                            } else {
-                                Color.black
-                            }
+                Group {
+                    if HomeMediaCarouselScrollInteractionPresentation.usesEagerHorizontalStackForPaging {
+                        HStack(alignment: .top, spacing: 0) {
+                            carouselPages
                         }
-                        .frame(
-                            width: containerWidth,
-                            height: resolvedCarouselContentHeight,
-                            alignment: .top
-                        )
-                        .id(pagerIndex)
+                        .scrollTargetLayout()
+                    } else {
+                        LazyHStack(alignment: .top, spacing: 0) {
+                            carouselPages
+                        }
+                        .scrollTargetLayout()
                     }
                 }
-                .scrollTargetLayout()
             }
             // Do **not** add **`ignoresSafeArea(top)`** here — **`PushedHeroBand`** already
             // applies the hero bleed; a second ignore shifts media up off the sheet seam.
@@ -364,6 +381,25 @@ struct HomeMediaCarouselSection: View {
             )
             .frame(width: containerWidth, height: resolvedCarouselContentHeight)
             .clipped()
+            .overlay {
+                #if canImport(UIKit)
+                if HomeMediaCarouselScrollInteractionPresentation.usesUIKitScrollViewTapInstaller {
+                    HomeMediaCarouselScrollTapInstaller {
+                        openMediaForActiveSlide()
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+                #endif
+            }
+            .modifier(HomeMediaCarouselScrollViewOpenMediaTapModifier(
+                usesUIKitInstaller: HomeMediaCarouselScrollInteractionPresentation.usesUIKitScrollViewTapInstaller,
+                onOpenMedia: openMediaForActiveSlide
+            ))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default) {
+                openMediaForActiveSlide()
+            }
             .onChange(of: pagerSelectedIndex) { oldIndex, newIndex in
                 closeMarineLifeOverlay()
                 closeBuddyList()
@@ -666,7 +702,6 @@ private struct HomeMediaCarouselPage: View {
     var playbackAllowed: Bool = true
     var showsBottomChrome: Bool = true
     let onSlideFinished: () -> Void
-    let onOpenMedia: () -> Void
     let onOpenDive: () -> Void
     let onShowTaggedSpecies: () -> Void
     let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
@@ -676,9 +711,7 @@ private struct HomeMediaCarouselPage: View {
     let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
-        // Full-page **`Button`** steals the horizontal **`ScrollView`** pan (only the chrome
-        // **`Spacer`** pass-through stayed swipeable). **`onTapGesture`** yields to paging drags
-        // and still opens media on a tap; chrome buttons sit above and keep their own hits.
+        // No per-page tap/Button — open-media lives on the paging **`ScrollView`** so pans stay clean.
         ZStack(alignment: .bottom) {
             HomeMediaCarouselMediaView(
                 media: media,
@@ -694,12 +727,8 @@ private struct HomeMediaCarouselPage: View {
                 playbackAllowed: playbackAllowed,
                 onSlideFinished: onSlideFinished
             )
-            .frame(width: pageWidth, height: pageHeight)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onOpenMedia)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint("Opens this media on the dive")
 
             if showsBottomChrome {
                 HomeMediaCarouselSlideBottomChrome(
@@ -713,11 +742,32 @@ private struct HomeMediaCarouselPage: View {
                     selfBuddyID: selfBuddyID,
                     onOpenBuddy: onOpenBuddy
                 )
-                .frame(width: pageWidth)
+                .frame(maxWidth: .infinity)
             }
         }
-        .frame(width: pageWidth, height: pageHeight)
+        .frame(maxWidth: .infinity)
+        .frame(height: pageHeight)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Dive media at \(highlight.siteDisplayName)")
+        .accessibilityHint("Opens this media on the dive")
+    }
+}
+
+/// SwiftUI fallback only when the UIKit scroll-view tap installer is disabled.
+private struct HomeMediaCarouselScrollViewOpenMediaTapModifier: ViewModifier {
+    let usesUIKitInstaller: Bool
+    let onOpenMedia: () -> Void
+
+    func body(content: Content) -> some View {
+        if usesUIKitInstaller {
+            content
+        } else if HomeMediaCarouselPresentation.usesSimultaneousTapGestureForOpenMediaOnScrollPage {
+            content.simultaneousGesture(
+                TapGesture().onEnded { onOpenMedia() }
+            )
+        } else {
+            content.onTapGesture(perform: onOpenMedia)
+        }
     }
 }
 
@@ -768,6 +818,8 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
             .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
         }
         .animation(buddyChromeAnimation, value: isBuddyListExpanded)
+        // Hug control-row height — a full-page chrome ZStack left only the Spacer swipeable.
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .bottomLeading)
         .accessibilityIdentifier("Home.MediaCarousel.Overlay")
     }
@@ -1192,7 +1244,8 @@ private struct HomeMediaCarouselMediaView: View {
         .task(id: "\(media.id.uuidString)-video-\(shouldPrepareVideo)") {
             guard isVideo,
                   DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
-                      isSlidePlaybackActive: shouldPrepareVideo
+                      isSlidePlaybackActive: shouldPrepareVideo,
+                      isLaunchWarmOwningGate: HomeMediaHighlightWarmup.isLaunchWarmOwningPhotoKitGate
                   ) else { return }
             await HomeMediaHighlightWarmup.ensureCarouselVideoReady(for: media)
             homeCarouselPlayerTick += 1
@@ -1598,12 +1651,14 @@ enum HomeLifetimeStatsLayout {
     static func resolvedVerticalEdgeInsets(
         totalHeight: CGFloat,
         statRowCount: Int,
-        showsBuddyLeaderboard: Bool
+        showsBuddyLeaderboard: Bool,
+        includesLifetimeSummaryHeader: Bool = true
     ) -> (top: CGFloat, bottom: CGFloat) {
         HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
             totalHeight: totalHeight,
             statRowCount: statRowCount,
-            showsBuddyLeaderboard: showsBuddyLeaderboard
+            showsBuddyLeaderboard: showsBuddyLeaderboard,
+            includesLifetimeSummaryHeader: includesLifetimeSummaryHeader
         )
     }
 
@@ -1944,6 +1999,8 @@ struct HomeLifetimeStatsSection: View {
     let onOpenBuddy: (UUID) -> Void
     /// When **`false`**, omit the **Top buddies** tile (Profile **Diver stats**). Home keeps the default.
     var includesBuddyLeaderboard: Bool = true
+    /// When **`false`**, omit the **X dives | X hr bottom time** line (Profile **Diver stats**). Home keeps the default.
+    var includesLifetimeSummaryHeader: Bool = true
 
     private var showsBuddyLeaderboard: Bool {
         guard includesBuddyLeaderboard else { return false }
@@ -1964,20 +2021,38 @@ struct HomeLifetimeStatsSection: View {
 
         Group {
             if showsBuddyLeaderboard {
-                // Home: center the tile stack in the fixed blue panel height.
+                // Home: summary between seam and centered tiles; center only tiles / Top buddies.
                 GeometryReader { proxy in
-                    let edgeInsets = HomeLifetimeStatsLayout.resolvedVerticalEdgeInsets(
-                        totalHeight: proxy.size.height,
-                        statRowCount: statRowCount,
-                        showsBuddyLeaderboard: true
+                    let tilesAvailableHeight = HomeLifetimeStatsTilesLayout.homeCenteredTilesAvailableHeight(
+                        panelHeight: proxy.size.height,
+                        includesLifetimeSummaryHeader: includesLifetimeSummaryHeader
                     )
+                    let edgeInsets = HomeLifetimeStatsLayout.resolvedVerticalEdgeInsets(
+                        totalHeight: tilesAvailableHeight,
+                        statRowCount: statRowCount,
+                        showsBuddyLeaderboard: true,
+                        includesLifetimeSummaryHeader: false
+                    )
+                    let summaryTopSlack = includesLifetimeSummaryHeader
+                        ? HomeLifetimeStatsTilesLayout.homeLifetimeSummaryTopSlack(
+                            tileCenteringTopInset: edgeInsets.top
+                        )
+                        : 0
+                    let tilesTopSlack = max(0, edgeInsets.top - summaryTopSlack)
 
                     VStack(spacing: 0) {
+                        if includesLifetimeSummaryHeader {
+                            Color.clear
+                                .frame(height: summaryTopSlack)
+                                .accessibilityHidden(true)
+                            lifetimeSummaryHeader()
+                        }
+
                         Color.clear
-                            .frame(height: edgeInsets.top)
+                            .frame(height: tilesTopSlack)
                             .accessibilityHidden(true)
 
-                        statsStack(tiles: tiles, columns: columns, tileSpacing: tileSpacing)
+                        highlightTilesStack(tiles: tiles, columns: columns, tileSpacing: tileSpacing)
 
                         Color.clear
                             .frame(height: edgeInsets.bottom)
@@ -2002,8 +2077,13 @@ struct HomeLifetimeStatsSection: View {
             } else {
                 // Profile (and any no-buddy embedding): intrinsic top-aligned stack — avoids
                 // GeometryReader + TabView page proposing non-finite height for clear spacers.
-                statsStack(tiles: tiles, columns: columns, tileSpacing: tileSpacing)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                VStack(spacing: 0) {
+                    if includesLifetimeSummaryHeader {
+                        lifetimeSummaryHeader()
+                    }
+                    highlightTilesStack(tiles: tiles, columns: columns, tileSpacing: tileSpacing)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
         .clipped()
@@ -2011,7 +2091,25 @@ struct HomeLifetimeStatsSection: View {
     }
 
     @ViewBuilder
-    private func statsStack(
+    private func lifetimeSummaryHeader() -> some View {
+        Color.clear
+            .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryTopInset)
+            .accessibilityHidden(true)
+
+        Text(LogbookMyActivitiesSummaryPresentation.headerLine(for: myActivitiesSummary))
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .accessibilityIdentifier("Home.LifetimeSummary")
+
+        Color.clear
+            .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryHeaderSpacingBelow)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func highlightTilesStack(
         tiles: [HomeHighlightStatTile],
         columns: [GridItem],
         tileSpacing: CGFloat
@@ -2019,45 +2117,28 @@ struct HomeLifetimeStatsSection: View {
         let statTileHeight = HomeLifetimeStatsTilesLayout.statTileHeight
         let buddyTileHeight = HomeLifetimeStatsTilesLayout.buddyTileHeight
 
-        VStack(spacing: 0) {
-            Color.clear
-                .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryTopInset)
-                .accessibilityHidden(true)
-
-            Text(LogbookMyActivitiesSummaryPresentation.headerLine(for: myActivitiesSummary))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .accessibilityIdentifier("Home.LifetimeSummary")
-
-            Color.clear
-                .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryHeaderSpacingBelow)
-                .accessibilityHidden(true)
-
-            VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
-                LazyVGrid(columns: columns, spacing: tileSpacing) {
-                    ForEach(tiles) { tile in
-                        HomeStatTile(
-                            title: tile.title,
-                            value: tile.value,
-                            footnote: tile.footnote,
-                            systemImage: tile.systemImage,
-                            action: tile.action
-                        )
-                        .frame(maxWidth: .infinity)
-                        .frame(height: statTileHeight)
-                    }
-                }
-
-                if showsBuddyLeaderboard {
-                    HomeBuddyLeaderboardTile(
-                        entries: buddyLeaderboard,
-                        onOpenBuddy: onOpenBuddy
+        VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
+            LazyVGrid(columns: columns, spacing: tileSpacing) {
+                ForEach(tiles) { tile in
+                    HomeStatTile(
+                        title: tile.title,
+                        value: tile.value,
+                        footnote: tile.footnote,
+                        systemImage: tile.systemImage,
+                        action: tile.action
                     )
                     .frame(maxWidth: .infinity)
-                    .frame(height: buddyTileHeight)
+                    .frame(height: statTileHeight)
                 }
+            }
+
+            if showsBuddyLeaderboard {
+                HomeBuddyLeaderboardTile(
+                    entries: buddyLeaderboard,
+                    onOpenBuddy: onOpenBuddy
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: buddyTileHeight)
             }
         }
     }

@@ -209,10 +209,13 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         do {
             let existingProjection = try await projectionRef.getDocument()
-            // Full republish must not make every buddy feed / Home Notifications row look brand-new.
-            if existingProjection.exists, !bumpUpdatedAt {
-                fields.removeValue(forKey: "updatedAt")
-            }
+            GoDiveSharedDiveProjectionMapping.applyShareTimestampPolicy(
+                to: &fields,
+                projectionAlreadyExists: existingProjection.exists,
+                bumpUpdatedAt: bumpUpdatedAt,
+                existingData: existingProjection.data(),
+                activityStartTime: dive.startTime
+            )
             try await projectionRef.setData(fields, merge: true)
             await GoDiveSharedMediaUpload.syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
                 ownerUID: uid,
@@ -309,9 +312,13 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         do {
             let existingProjection = try await projectionRef.getDocument()
-            if existingProjection.exists, !bumpUpdatedAt {
-                fields.removeValue(forKey: "updatedAt")
-            }
+            GoDiveSharedDiveProjectionMapping.applyShareTimestampPolicy(
+                to: &fields,
+                projectionAlreadyExists: existingProjection.exists,
+                bumpUpdatedAt: bumpUpdatedAt,
+                existingData: existingProjection.data(),
+                activityStartTime: snorkel.startTime
+            )
             try await projectionRef.setData(fields, merge: true)
             await GoDiveSharedMediaUpload.syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
                 ownerUID: uid,
@@ -362,12 +369,14 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         await GoDiveSharedMediaUpload.clearActivityMedia(ownerUID: uid, activityID: diveID)
 
         do {
-            try await Firestore.firestore()
+            let activityRef = Firestore.firestore()
                 .collection("users")
                 .document(uid)
                 .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
                 .document(diveID.uuidString)
-                .delete()
+            await GoDiveSharedActivityLikeSync.deleteAllLikes(for: activityRef)
+            await GoDiveSharedActivityCommentSync.deleteAllComments(for: activityRef)
+            try await activityRef.delete()
             await GoDiveBuddyActivityPushSignalSync.deleteSignal(
                 ownerUID: uid,
                 activityID: diveID
@@ -388,6 +397,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                 .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
                 .getDocuments()
             for doc in snap.documents {
+                await GoDiveSharedActivityLikeSync.deleteAllLikes(for: doc.reference)
+                await GoDiveSharedActivityCommentSync.deleteAllComments(for: doc.reference)
                 try await doc.reference.delete()
             }
             await GoDiveSharedMediaStorage.deleteAllForOwner(ownerUID: uid)
@@ -428,7 +439,12 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                 divesByFriendUID[uid] = dives
             }
         }
-        let rows = LogbookBuddyFeedPresentation.rows(friends: friends, divesByFriendUID: divesByFriendUID)
+        let baseRows = LogbookBuddyFeedPresentation.rows(
+            friends: friends,
+            divesByFriendUID: divesByFriendUID
+        )
+        let likedRowIDs = await GoDiveSharedActivityLikeSync.likedRowIDsForCurrentUser(among: baseRows)
+        let rows = LogbookBuddyFeedPresentation.enrichingRows(baseRows, likedRowIDs: likedRowIDs)
         return (friends, rows)
     }
 

@@ -10,9 +10,13 @@ struct LogOverviewView: View {
     @Environment(\.isCelebrationShellPrewarmActive) private var isCelebrationShellPrewarmActive
 
     @Query private var ownerDiveActivities: [DiveActivity]
+    @Query private var ownerSnorkelActivities: [SnorkelActivity]
     @Query private var ownerDiveBuddies: [DiveBuddy]
 
+    /// Owner-tagged species only (overlays / leaderboard) — not the full Field Guide catalog.
     @State private var marineLifeCatalog: [MarineLife] = []
+    /// Off-main uuid→commonName map for enrich capture (avoids binding thousands of **`MarineLife`** rows).
+    @State private var marineLifeCommonNameByUUID: [String: String] = [:]
     @State private var diveSiteCatalog: [DiveSite] = []
     @State private var userDiveSites: [UserDiveSite] = []
     @State private var hasLoadedNavigationCatalogs = false
@@ -73,6 +77,13 @@ struct LogOverviewView: View {
             sort: [
                 SortDescriptor(\DiveActivity.startTime, order: .reverse),
                 SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+        _ownerSnorkelActivities = Query(
+            filter: #Predicate<SnorkelActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\SnorkelActivity.startTime, order: .reverse),
+                SortDescriptor(\SnorkelActivity.id, order: .forward),
             ]
         )
         _ownerDiveBuddies = Query(
@@ -160,7 +171,22 @@ struct LogOverviewView: View {
                 )
             )
             .task(id: ownerProfileID) {
+                // Defer name-map + dive-site bind — full MarineLife bind is Field Guide / on-demand only.
+                let catalogDefer = AppLaunchPostOverlayPresentation.postChromeCatalogBindDeferNanoseconds
+                if catalogDefer > 0 {
+                    try? await Task.sleep(nanoseconds: catalogDefer)
+                }
+                guard !Task.isCancelled else { return }
+                AppLaunchTimelineLog.event(
+                    "home.catalog_names_deferred_begin",
+                    "deferMs=\(catalogDefer / 1_000_000)"
+                )
+                let neededEnrichRebuild = marineLifeCommonNameByUUID.isEmpty
                 await reloadHomeNavigationCatalogsIfNeeded()
+                guard !Task.isCancelled else { return }
+                if neededEnrichRebuild, !marineLifeCommonNameByUUID.isEmpty {
+                    scheduleHomeOverviewRebuild(immediate: true)
+                }
             }
             .task(id: ownerProfileID) {
                 await refreshNotificationsBadgeIfNeeded()
@@ -180,7 +206,7 @@ struct LogOverviewView: View {
                     )
                 )
             }
-            .onChange(of: ownerDiveActivities.count) { _, _ in scheduleHomeOverviewRebuild() }
+            .onChange(of: ownerDiveActivities.count, handleOwnerDiveActivityCountChange)
             .onChange(of: automaticallyRenumberDives) { _, _ in scheduleHomeOverviewRebuild() }
             .onChange(of: buddyRosterFingerprint) { _, _ in scheduleHomeOverviewRebuild() }
             .onReceive(
@@ -270,7 +296,7 @@ struct LogOverviewView: View {
                 .overlay(alignment: .topTrailing) {
                     if hasUnreadNotifications {
                         Circle()
-                            .fill(.red)
+                            .fill(AppTheme.Colors.accent)
                             .frame(width: 9, height: 9)
                             .offset(x: 2, y: -2)
                     }
@@ -305,10 +331,17 @@ struct LogOverviewView: View {
             hasFetchedNotificationsBadge = false
             return
         }
-        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+        async let snapshotTask = GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+        async let ownedSocialTask = HomeNotificationsOwnedSocialSync.fetchEvents()
+        let snapshot = await snapshotTask
+        async let mentionTask = HomeNotificationsMentionSync.fetchEvents(feedRows: snapshot.rows)
+        let ownedSocial = await ownedSocialTask
+        let mentions = await mentionTask
         homeNotificationItems = HomeNotificationsPresentation.items(
             friends: snapshot.friends,
             activityRows: snapshot.rows,
+            ownedSocialEvents: ownedSocial,
+            mentionEvents: mentions,
             currentFirebaseUID: GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID()
         )
     }
@@ -399,6 +432,44 @@ struct LogOverviewView: View {
     }
 
     @ViewBuilder
+    private func ownedSharedActivityDestination(
+        activityID: UUID,
+        activityKind: FriendSharedActivityKind,
+        opensComments: Bool
+    ) -> some View {
+        switch activityKind {
+        case .scubaDive:
+            if let activity = ownerDiveActivities.first(where: { $0.id == activityID }) {
+                ViewSingleActivity(
+                    activity: activity,
+                    opensCommentsOnAppear: opensComments
+                )
+            } else {
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.homePathByRemovingActivity(
+                        path,
+                        activityID: activityID
+                    )
+                }
+            }
+        case .snorkel:
+            if let activity = ownerSnorkelActivities.first(where: { $0.id == activityID }) {
+                ViewSingleSnorkelActivity(
+                    activity: activity,
+                    opensCommentsOnAppear: opensComments
+                )
+            } else {
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.homePathByRemovingActivity(
+                        path,
+                        activityID: activityID
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private func homeDestination(for route: HomeRoute) -> some View {
         switch route {
         case .profile:
@@ -442,7 +513,8 @@ struct LogOverviewView: View {
                 onOpenDive: { pushHome(.diveDetail($0)) }
             )
         case .marineLife(let uuid):
-            if let species = marineLifeCatalog.first(where: { $0.uuid == uuid }) {
+            if let species = marineLifeCatalog.first(where: { $0.uuid == uuid })
+                ?? MarineLifeCatalogLoader.bindModel(uuid: uuid, modelContext: modelContext) {
                 FieldGuideMarineLifeDetailView(
                     species: species,
                     ownerProfileID: ownerProfileID
@@ -465,7 +537,30 @@ struct LogOverviewView: View {
             HomeNotificationsView(
                 ownerProfileID: ownerProfileID,
                 onOpenFriend: { pushHome(.friendProfile($0)) },
-                onOpenActivity: { pushHome(.buddySharedActivity($0)) }
+                onOpenActivity: { pushHome(.buddySharedActivity($0)) },
+                onOpenOwnedActivity: { target in
+                    pushHome(
+                        .ownedSharedActivity(
+                            activityID: target.activityID,
+                            activityKind: target.activityKind,
+                            opensComments: target.opensComments
+                        )
+                    )
+                },
+                onOpenMention: { target in
+                    switch target.destination {
+                    case .owned(let owned):
+                        pushHome(
+                            .ownedSharedActivity(
+                                activityID: owned.activityID,
+                                activityKind: owned.activityKind,
+                                opensComments: owned.opensComments
+                            )
+                        )
+                    case .shared(let row):
+                        pushHome(.buddySharedActivity(row, opensComments: true))
+                    }
+                }
             )
         case .friendProfile(let friend):
             FriendProfileView(friend: friend)
@@ -474,14 +569,21 @@ struct LogOverviewView: View {
                 equipmentID: equipmentID,
                 ownerProfileID: ownerProfileID
             )
-        case .buddySharedActivity(let row):
+        case .buddySharedActivity(let row, let opensComments):
             FriendSharedDiveDetailView(
                 dive: row.dive,
                 friendName: row.friendDisplayName,
                 friendPhotoURL: row.friendPhotoURL,
-                friendUID: row.friendUID
+                friendUID: row.friendUID,
+                opensCommentsOnAppear: opensComments
             )
             .hidesBottomTabBarWhenPushed()
+        case .ownedSharedActivity(let activityID, let activityKind, let opensComments):
+            ownedSharedActivityDestination(
+                activityID: activityID,
+                activityKind: activityKind,
+                opensComments: opensComments
+            )
         case .lifetimeStatsLeaderboard(let kind):
             HomeLifetimeStatsLeaderboardView(
                 kind: kind,
@@ -512,14 +614,24 @@ struct LogOverviewView: View {
             hasPerformedInitialHomeBuild: hasPerformedInitialHomeBuild
         ) {
         case .scheduleImmediateInitialRebuild:
-            hasPerformedInitialHomeBuild = true
+            AppLaunchTimelineLog.homeRootAppear(
+                initialBuild: true,
+                ownerDiveQueryCount: ownerDiveActivities.count
+            )
             if isCelebrationShellPrewarmActive {
                 SignInCelebrationTransitionDiagnostics.mark("Home_handleHomeRootAppear_initial_rebuild_during_prewarm")
             } else {
                 SignInCelebrationTransitionDiagnostics.mark("Home_handleHomeRootAppear_initial_rebuild")
             }
+            // Mark warm only after the first rebuild finishes — marking early let return/foreground
+            // skip while Home still showed **`HomeOverviewAggregate.empty`**.
             scheduleHomeOverviewRebuild(immediate: true, source: .initialRootAppear)
+            scheduleHomeChromeReadyFailsafeIfNeeded()
         case .handleReturnToRoot:
+            AppLaunchTimelineLog.homeRootAppear(
+                initialBuild: false,
+                ownerDiveQueryCount: ownerDiveActivities.count
+            )
             handleReturnToHomeRoot()
         }
     }
@@ -556,6 +668,13 @@ struct LogOverviewView: View {
         scheduleHomeOverviewRebuild()
     }
 
+    private func handleOwnerDiveActivityCountChange(oldCount: Int, newCount: Int) {
+        AppLaunchTimelineLog.homeOwnerQueryCountChanged(from: oldCount, to: newCount)
+        // Ownership heal after splash can populate an empty Home — rebuild immediately.
+        let immediate = oldCount == 0 && newCount > 0
+        scheduleHomeOverviewRebuild(immediate: immediate)
+    }
+
     private func scheduleHomeOverviewRebuild(
         debounceNanoseconds: UInt64 = 80_000_000,
         immediate: Bool = false,
@@ -566,8 +685,17 @@ struct LogOverviewView: View {
             hasPerformedInitialHomeBuild: hasPerformedInitialHomeBuild,
             source: source
         ) {
+            AppLaunchTimelineLog.event(
+                "home.rebuild_skipped",
+                "source=\(source) prewarm=\(isCelebrationShellPrewarmActive) hadInitial=\(hasPerformedInitialHomeBuild)"
+            )
             return
         }
+        AppLaunchTimelineLog.homeRebuildScheduled(
+            source: "\(source)",
+            immediate: immediate,
+            queryDives: ownerDiveActivities.count
+        )
         homeOverviewRebuildGeneration += 1
         let generation = homeOverviewRebuildGeneration
 
@@ -595,30 +723,130 @@ struct LogOverviewView: View {
     private func performHomeOverviewRebuild(generation: Int) async {
         guard generation == homeOverviewRebuildGeneration else { return }
         let signpostID = SignInCelebrationTransitionDiagnostics.begin(.homeOverviewRebuild)
-        await rebuildHomeOverviewAsync()
+        await rebuildHomeOverviewAsync(generation: generation)
         SignInCelebrationTransitionDiagnostics.end(.homeOverviewRebuild, signpostID: signpostID)
     }
 
     @MainActor
-    private func rebuildHomeOverviewAsync() async {
-        if marineLifeCatalog.isEmpty {
-            await reloadHomeNavigationCatalogsIfNeeded()
-        }
+    private func rebuildHomeOverviewAsync(generation: Int) async {
+        // Do **not** await the full marine-life catalog before the first aggregate — that blocked
+        // stats + carousel (empty Home) while thousands of catalog rows bound on the main actor.
         let ownerProfile = accountSession.currentProfile
         selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
             owner: ownerProfile,
             modelContext: modelContext
         )
+
+        let wasInitial = !hasPerformedInitialHomeBuild
+        let useLaunchPath = HomeOverviewFirstPaintPresentation.shouldUseTwoPhaseInitialRebuild(
+            hasPerformedInitialHomeBuild: hasPerformedInitialHomeBuild,
+            ownerDiveActivityCount: ownerDiveActivities.count
+        )
+
+        if useLaunchPath {
+            let launch = await HomeOverviewAggregateBuilder.buildLaunchAsync(
+                activities: ownerDiveActivities,
+                buddyRoster: ownerDiveBuddies,
+                automaticallyRenumberDives: automaticallyRenumberDives,
+                displayUnits: diveDisplayUnitSystem,
+                ownerProfileID: ownerProfileID,
+                ownerProfile: ownerProfile,
+                modelContext: modelContext
+            )
+            guard generation == homeOverviewRebuildGeneration else { return }
+            homeAggregate = launch.aggregate
+            // Keep **`hasPerformedInitialHomeBuild`** false until chrome is marked ready so incidental
+            // rebuilds stay skipped and cannot cancel this path before splash dismiss.
+            if let ownerProfileID {
+                OwnerDiveIndexSessionCache.publish(
+                    activities: ownerDiveActivities,
+                    ownerProfileID: ownerProfileID
+                )
+            }
+            AppLaunchTimelineLog.homeStatsApplied(
+                queryDives: ownerDiveActivities.count,
+                aggregateDives: launch.aggregate.diveStatsInputs.count
+            )
+            await Task.yield()
+            guard generation == homeOverviewRebuildGeneration else { return }
+
+            // Media index + pick-3 JPEGs before splash dismiss — avoid empty carousel flash.
+            let mediaSeeds = HomeDiveScalarSeeding.mediaPhotoSeeds(
+                ownerDiveIDs: Set(ownerDiveActivities.map(\.id)),
+                activities: ownerDiveActivities,
+                modelContext: modelContext
+            )
+            guard generation == homeOverviewRebuildGeneration else { return }
+            applyLaunchCarousel(
+                mediaSeeds: mediaSeeds,
+                aggregate: launch.aggregate,
+                generation: generation
+            )
+            // Let SwiftUI commit stats + carousel under the splash before it fades.
+            await Task.yield()
+            await Task.yield()
+            guard generation == homeOverviewRebuildGeneration else { return }
+            markHomeLaunchChromeReadyIfNeeded()
+            hasPerformedInitialHomeBuild = true
+
+            // Sightings / full media enrich after a quiet interactive window — do not contend with swipe/tabs.
+            let activities = ownerDiveActivities
+            let buddies = ownerDiveBuddies
+            let commonNames = marineLifeCommonNameByUUID
+            let renumber = automaticallyRenumberDives
+            let units = diveDisplayUnitSystem
+            let ownerID = ownerProfileID
+            Task { @MainActor in
+                let enrichDefer = AppLaunchPostOverlayPresentation.postChromeHomeEnrichDeferNanoseconds
+                if enrichDefer > 0 {
+                    try? await Task.sleep(nanoseconds: enrichDefer)
+                }
+                guard generation == homeOverviewRebuildGeneration else { return }
+                // Load the marine common-name map (off-main) before enrich so one pass has species
+                // names — no second full rebuild after the deferred catalog task.
+                var names = commonNames
+                if names.isEmpty {
+                    names = await MarineLifeCatalogLoader.fetchCommonNameByUUID(
+                        container: modelContext.container
+                    )
+                    guard generation == homeOverviewRebuildGeneration else { return }
+                    if !names.isEmpty, marineLifeCommonNameByUUID.isEmpty {
+                        marineLifeCommonNameByUUID = names
+                    }
+                }
+                AppLaunchTimelineLog.event(
+                    "home.enrich_deferred_begin",
+                    "queryDives=\(activities.count) deferMs=\(enrichDefer / 1_000_000)"
+                )
+                let built = await HomeOverviewAggregateBuilder.buildAsync(
+                    activities: activities,
+                    commonNameByUUID: names,
+                    automaticallyRenumberDives: renumber,
+                    displayUnits: units,
+                    ownerProfileID: ownerID,
+                    ownerProfile: ownerProfile,
+                    modelContext: modelContext,
+                    buddyRoster: buddies
+                )
+                guard generation == homeOverviewRebuildGeneration else { return }
+                applyHomeAggregateEnrichment(built, generation: generation, wasInitial: wasInitial)
+            }
+            return
+        }
+
         let built = await HomeOverviewAggregateBuilder.buildAsync(
             activities: ownerDiveActivities,
-            marineLifeCatalog: marineLifeCatalog,
+            commonNameByUUID: marineLifeCommonNameByUUID,
             automaticallyRenumberDives: automaticallyRenumberDives,
             displayUnits: diveDisplayUnitSystem,
             ownerProfileID: ownerProfileID,
             ownerProfile: ownerProfile,
-            modelContext: modelContext
+            modelContext: modelContext,
+            buddyRoster: ownerDiveBuddies
         )
+        guard generation == homeOverviewRebuildGeneration else { return }
         homeAggregate = built
+        bindOwnerTaggedMarineLifeCatalog(from: built)
         if let ownerProfileID {
             OwnerDiveIndexSessionCache.publish(
                 activities: ownerDiveActivities,
@@ -626,19 +854,151 @@ struct LogOverviewView: View {
             )
         }
         refreshCarouselHighlightsIfNeeded(using: built)
+        // Always mark when splash is still up — not only **`wasInitial`** (superseded launch race).
+        markHomeLaunchChromeReadyIfNeeded()
+        hasPerformedInitialHomeBuild = true
+        AppLaunchTimelineLog.homeRebuildApplied(
+            queryDives: ownerDiveActivities.count,
+            aggregateDives: built.diveStatsInputs.count,
+            carouselHighlights: carouselHighlights.count,
+            catalogSpecies: marineLifeCatalog.count,
+            isInitial: wasInitial
+        )
+        // Name-map / dive-site load run from the deferred Home `.task`.
+    }
+
+    @MainActor
+    private func markHomeLaunchChromeReadyIfNeeded() {
+        guard HomeLaunchChromePresentation.shouldMarkChromeReady(
+            isAlreadyReady: accountSession.isHomeLaunchChromeReady
+        ) else { return }
+        accountSession.markHomeLaunchChromeReady()
+    }
+
+    /// Dismiss splash even if a rebuild generation was cancelled mid-flight or hung.
+    private func scheduleHomeChromeReadyFailsafeIfNeeded() {
+        guard HomeLaunchChromePresentation.shouldMarkChromeReady(
+            isAlreadyReady: accountSession.isHomeLaunchChromeReady
+        ) else { return }
+        Task { @MainActor in
+            let nanos = AppLaunchPostOverlayPresentation.homeChromeReadyFailsafeNanoseconds
+            try? await Task.sleep(nanoseconds: nanos)
+            guard !Task.isCancelled else { return }
+            guard HomeLaunchChromePresentation.shouldMarkChromeReady(
+                isAlreadyReady: accountSession.isHomeLaunchChromeReady
+            ) else { return }
+            AppLaunchTimelineLog.event(
+                "splash.home_chrome_ready_failsafe",
+                "afterMs=\(nanos / 1_000_000)"
+            )
+            accountSession.markHomeLaunchChromeReady()
+            hasPerformedInitialHomeBuild = true
+        }
+    }
+
+    /// Applies post-launch enrich aggregate + binds only owner-tagged species for overlays.
+    @MainActor
+    private func applyHomeAggregateEnrichment(
+        _ built: HomeOverviewAggregate,
+        generation: Int,
+        wasInitial: Bool
+    ) {
+        guard generation == homeOverviewRebuildGeneration else { return }
+        let previousCarouselFingerprint = homeAggregate.carouselFingerprint
+        homeAggregate = built
+        bindOwnerTaggedMarineLifeCatalog(from: built)
+        if built.carouselFingerprint == previousCarouselFingerprint, !carouselHighlights.isEmpty {
+            carouselHighlights = refreshCarouselHighlightTagCounts(
+                carouselHighlights,
+                using: built
+            )
+            lastCarouselTagFingerprint = built.carouselTagFingerprint
+        } else {
+            refreshCarouselHighlightsIfNeeded(using: built)
+        }
+        AppLaunchTimelineLog.homeRebuildApplied(
+            queryDives: ownerDiveActivities.count,
+            aggregateDives: built.diveStatsInputs.count,
+            carouselHighlights: carouselHighlights.count,
+            catalogSpecies: marineLifeCatalog.count,
+            isInitial: wasInitial
+        )
+    }
+
+    /// Small MainActor bind — UUIDs the owner has tagged, not the full catalog.
+    @MainActor
+    private func bindOwnerTaggedMarineLifeCatalog(from aggregate: HomeOverviewAggregate) {
+        let uuids = Set(aggregate.sightingCountInputs.map(\.marineLifeUUID))
+        guard !uuids.isEmpty else {
+            marineLifeCatalog = []
+            return
+        }
+        marineLifeCatalog = MarineLifeCatalogLoader.bindModels(
+            uuids: uuids,
+            modelContext: modelContext
+        )
+    }
+
+    /// Picks 3 carousel slides from the media **index**, then loads only those JPEG rows.
+    @MainActor
+    private func applyLaunchCarousel(
+        mediaSeeds: [HomeOverviewMediaPhotoSeed],
+        aggregate: HomeOverviewAggregate,
+        generation: Int
+    ) {
+        guard generation == homeOverviewRebuildGeneration else { return }
+        guard let ownerProfileID else {
+            carouselHighlights = []
+            return
+        }
+
+        let sources = HomeMediaHighlightWarmup.highlightSources(from: mediaSeeds)
+        let candidates = HomeMediaHighlightPresentation.buildCandidates(
+            mediaPhotos: sources,
+            dives: aggregate.diveStatsInputs
+        )
+        let picks = HomeMediaHighlightPresentation.highlightsForOwner(
+            ownerProfileID: ownerProfileID,
+            candidates: candidates
+        )
+        let pickIDs = picks.map(\.mediaID)
+        let pickPhotos = HomeDiveScalarSeeding.fetchMediaPhotos(ids: pickIDs, modelContext: modelContext)
+        homeAggregate = aggregate.withCarouselMedia(pickPhotos, mediaPhotoSeeds: mediaSeeds)
+        lastCarouselFingerprint = aggregate.carouselFingerprint
+        lastCarouselTagFingerprint = aggregate.carouselTagFingerprint
+        hasCarouselSessionWarmCompleted = false
+        carouselHighlights = picks
+
+        #if canImport(UIKit)
+        seedCarouselSessionCache(using: homeAggregate)
+        #endif
+        scheduleCarouselWarmupIfNeeded(using: homeAggregate)
+
+        #if canImport(UIKit)
+        let storedPreviewCount = pickPhotos.filter { DiveMediaPreviewStorage.hasStoredPreview(for: $0) }.count
+        #else
+        let storedPreviewCount = 0
+        #endif
+        AppLaunchTimelineLog.homeCarouselPreviewsSeeded(
+            queryDives: ownerDiveActivities.count,
+            carouselHighlights: carouselHighlights.count,
+            storedPreviewCount: storedPreviewCount
+        )
     }
 
     private func reloadHomeNavigationCatalogsIfNeeded(force: Bool = false) async {
-        guard force || !hasLoadedNavigationCatalogs || marineLifeCatalog.isEmpty else { return }
+        guard force || !hasLoadedNavigationCatalogs || marineLifeCommonNameByUUID.isEmpty else { return }
         let container = modelContext.container
-        async let marineLifeIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
-        async let diveSiteIDs = DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
-        marineLifeCatalog = MarineLifeCatalogLoader.bindModels(
-            persistentIDs: await marineLifeIDs,
-            modelContext: modelContext
-        )
+        // The enrich pass usually loaded the name map already — do not re-fetch thousands of rows.
+        if force || marineLifeCommonNameByUUID.isEmpty {
+            marineLifeCommonNameByUUID = await MarineLifeCatalogLoader.fetchCommonNameByUUID(
+                container: container
+            )
+        }
+        let diveSiteIDs = await DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+        guard !Task.isCancelled else { return }
         diveSiteCatalog = DiveSiteCatalogLoader.bindModels(
-            persistentIDs: await diveSiteIDs,
+            persistentIDs: diveSiteIDs,
             modelContext: modelContext
         )
         if let ownerProfileID {
@@ -725,35 +1085,41 @@ struct LogOverviewView: View {
             displayableBeforeWarm: allDisplayable
         )
 
+        // Stored soft JPEGs are already in the session cache — let slides paint before PhotoKit.
+        // Full-res still upgrades run inside warmHighlights (preview tier, then incremental hero).
         guard !hasCarouselSessionWarmCompleted else { return }
 
         let limitedHighlights = Array(
             carouselHighlights.prefix(HomeMediaHighlightPresentation.carouselLimit)
         )
+        let mediaByID = aggregate.mediaByID
 
         Task { @MainActor in
+            // Own the serial video gate for the whole defer + warm window so page `.task`s do not double-queue.
+            HomeMediaHighlightWarmup.beginLaunchWarmGateOwnership()
+            defer { HomeMediaHighlightWarmup.endLaunchWarmGateOwnership() }
+
+            let warmDefer = AppLaunchPostOverlayPresentation.postChromeCarouselWarmDeferNanoseconds
+            if warmDefer > 0 {
+                try? await Task.sleep(nanoseconds: warmDefer)
+            }
+            guard !Task.isCancelled else { return }
+            AppLaunchTimelineLog.event(
+                "home.carousel_warm_deferred_begin",
+                "carousel=\(limitedHighlights.count) deferMs=\(warmDefer / 1_000_000)"
+            )
+
             #if canImport(UIKit)
-            let mediaRows = limitedHighlights.compactMap { aggregate.mediaByID[$0.mediaID] }
-            // Existing previewJPEGData is already seeded via seedCarouselSessionCache.
-            // Warm heroes + preview videos first; fill missing JPEGs after so PhotoKit isn't flooded.
-            await HomeMediaHighlightWarmup.warmHighlights(
-                carouselHighlights,
-                mediaByID: aggregate.mediaByID
-            )
-            await DiveMediaPreviewStorage.ensureStoredPreviews(
-                for: mediaRows,
-                modelContext: modelContext
-            )
-            #else
-            await HomeMediaHighlightWarmup.warmHighlights(
-                carouselHighlights,
-                mediaByID: aggregate.mediaByID
-            )
+            let mediaRows = limitedHighlights.compactMap { mediaByID[$0.mediaID] }
             #endif
+            await HomeMediaHighlightWarmup.warmHighlights(
+                carouselHighlights,
+                mediaByID: mediaByID
+            )
             hasCarouselSessionWarmCompleted = true
             let displayable = Dictionary(
                 uniqueKeysWithValues: limitedHighlights.map { highlight in
-                    let media = aggregate.mediaByID[highlight.mediaID]
+                    let media = mediaByID[highlight.mediaID]
                     let ready = media.map {
                         HomeMediaHighlightWarmup.isHighlightDisplayable(highlight, media: $0)
                     } ?? false
@@ -764,6 +1130,27 @@ struct LogOverviewView: View {
                 mediaIDs: limitedHighlights.map(\.mediaID),
                 displayableByMediaID: displayable
             )
+
+            // Persist missing soft JPEGs later — do not contend with first interactive window.
+            #if canImport(UIKit)
+            let previewRows = mediaRows
+            let previewContext = modelContext
+            Task(priority: .utility) { @MainActor in
+                let previewDefer = AppLaunchPostOverlayPresentation.postChromePreviewPersistDeferNanoseconds
+                if previewDefer > 0 {
+                    try? await Task.sleep(nanoseconds: previewDefer)
+                }
+                guard !Task.isCancelled else { return }
+                AppLaunchTimelineLog.event(
+                    "home.preview_persist_deferred_begin",
+                    "rows=\(previewRows.count) deferMs=\(previewDefer / 1_000_000)"
+                )
+                await DiveMediaPreviewStorage.ensureStoredPreviews(
+                    for: previewRows,
+                    modelContext: previewContext
+                )
+            }
+            #endif
         }
     }
 
@@ -792,7 +1179,7 @@ struct LogOverviewView: View {
             ownerDiveIDs: aggregate.ownerDiveIDs
         )
         let candidates = HomeMediaHighlightPresentation.buildCandidates(
-            mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: aggregate.ownerMediaPhotos),
+            mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: aggregate.mediaPhotoSeeds),
             dives: aggregate.diveStatsInputs,
             taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID,
             taggedBuddyCountByMediaID: taggedBuddyCountByMediaID

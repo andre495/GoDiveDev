@@ -1,7 +1,7 @@
 import MapKit
 import UIKit
 
-/// One-time MapKit initialization during app launch so the first visible map is less janky.
+/// One-time MapKit initialization so the first visible map is less janky (Explore tab or late launch fallback).
 ///
 /// Warms the MapKit framework, render pipeline, and a default world region. Does **not** prefetch
 /// dive-specific tiles — the first pin at a new coordinate may still load tiles on demand.

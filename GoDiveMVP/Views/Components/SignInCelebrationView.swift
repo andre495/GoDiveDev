@@ -16,7 +16,7 @@ struct SignInCelebrationView: View {
 
     var body: some View {
         ZStack {
-            WaterBubbleBackground()
+            WaterBubbleBackground(diagnosticsLabel: "Celebration")
 
             AppTheme.Colors.surface
                 .opacity(0.28)

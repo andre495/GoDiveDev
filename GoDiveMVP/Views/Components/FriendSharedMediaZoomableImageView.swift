@@ -33,8 +33,7 @@ struct FriendSharedMediaZoomableImageView: View {
                             resetZoom()
                         }
                 } else {
-                    ProgressView()
-                        .tint(.white)
+                    GoDiveRotateLoadingIndicator(size: .compact, tint: .white)
                 }
             }
         }

@@ -34,10 +34,72 @@ service cloud.firestore {
       }
 
       // Friend-visible dive projections — owner write; friends (or owner) read.
+      // `likeCount` / `commentCount` are Admin SDK only (Cloud Function).
       match /sharedDives/{diveId} {
         allow read: if signedIn()
           && (request.auth.uid == userId || areFriends(request.auth.uid, userId));
-        allow create, update, delete: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && !('likeCount' in request.resource.data)
+          && !('commentCount' in request.resource.data);
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['likeCount', 'commentCount']);
+        allow delete: if signedIn() && request.auth.uid == userId;
+
+        // Per-liker docs — friends create/delete their own; tally lives on parent via CF.
+        match /likes/{likerUid} {
+          allow read: if signedIn()
+            && (
+              request.auth.uid == userId
+              || request.auth.uid == likerUid
+              || areFriends(request.auth.uid, userId)
+            );
+          allow create: if signedIn()
+            && request.auth.uid == likerUid
+            && request.auth.uid != userId
+            && areFriends(request.auth.uid, userId)
+            && request.resource.data.keys().hasOnly(['createdAt', 'displayName'])
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+            && request.resource.data.displayName.size() <= 80;
+          allow delete: if signedIn() && request.auth.uid == likerUid;
+          allow update: if false;
+        }
+
+        // Activity comments — owner or friends read/create; author delete only.
+        match /comments/{commentId} {
+          allow read: if signedIn()
+            && (request.auth.uid == userId || areFriends(request.auth.uid, userId));
+          allow create: if signedIn()
+            && (
+              request.auth.uid == userId
+              || areFriends(request.auth.uid, userId)
+            )
+            && request.resource.data.keys().hasOnly([
+              'authorUid', 'displayName', 'text', 'createdAt', 'mentionedUids'
+            ])
+            && request.resource.data.authorUid == request.auth.uid
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+            && request.resource.data.displayName.size() <= 80
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 500
+            && (
+              !('mentionedUids' in request.resource.data)
+              || (
+                request.resource.data.mentionedUids is list
+                && request.resource.data.mentionedUids.size() <= 10
+              )
+            );
+          allow delete: if signedIn()
+            && resource.data.authorUid == request.auth.uid;
+          allow update: if false;
+        }
       }
 
       // Private staging for anonymized community sighting contributions (owner only).

@@ -15,6 +15,8 @@ struct ContentView: View {
 
     /// Selection binding is required for iOS 18+ tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
     @State private var selectedTab: RootTab = .home
+    /// Live selection for tab content (bubbles / warm-up) — see **`RootTabSelectionStore`**.
+    @State private var rootTabSelectionStore = RootTabSelectionStore()
     @State private var searchQuery = ""
     @State private var searchContextTokens: [GlobalSearchPresentation.ContextToken] = []
     @State private var logbookTabSelectionGeneration = 0
@@ -37,25 +39,18 @@ struct ContentView: View {
                 LogbookView(
                     ownerProfileID: accountSession.currentProfile?.id,
                     pendingRoute: $pendingLogbookRoute,
-                    logbookTabSelectionGeneration: logbookTabSelectionGeneration,
-                    isLogbookTabSelected: selectedTab == .logbook
+                    logbookTabSelectionGeneration: logbookTabSelectionGeneration
                 )
                     .id(accountSession.currentProfile?.id)
             }
 
             Tab("Field Guide", systemImage: "leaf", value: RootTab.fieldGuide) {
-                FieldGuideView(
-                    ownerProfileID: accountSession.currentProfile?.id,
-                    isFieldGuideTabSelected: selectedTab == .fieldGuide
-                )
+                FieldGuideView(ownerProfileID: accountSession.currentProfile?.id)
                     .id(accountSession.currentProfile?.id)
             }
 
             Tab("Explore", systemImage: "map", value: RootTab.explore) {
-                ExploreView(
-                    ownerProfileID: accountSession.currentProfile?.id,
-                    isExploreTabSelected: selectedTab == .explore
-                )
+                ExploreView(ownerProfileID: accountSession.currentProfile?.id)
                     .id(accountSession.currentProfile?.id)
             }
 
@@ -72,21 +67,26 @@ struct ContentView: View {
         .tint(AppTheme.Colors.tabSelected)
         .goDiveRootTabBarChrome()
         .modifier(TabBarMinimizeWhenNotUITesting())
+        .environment(rootTabSelectionStore)
         .environment(\.diveDisplayUnitSystem, useImperialDisplayUnits ? .imperial : .metric)
         .environment(\.openDiveImport) {
             selectedTab = .logbook
             pendingLogbookRoute = .addActivity
         }
         .onAppear {
+            rootTabSelectionStore.selected = selectedTab
             CrashBreadcrumbTrail.noteRootTab(selectedTab)
             startFriendShareSaveObserverIfNeeded()
-            openPendingFriendProfileAfterInviteRedeemIfNeeded()
-            openPendingBuddySharedActivityFromPushIfNeeded()
-            openPendingEquipmentDetailFromReminderIfNeeded()
-            openPendingTripDetailFromReminderIfNeeded()
+            // Cold start: notification tap often sets pending stores before this view exists
+            // (NC posts are lost). Flush here — do not rely only on onChange(shell).
+            openAllPendingDeepLinksIfNeeded()
         }
         .onChange(of: selectedTab) { _, tab in
+            rootTabSelectionStore.selected = tab
             CrashBreadcrumbTrail.noteRootTab(tab)
+            #if DEBUG
+            print("[WaterBubbles] root_tab_selected=\(tab)")
+            #endif
             if tab == .logbook {
                 logbookTabSelectionGeneration += 1
             }
@@ -96,12 +96,14 @@ struct ContentView: View {
         }
         .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
             guard showsMain else { return }
-            openPendingFriendProfileAfterInviteRedeemIfNeeded()
-            openPendingBuddySharedActivityFromPushIfNeeded()
-            openPendingEquipmentDetailFromReminderIfNeeded()
-            openPendingTripDetailFromReminderIfNeeded()
+            openAllPendingDeepLinksIfNeeded()
+        }
+        .onChange(of: accountSession.isHomeLaunchChromeReady) { _, isReady in
+            guard isReady else { return }
+            openAllPendingDeepLinksIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: GoDiveFirebaseCloudMessaging.openFriendsListNotification)) { _ in
+            guard canOpenPendingPushDeepLinks else { return }
             selectedTab = .logbook
             pendingLogbookRoute = .friends
         }
@@ -111,6 +113,20 @@ struct ContentView: View {
             )
         ) { _ in
             openPendingBuddySharedActivityFromPushIfNeeded()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: GoDiveFirebaseCloudMessaging.openOwnedActivityFromLikeNotification
+            )
+        ) { _ in
+            openPendingOwnedActivityFromLikePushIfNeeded()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: GoDiveFirebaseCloudMessaging.openActivityFromMentionNotification
+            )
+        ) { _ in
+            openPendingMentionFromPushIfNeeded()
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -158,8 +174,24 @@ struct ContentView: View {
         }
     }
 
+    private var canOpenPendingPushDeepLinks: Bool {
+        GoDiveRootPushDeepLinkFlushPresentation.canOpenPendingRoutes(
+            showsMainAppShell: accountSession.showsMainAppShell,
+            isHomeLaunchChromeReady: accountSession.isHomeLaunchChromeReady
+        )
+    }
+
+    private func openAllPendingDeepLinksIfNeeded() {
+        openPendingFriendProfileAfterInviteRedeemIfNeeded()
+        openPendingBuddySharedActivityFromPushIfNeeded()
+        openPendingOwnedActivityFromLikePushIfNeeded()
+        openPendingMentionFromPushIfNeeded()
+        openPendingEquipmentDetailFromReminderIfNeeded()
+        openPendingTripDetailFromReminderIfNeeded()
+    }
+
     private func openPendingBuddySharedActivityFromPushIfNeeded() {
-        guard accountSession.showsMainAppShell else { return }
+        guard canOpenPendingPushDeepLinks else { return }
         guard let target = GoDiveBuddyActivityPushNavigationStore.shared.consumePendingTarget() else {
             return
         }
@@ -170,8 +202,38 @@ struct ContentView: View {
         )
     }
 
+    private func openPendingOwnedActivityFromLikePushIfNeeded() {
+        guard canOpenPendingPushDeepLinks else { return }
+        guard let target = GoDiveBuddyActivityLikedPushNavigationStore.shared.consumePendingTarget()
+        else { return }
+        selectedTab = .logbook
+        pendingLogbookRoute = GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: target)
+    }
+
+    private func openPendingMentionFromPushIfNeeded() {
+        guard canOpenPendingPushDeepLinks else { return }
+        guard let target = GoDiveBuddyActivityMentionedPushNavigationStore.shared.consumePendingTarget()
+        else { return }
+        selectedTab = .logbook
+        let currentUID = GoDiveFirebaseAuthSession.currentFirebaseUID()
+        if GoDiveBuddyActivityMentionedPushPresentation.isOwnedActivity(
+            target: target,
+            currentFirebaseUID: currentUID
+        ) {
+            GoDiveOwnedActivityCommentsDeepLinkStore.shared.setPending(activityID: target.activityID)
+            pendingLogbookRoute = GoDiveBuddyActivityMentionedPushPresentation.ownedLogbookRoute(
+                for: target
+            )
+        } else {
+            GoDiveOwnedActivityCommentsDeepLinkStore.shared.clear()
+            pendingLogbookRoute = GoDiveBuddyActivityMentionedPushPresentation.sharedLogbookRoute(
+                for: target
+            )
+        }
+    }
+
     private func openPendingEquipmentDetailFromReminderIfNeeded() {
-        guard accountSession.showsMainAppShell else { return }
+        guard canOpenPendingPushDeepLinks else { return }
         guard let equipmentID = EquipmentServiceReminderNavigationStore.shared.consumePendingEquipmentID()
         else { return }
         selectedTab = .home
@@ -179,14 +241,14 @@ struct ContentView: View {
     }
 
     private func openPendingTripDetailFromReminderIfNeeded() {
-        guard accountSession.showsMainAppShell else { return }
+        guard canOpenPendingPushDeepLinks else { return }
         guard let tripID = DiveTripReminderNavigationStore.shared.consumePendingTripID() else { return }
         selectedTab = .home
         pendingHomeRoute = .tripDetail(tripID)
     }
 
     private func openPendingFriendProfileAfterInviteRedeemIfNeeded() {
-        guard accountSession.showsMainAppShell else { return }
+        guard canOpenPendingPushDeepLinks else { return }
         guard let friend = GoDiveFriendInvitePostRedeemNavigationStore.shared.consumePendingFriend() else {
             return
         }

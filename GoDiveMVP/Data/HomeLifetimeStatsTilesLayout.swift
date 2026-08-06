@@ -13,7 +13,8 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
     nonisolated static let statTileHeight: CGFloat = 90
     nonisolated static let buddyTileHeight: CGFloat = 120
 
-    /// Space above the lifetime summary line (below the sheet seam).
+    /// Space above the lifetime summary line when it is pinned under the sheet seam (Home).
+    /// Not the gap from seam on Home — that was historically inflated by vertical tile centering.
     nonisolated static let lifetimeSummaryTopInset: CGFloat = 8
     /// Approximate one-line summary height (`.subheadline`).
     nonisolated static let lifetimeSummaryLineHeight: CGFloat = 20
@@ -22,6 +23,24 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
     nonisolated static func lifetimeSummaryBandHeight(includesHeader: Bool = true) -> CGFloat {
         guard includesHeader else { return 0 }
         return lifetimeSummaryTopInset + lifetimeSummaryLineHeight + lifetimeSummaryHeaderSpacingBelow
+    }
+
+    /// Home pins the summary under the seam; vertical centering uses the remaining panel height for tiles only.
+    nonisolated static func homeCenteredTilesAvailableHeight(
+        panelHeight: CGFloat,
+        includesLifetimeSummaryHeader: Bool
+    ) -> CGFloat {
+        max(0, panelHeight - lifetimeSummaryBandHeight(includesHeader: includesLifetimeSummaryHeader))
+    }
+
+    /// Fraction of the Home tile-centering top slack placed **above** the lifetime summary
+    /// (**0** = flush under seam, **1** = old fully-centered stack position). **0.5** sits halfway.
+    nonisolated static let homeLifetimeSummaryTopSlackFraction: CGFloat = 0.5
+
+    nonisolated static func homeLifetimeSummaryTopSlack(
+        tileCenteringTopInset: CGFloat
+    ) -> CGFloat {
+        max(0, tileCenteringTopInset * homeLifetimeSummaryTopSlackFraction)
     }
 
     /// Minimum tile heights — flexible Home layout grows above these to fill the blue panel.

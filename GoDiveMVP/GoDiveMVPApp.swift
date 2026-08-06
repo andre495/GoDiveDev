@@ -41,7 +41,7 @@ struct GoDiveMVPApp: App {
                 )
                 .environment(AppNetworkConnectivityMonitor.shared)
             } else {
-                AppLaunchOverlay(showsProgressIndicator: true)
+                AppLaunchOverlay()
                     .task { productionContainer = await AppModelContainer.loadProduction() }
             }
         }
@@ -67,9 +67,12 @@ private struct ProductionAppRoot: View {
                 accountSession.cloudKitContainerReconnectHandler = {
                     await performModelContainerCloudKitReconnect()
                 }
-                GoDiveCloudKitDiveLogSyncKickstart.kick(container: container)
                 clearStalePendingCloudKitReconnectIfAlreadyEnabled()
+                // Allow session restore immediately — CloudKit kickstart must not serialize Gate 2.
                 isSessionRestoreAllowed = true
+                Task { @MainActor in
+                    GoDiveCloudKitDiveLogSyncKickstart.kick(container: container)
+                }
             }
             .onChange(of: scenePhase) { _, phase in
                 CrashReportingService.updateSessionPhase(phase)
@@ -138,8 +141,13 @@ private struct ProductionAppRoot: View {
                     HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(
                         ownerProfileID: accountSession.currentProfile?.id
                     )
+                    await scheduleDeferredMapWarmupFallback()
                 }
-                await scheduleDeferredMapWarmup()
+            }
+            .onChange(of: accountSession.isRestoringSession) { _, restoring in
+                guard !restoring else { return }
+                // After Gate 2 — APNs registration no longer contends with store open / restore.
+                GoDiveFirebaseCloudMessaging.registerForRemoteNotificationsIfNeeded()
             }
             .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
                 guard showsMain else { return }
@@ -158,11 +166,8 @@ private struct ProductionAppRoot: View {
                     await GoDiveBuddyActivityPushPreferenceSync.uploadCurrentPreference()
                     await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded()
                 }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(600))
-                    #if canImport(GoogleMaps)
-                    GoogleMapsWarmup.warmUpIfNeeded()
-                    #endif
+                Task {
+                    await scheduleDeferredMapWarmupFallback()
                 }
             }
             #if DEBUG
@@ -198,14 +203,15 @@ private struct ProductionAppRoot: View {
         accountSession.acknowledgePendingICloudDiveLogReconnectReminder()
     }
 
-    private func scheduleDeferredMapWarmup() async {
-        try? await Task.sleep(for: .milliseconds(400))
+    /// Late fallback if the user never opens Explore — prefer Explore-tab warm for first paint.
+    private func scheduleDeferredMapWarmupFallback() async {
+        let delay = AppLaunchPostOverlayPresentation.deferredMapWarmupDelaySeconds
+        try? await Task.sleep(for: .seconds(delay))
         await MainActor.run {
+            guard accountSession.showsMainAppShell else { return }
             MapKitWarmup.warmUpIfNeeded()
             #if canImport(GoogleMaps)
-            if accountSession.showsMainAppShell {
-                GoogleMapsWarmup.warmUpIfNeeded()
-            }
+            GoogleMapsWarmup.warmUpIfNeeded()
             #endif
         }
     }

@@ -226,6 +226,13 @@ enum DiveActivityDiveNumbering {
 
     /// Fills **`diveNumber`** for any persisted row still **`nil`** (e.g. store created before this feature).
     nonisolated static func backfillMissingDiveNumbers(modelContext: ModelContext) throws {
+        let needingCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { $0.diveNumber == nil && $0.diveNumberExplicitlyNone == false }
+            )
+        )
+        guard needingCount > 0 else { return }
+
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         guard !all.isEmpty else { return }
         let map = sequentialIndicesById(for: all)

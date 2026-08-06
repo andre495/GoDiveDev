@@ -15,7 +15,7 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.shareNotesWithFriendsKey) private var shareNotesWithFriends = false
     @AppStorage(AppUserSettings.shareMediaWithFriendsKey) private var shareMediaWithFriends = false
     @AppStorage(AppUserSettings.shareMediaOnWiFiOnlyKey) private var shareMediaOnWiFiOnly = false
-    @AppStorage(AppUserSettings.contributeCommunitySightingsKey) private var contributeCommunitySightings = false
+    @AppStorage(AppUserSettings.contributeCommunitySightingsKey) private var contributeCommunitySightings = true
     @AppStorage(AppUserSettings.notifyAllNotificationsKey) private var notifyAllNotifications = true
     @AppStorage(AppUserSettings.notifyBuddyActivitySharesKey) private var notifyBuddyActivityShares = true
     @AppStorage(AppUserSettings.notifyGearServiceRemindersKey) private var notifyGearServiceReminders = true

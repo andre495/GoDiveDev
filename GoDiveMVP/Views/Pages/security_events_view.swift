@@ -21,7 +21,7 @@ struct SecurityEventsView: View {
     @ViewBuilder
     private var content: some View {
         if !hasLoaded {
-            ProgressView()
+            GoDiveRotateLoadingIndicator()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if events.isEmpty {
             emptyState

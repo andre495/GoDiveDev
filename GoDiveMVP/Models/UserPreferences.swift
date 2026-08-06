@@ -22,8 +22,8 @@ final class UserPreferences {
     var defaultFreshwaterWeightKilograms: Double?
     var bulkUddfCreateDiveSites: Bool = true
     var autoUploadMediaToActivities: Bool = true
-    /// Opt-in anonymized community marine-life sighting contributions (Firebase ontology graph).
-    var contributeCommunitySightings: Bool = false
+    /// Anonymized community marine-life sighting contributions (Firebase ontology graph). Default **on**.
+    var contributeCommunitySightings: Bool = true
     /// Master switch for all notification categories (buddy / gear / trip).
     var notifyAllNotifications: Bool = true
     /// Global default for new gear service reminder selections (per-item overrides).
@@ -43,7 +43,7 @@ final class UserPreferences {
         defaultFreshwaterWeightKilograms: Double? = nil,
         bulkUddfCreateDiveSites: Bool = true,
         autoUploadMediaToActivities: Bool = true,
-        contributeCommunitySightings: Bool = false,
+        contributeCommunitySightings: Bool = true,
         notifyAllNotifications: Bool = true,
         notifyGearServiceReminders: Bool = true,
         notifyTripReminders: Bool = true,

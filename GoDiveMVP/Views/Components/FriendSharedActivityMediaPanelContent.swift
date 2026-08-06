@@ -250,9 +250,11 @@ struct FriendSharedActivityMediaPanelContent: View {
                                     overviewSheetDetent = .large
                                 }
                             } label: {
+                                let sources = DiveBuddyAvatarChipPresentation.sources(for: buddy)
                                 DiveActivityBuddyAvatarChip(
                                     displayName: buddy.displayName,
-                                    profilePhoto: buddy.profilePhoto,
+                                    profilePhoto: sources.localProfilePhoto,
+                                    photoURL: sources.photoURL,
                                     avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter,
                                     showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                                 )

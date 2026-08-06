@@ -137,7 +137,8 @@ struct BuddiesListRow: Identifiable {
     }
 }
 
-enum BuddiesListNavigationRoute: Hashable {
+/// **`nonisolated`** so **`LogbookRoute`** / tests can hash & equate without MainActor.
+nonisolated enum BuddiesListNavigationRoute: Hashable {
     case friend(GoDiveFriendGraphService.FriendEdge)
     case rosterBuddy(UUID)
 }

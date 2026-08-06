@@ -3,7 +3,7 @@ import Foundation
 import GoogleMaps
 import UIKit
 
-/// One-time Google Maps SDK initialization during app launch so the first **Explore** map is less janky.
+/// One-time Google Maps SDK initialization so the first **Explore** map is less janky (Explore tab or late launch fallback).
 ///
 /// Warms **`GMSServices`**, the render pipeline, and a hidden **hybrid** **`GMSMapView`** (same stack as **Explore**).
 /// Does **not** prefetch dive-site tiles — first visit to a new region may still load on demand.
