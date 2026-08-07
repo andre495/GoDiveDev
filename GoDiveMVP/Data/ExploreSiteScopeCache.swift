@@ -87,11 +87,24 @@ enum ExploreSiteScopeCache: Sendable {
         userSites: [UserDiveSite] = [],
         ownerActivities: [DiveActivity]
     ) -> Snapshot {
-        let reference = DiveSiteReferenceCatalog.bundledReference()
-        let logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
-            ownerActivities: ownerActivities,
-            ownerProfileID: ownerProfileID
+        make(
+            catalog: catalog,
+            userSites: userSites,
+            logbookSiteIDs: ExploreSiteScopePresentation.logbookSiteIDs(
+                ownerActivities: ownerActivities,
+                ownerProfileID: ownerProfileID
+            )
         )
+    }
+
+    /// Builds from precomputed logbook site IDs so callers can snapshot on the main actor
+    /// and finish the reference-catalog work off-main.
+    nonisolated static func make(
+        catalog: [DiveSite],
+        userSites: [UserDiveSite] = [],
+        logbookSiteIDs: Set<UUID>
+    ) -> Snapshot {
+        let reference = DiveSiteReferenceCatalog.bundledReference()
         let logbookCatalogSites = ExploreSiteScopePresentation.logbookCatalogSites(
             catalog: catalog,
             logbookSiteIDs: logbookSiteIDs

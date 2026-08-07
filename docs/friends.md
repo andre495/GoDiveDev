@@ -34,7 +34,7 @@ You can turn these alerts off (and back on) with **Settings → Buddy activity n
 
 Once connected, open a friend from **Buddies** to browse their **shared dives** (tap their row — friends show a badge on the avatar).
 
-By default (when **Share activities with buddies** is on in Settings), buddies can see dive and snorkel details such as site, date, depth, duration, conditions, tags, and marine life. **Notes** and **photos** stay private unless you turn on those Settings toggles. When **Share media with buddies** is on, buddies see thumbnails quickly in **Buddy Feed**, then full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) when they open the activity.
+By default (when **Share activities with buddies** is on in Settings), buddies can see dive and snorkel details such as site, date, depth, duration, conditions, tags, and marine life (shown with Field Guide common names). **Notes** and **photos** stay private unless you turn on those Settings toggles. When **Share media with buddies** is on, buddies see thumbnails quickly in **Buddy Feed**, then full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) when they open the activity.
 
 ### Publishing a new activity
 
@@ -59,14 +59,14 @@ Per-activity choices override the global defaults for that entry once you change
 
 ## Buddy Feed posts
 
-On **Logbook → Buddies**, each shared activity looks like a social post:
+On **Logbook → Buddies**, each shared activity looks like a social post. Tap the buddy’s **avatar or name** on a post (or on the shared activity details header) to open their friend profile.
 
 - **Header** — your buddy’s avatar and name (tap either to open their profile), a short “logged a dive/snorkel” line, and a compact time stamp.
 - **Hero** — their featured photo or video when shared, and/or the dive depth profile (or snorkel map). Swipe when both are available.
 - **Caption** — site, place, and key stats (notes stay on the full activity, not the feed post).
 - **with** — avatars for divers tagged on that activity (no GoDive pin on these chips). When you are tagged, your avatar matches **Profile** (your photo on this device). Linked friends use their GoDive profile photos (or a photo already saved on their Buddies roster row), cached on-device like other feed avatars. Tap the **with** row to open that activity on **Map** and scroll to the **Buddies** section.
 - **👌 like** — at the bottom of the post, below a divider. The OK emoji tints blue when you like; the tally updates right away and is saved for everyone who can see the post. Your buddy gets a push: *"{Your name} liked your dive/snorkel."* Tap that notification (or the matching row in Home **Notifications**) to open the activity in their logbook. Tap again to unlike.
-- **Comments** — next to the like control. Tap the comment bubble to open the shared activity, then the comment thread sheet (scrollable comments with a text field pinned at the bottom). Commenter avatars match Buddy Feed rules — your comments show your **Profile** photo; friends show their cached GoDive photos. Type **`@`** to mention a GoDive friend (autocomplete by name); in the thread, mentioned names show in bold blue (without the `@`). Your buddy gets a push: *"{Your name} commented on your dive/snorkel: {preview}"* (first ~50 characters of the comment). Anyone you `@mention` gets *"{Your name} mentioned you in a comment"* (with a short preview when present). Tap either notification (or the matching row in Home **Notifications**) to open the activity with the comment thread already open.
+- **Comments** — next to the like control. Tap the comment bubble to open the shared activity, then the comment thread sheet (scrollable comments with a text field pinned at the bottom). Commenter avatars match Buddy Feed rules — your comments show your **Profile** photo; friends show their cached GoDive photos. Type **`@`** to mention a GoDive friend (autocomplete by name); in the thread, the full mentioned name shows in bold blue (without the `@`) for everyone who can see the comment. Your buddy gets a push: *"{Your name} commented on your dive/snorkel: {preview}"* (first ~50 characters of the comment). Anyone you `@mention` gets *"{Your name} mentioned you in a comment"* (with a short preview when present). Tap either notification (or the matching row in Home **Notifications**) to open the activity with the comment thread already open.
 
 Tap the caption area to open the full shared activity. On the shared activity **Map** tab (expanded details), like and comment icons sit under the dive stats (comment count when there are comments), with **Add a comment…** under those controls. Shared notes, marine life, and buddies (when present) appear below the like/comment row. Tap the comment icon to open the thread; tap **Add a comment…** to open the same thread with the keyboard ready.
 
@@ -76,7 +76,7 @@ On **your own** dive or snorkel (when sharing with friends is on), the same like
 
 **Buddy Feed** loads small thumbnails first so the list stays fast. Friend profile photos (and tagged / commenter avatars from the friend graph) are cached on-device so the same buddy’s avatar does not re-download for every post. Your own avatar on tags and comments uses your local **Profile** photo so it stays in sync with Profile. When a post’s **featured** shared item is a photo, the hero crossfades to full quality when the content file is available. When it is a video, it **auto-plays once** (muted) after you scroll it into view — preferring a cached copy when one exists, otherwise streaming while the clip downloads. Tap an activity to open the same map / tank / media layout you use on your own dives — photos crossfade from the thumbnail to full quality when available, and videos play from the shared clip (poster thumbnail first). Opening a friend activity refreshes shared media from Firestore and starts loading **all** shared photos and videos in the background.
 
-Tap a photo in the media grid or on the hero to open **fullscreen** — pinch to zoom on full-quality stills, swipe between items, and stream videos with the same controls.
+Tap a photo in the media grid or on the hero to open **fullscreen** — same playback as local buddy tagged media: edge-to-edge stills and videos, horizontal swipe between items, swipe down (or **X**) to close, tap to show/hide chrome, and a center play/pause on videos.
 
 Buddy media downloads use **Wi‑Fi or cellular**. Use **Settings → Activity Sharing → Upload media on wifi only** if you want your own full-quality **uploads** to wait for Wi‑Fi.
 
@@ -88,7 +88,7 @@ Buddy-share uploads (activity projections, thumbnails, and full-quality media) c
 
 ## @mentions in notes
 
-When editing **notes** on a dive or snorkel, type **`@`** to mention a GoDive friend (same autocomplete as comments). On the notes card, mentioned names show in bold blue (without the `@`). Saving notes **tags them on that activity** if they are not already tagged. When you later **publish/share** the activity, they get the usual *tagged you* notification — there is no separate “mentioned in notes” push, and editing notes after the activity is already shared only updates tags (no new push).
+When editing **notes** on a dive or snorkel, type **`@`** to mention a GoDive friend (same autocomplete as comments). On the notes card, the full mentioned name shows in bold blue (without the `@`) for you and for buddies who can see the notes. Saving notes **tags them on that activity** if they are not already tagged. When you later **publish/share** the activity, they get the usual *tagged you* notification — there is no separate “mentioned in notes” push, and editing notes after the activity is already shared only updates tags (no new push).
 
 ## Tag friends on dives
 
@@ -104,8 +104,16 @@ Swipe a friend in **Buddies** and choose **Unfriend**, or use the confirmation a
 
 ## Friend profile
 
-Tap a friend’s name in **Buddies** (or their avatar or name on a **Buddy Feed** post) to open their profile. The layout matches your own Profile page: featured header media, avatar, name, and a count of dives they’ve shared with you. The sheet area stays empty (no DAN or certification details).
+Tap a friend’s name in **Buddies** (or their avatar or name on a **Buddy Feed** post) to open their **GoDive friend profile** (different from a local-only buddy page). The layout matches your own Profile page: featured header media, avatar, name, and a count of dives they’ve shared with you.
 
-Use the **book** icon in the top bar to open their **shared dives** logbook.
+The blue sheet has three pages:
+
+1. **Diver stats** — deepest, longest, top site, and top species from everything they’ve shared with you. Species names match the Field Guide (not internal catalog IDs).
+2. **Activities** — logbook-style rows for their shared dives and snorkels. The page title stays pinned; use the **All** / **Together** control (top right) to show everything they’ve shared, or only activities you did together (tagged on their share, or linked in your log). Tap a row to open that shared activity.
+3. **Shared media** — photos and videos from those shared activities. Tap to browse full screen like local buddy tagged media (swipe between items, swipe down to close, center play/pause on video). An activity chip and buddy/fish buttons show tags view-only — no tagging or featured-star controls.
+
+When they have both featured header media and dive sites with a location, the same **media / map** toggle as other buddy pages appears on the hero. Media is their GoDive account featured media (or a recent shared photo/video if they have not set a profile header yet). The map uses **blue** pins for sites from their shared activities and **red** pins for places you dived together; if a site has both, it shows **red**.
+
+Local buddies who are **not** GoDive friends still use the buddy detail pages: **Dives together**, **Trips together**, and **Tagged media**.
 
 Your **featured profile media** (the tagged photo or looping video in your Profile header) is uploaded to Firebase so friends can see it on your friend profile. It updates when your header media changes.

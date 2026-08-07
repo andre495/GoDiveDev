@@ -14,8 +14,6 @@ struct FieldGuideView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.modelContext) private var modelContext
 
-    @Query private var ownerDiveActivities: [DiveActivity]
-
     @State private var marineLifeCatalog: [MarineLife] = []
     @State private var userMarineLifeCatalog: [UserMarineLife] = []
     @State private var diveSiteCatalog: [DiveSite] = []
@@ -30,28 +28,11 @@ struct FieldGuideView: View {
     @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
     @State private var showsAddSpeciesSheet = false
 
-    @Environment(RootTabSelectionStore.self) private var rootTabSelection
-
     private let ownerProfileID: UUID?
-
-    /// Live tab selection via **`RootTabSelectionStore`** (not a stale `Tab` init `let`).
-    private var isFieldGuideTabSelected: Bool {
-        RootTabSelectionPresentation.isSelected(.fieldGuide, selected: rootTabSelection.selected)
-    }
 
     init(ownerProfileID: UUID?) {
         self.ownerProfileID = ownerProfileID
-        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
-        _ownerDiveActivities = Query(
-            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
-            sort: [
-                SortDescriptor(\DiveActivity.startTime, order: .reverse),
-                SortDescriptor(\DiveActivity.id, order: .forward),
-            ]
-        )
     }
-
-    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     private var showsFieldGuideRootTabBar: Bool {
         FieldGuideNavigationPresentation.showsRootTabBar(
@@ -109,10 +90,6 @@ struct FieldGuideView: View {
 
     private var showsTopChromeScrim: Bool {
         showsFieldGuideHubChrome
-    }
-
-    private var ownerDiveActivitiesForNavigation: [DiveActivity] {
-        ownerDiveActivities
     }
 
     var body: some View {
@@ -220,14 +197,10 @@ struct FieldGuideView: View {
                             missingSpeciesPlaceholder
                         }
                     case .diveDetail(let id):
-                        if let activity = ownerDiveActivitiesForNavigation.first(where: { $0.id == id }) {
-                            ViewSingleActivity(activity: activity)
-                        } else {
-                            ActivityMissingDestinationPopView {
-                                path.removeAll {
-                                    if case .diveDetail(let routeID) = $0 { return routeID == id }
-                                    return false
-                                }
+                        OwnerDiveActivityDestinationView(activityID: id) {
+                            path.removeAll {
+                                if case .diveDetail(let routeID) = $0 { return routeID == id }
+                                return false
                             }
                         }
                     case .diveSite(let siteID):
@@ -411,6 +384,5 @@ private struct FieldGuideCatalogEmptyState: View {
 #Preview {
     FieldGuideView(ownerProfileID: nil)
         .environment(AccountSession.shared)
-        .environment(RootTabSelectionStore())
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

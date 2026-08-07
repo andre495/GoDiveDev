@@ -30,8 +30,9 @@ enum DiveBuddyOwnership {
                 return 0
             }
         }
-        let orphans = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
-            .filter { $0.ownerProfileID == nil }
+        let orphans = try modelContext.fetch(
+            FetchDescriptor<DiveBuddy>(predicate: #Predicate { $0.ownerProfileID == nil })
+        )
         guard !orphans.isEmpty else { return 0 }
         for buddy in orphans {
             assignOwner(owner, to: buddy)

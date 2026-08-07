@@ -1,4 +1,3 @@
-import Contacts
 import SwiftData
 import SwiftUI
 
@@ -20,9 +19,6 @@ struct ViewDiveBuddyDetails: View {
 
     @State private var cachedMarineLifeCatalog: [MarineLife] = []
     @State private var showsEditSheet = false
-    @State private var showsContactPicker = false
-    @State private var contactsAccessError: String?
-    @State private var contactLinkError: String?
     @State private var cachedSharedDiveCount = 0
     @State private var cachedDiveRows: [DiveLogbookRowDisplayData] = []
     @State private var cachedSharedDiveActivities: [DiveActivity] = []
@@ -281,33 +277,12 @@ struct ViewDiveBuddyDetails: View {
             )
         }
         #if canImport(UIKit)
-        .sheet(isPresented: $showsContactPicker) {
-            ContactPickerView(
-                onPick: { contact in
-                    showsContactPicker = false
-                    linkContact(contact)
-                },
-                onCancel: {
-                    showsContactPicker = false
-                }
-            )
-        }
         .task(id: buddy.id) {
             guard buddy.contactsIdentifier != nil else { return }
             try? await Task.sleep(for: .seconds(2))
             refreshLinkedContactOnAppear()
         }
         #endif
-        .alert("Contacts", isPresented: contactsAccessAlertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(contactsAccessError ?? "")
-        }
-        .alert("Could not link contact", isPresented: contactLinkAlertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(contactLinkError ?? "")
-        }
     }
 
     private func catalogSitesFromSharedDives(_ sharedDives: [DiveActivity]) -> [DiveSite] {
@@ -585,23 +560,8 @@ struct ViewDiveBuddyDetails: View {
         )
     }
 
-    private var contactsAccessAlertBinding: Binding<Bool> {
-        Binding(
-            get: { contactsAccessError != nil },
-            set: { if !$0 { contactsAccessError = nil } }
-        )
-    }
-
-    private var contactLinkAlertBinding: Binding<Bool> {
-        Binding(
-            get: { contactLinkError != nil },
-            set: { if !$0 { contactLinkError = nil } }
-        )
-    }
-
     private enum Layout {
         static let avatarDiameter = DiveBuddyDetailPresentation.profileAvatarDiameter
-        static let contactBadgeDiameter = DiveBuddyDetailPresentation.contactBadgeDiameter
         static let avatarOverlapOffset = DiveBuddyDetailPresentation.avatarOverlapOffset()
     }
 
@@ -727,79 +687,16 @@ struct ViewDiveBuddyDetails: View {
         )
     }
 
-    @ViewBuilder
     private var buddyAvatarHeader: some View {
-        #if canImport(UIKit)
-        ZStack(alignment: .bottomTrailing) {
-            ProfileAvatarView(
-                profilePhoto: buddy.profilePhoto,
-                diameter: Layout.avatarDiameter,
-                iconFont: .system(size: 56),
-                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
-            )
-
-            contactLinkBadge
-        }
-        #else
         ProfileAvatarView(
             profilePhoto: buddy.profilePhoto,
             diameter: Layout.avatarDiameter,
             iconFont: .system(size: 56),
             placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
         )
-        #endif
     }
 
     #if canImport(UIKit)
-    private var contactLinkBadge: some View {
-        Button {
-            presentContactPicker()
-        } label: {
-            Image(
-                systemName: buddy.contactsIdentifier != nil
-                    ? "person.fill"
-                    : "person.badge.plus"
-            )
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(width: Layout.contactBadgeDiameter, height: Layout.contactBadgeDiameter)
-            .background(Circle().fill(AppTheme.Colors.tabSelected))
-            .overlay {
-                Circle()
-                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(
-            buddy.contactsIdentifier != nil ? "Change linked contact" : "Link contact"
-        )
-        .accessibilityIdentifier("DiveBuddyDetails.ContactLink")
-    }
-    #endif
-
-    #if canImport(UIKit)
-    private func presentContactPicker() {
-        ContactsPickerAccess.presentIfAuthorized(
-            onAuthorized: { showsContactPicker = true },
-            onError: { contactsAccessError = $0 }
-        )
-    }
-
-    private func linkContact(_ contact: CNContact) {
-        do {
-            try DiveBuddyContactLinking.apply(
-                contact: contact,
-                to: buddy,
-                owner: accountSession.currentProfile,
-                modelContext: modelContext
-            )
-            try modelContext.save()
-            DiveBuddyRosterChangeNotification.post()
-        } catch {
-            contactLinkError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
-    }
-
     /// Silent refresh when opening a buddy already linked to Contacts.
     private func refreshLinkedContactOnAppear() {
         guard buddy.contactsIdentifier != nil else { return }
@@ -813,7 +710,7 @@ struct ViewDiveBuddyDetails: View {
                 DiveBuddyRosterChangeNotification.post()
             }
         } catch {
-            // Best-effort on load — user can still change contact via the picker.
+            // Best-effort on load — user can still change contact from Edit buddy.
         }
     }
     #endif

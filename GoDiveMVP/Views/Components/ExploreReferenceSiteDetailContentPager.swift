@@ -15,35 +15,34 @@ struct ExploreReferenceSiteDetailContentPager: View {
             selection: $selectedPage,
             bottomScrollInset: bottomScrollInset,
             pageLayout: ExploreReferenceSiteDetailContentPagerPresentation.pagerPageLayout(for:),
+            pageHeader: pageHeader(for:),
             pageContent: pageContent(for:)
         )
     }
 
     @ViewBuilder
+    private func pageHeader(for page: ExploreReferenceSiteDetailContentPage) -> some View {
+        BlueSheetDetailPinnedPageHeader(
+            title: ExploreReferenceSiteDetailContentPagerPresentation.pageSubtitle(for: page),
+            accessibilityIdentifier:
+                ExploreReferenceSiteDetailContentPagerPresentation
+                .pageSubtitleAccessibilityIdentifier(for: page)
+        )
+    }
+
+    @ViewBuilder
     private func pageContent(for page: ExploreReferenceSiteDetailContentPage) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text(ExploreReferenceSiteDetailContentPagerPresentation.pageSubtitle(for: page))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier(
-                    ExploreReferenceSiteDetailContentPagerPresentation
-                        .pageSubtitleAccessibilityIdentifier(for: page)
-                )
+        switch page {
+        case .details:
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                ExploreDiveSiteDetailMetadataView(record: record)
 
-            switch page {
-            case .details:
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    ExploreDiveSiteDetailMetadataView(record: record)
-
-                    Text("OpenDiveMap reference site. Log a dive here to add it to your catalog.")
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("Explore.ReferenceSiteDetail.Details")
+                Text("OpenDiveMap reference site. Log a dive here to add it to your catalog.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("Explore.ReferenceSiteDetail.Details")
         }
     }
 }

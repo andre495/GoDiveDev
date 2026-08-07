@@ -29,40 +29,29 @@ struct DiveBuddyDetailContentPager: View {
             bottomScrollInset: bottomScrollInset,
             onPageFirstMounted: onPageFirstMounted,
             pageLayout: DiveBuddyDetailContentPagerPresentation.pagerPageLayout(for:),
+            pageHeader: pageHeader(for:),
             pageContent: pageContent(for:)
         )
     }
 
     @ViewBuilder
-    private func pageContent(for page: DiveBuddyDetailContentPage) -> some View {
-        pageBody(for: page) {
-            switch page {
-            case .divesTogether:
-                divesTogetherContent
-            case .tripsTogether:
-                tripsTogetherContent
-            case .taggedMedia:
-                taggedMediaContent
-            }
-        }
+    private func pageHeader(for page: DiveBuddyDetailContentPage) -> some View {
+        BlueSheetDetailPinnedPageHeader(
+            title: DiveBuddyDetailContentPagerPresentation.pageSubtitle(for: page),
+            accessibilityIdentifier:
+                DiveBuddyDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: page)
+        )
     }
 
     @ViewBuilder
-    private func pageBody(
-        for page: DiveBuddyDetailContentPage,
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text(DiveBuddyDetailContentPagerPresentation.pageSubtitle(for: page))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier(
-                    DiveBuddyDetailContentPagerPresentation
-                        .pageSubtitleAccessibilityIdentifier(for: page)
-                )
-            content()
+    private func pageContent(for page: DiveBuddyDetailContentPage) -> some View {
+        switch page {
+        case .divesTogether:
+            divesTogetherContent
+        case .tripsTogether:
+            tripsTogetherContent
+        case .taggedMedia:
+            taggedMediaContent
         }
     }
 

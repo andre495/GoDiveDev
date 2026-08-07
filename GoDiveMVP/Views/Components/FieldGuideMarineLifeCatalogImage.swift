@@ -47,6 +47,9 @@ struct FieldGuideMarineLifeCatalogImage: View {
     let placement: Placement
 
     @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
+    #if canImport(UIKit)
+    @State private var bundledDecodedImage: UIImage?
+    #endif
 
     var body: some View {
         switch placement {
@@ -175,20 +178,49 @@ struct FieldGuideMarineLifeCatalogImage: View {
         contentMode: FieldGuideMarineLifeCatalogImageContentMode
     ) -> some View {
         #if canImport(UIKit)
-        if let uiImage = bundledUIImage(at: url) {
-            catalogImage(
-                Image(uiImage: uiImage),
-                accent: accent,
-                alignment: alignment,
-                contentMode: contentMode
+        Group {
+            if let uiImage = bundledDecodedImage {
+                catalogImage(
+                    Image(uiImage: uiImage),
+                    accent: accent,
+                    alignment: alignment,
+                    contentMode: contentMode
+                )
+            } else {
+                placeholder(accent: accent)
+            }
+        }
+        .task(id: bundledLoadTaskID(for: url)) {
+            bundledDecodedImage = await GoDiveDecodedImageCache.shared.image(
+                fileURL: url,
+                maxPixelEdge: bundledMaxPixelEdge
             )
-        } else {
-            placeholder(accent: accent)
         }
         #else
         placeholder(accent: accent)
         #endif
     }
+
+    #if canImport(UIKit)
+    private func bundledLoadTaskID(for url: URL) -> String {
+        GoDiveDecodedImageCachePresentation.cacheKey(
+            fileURL: url,
+            maxPixelEdge: bundledMaxPixelEdge
+        )
+    }
+
+    /// Display-sized decode budget — mosaic/list stay light; heroes keep more detail.
+    private var bundledMaxPixelEdge: CGFloat {
+        switch placement {
+        case .mosaicTile:
+            return 480
+        case .listThumbnail:
+            return 160
+        case .detailHero, .mediaSheetHero:
+            return 1_200
+        }
+    }
+    #endif
 
     @ViewBuilder
     private func remoteFillImage(
@@ -266,20 +298,6 @@ struct FieldGuideMarineLifeCatalogImage: View {
 
     private var letterboxBackdrop: some View {
         AppTheme.Colors.screenBackgroundGradient
-    }
-
-    private func bundledUIImage(at url: URL) -> UIImage? {
-        #if canImport(UIKit)
-        if let image = UIImage(contentsOfFile: url.path) {
-            return image
-        }
-        if let data = try? Data(contentsOf: url) {
-            return UIImage(data: data)
-        }
-        return nil
-        #else
-        return nil
-        #endif
     }
 
     private func offlineRemotePlaceholder(accent: Color) -> some View {

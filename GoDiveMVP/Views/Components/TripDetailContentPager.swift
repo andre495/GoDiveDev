@@ -92,6 +92,7 @@ struct TripDetailContentPager: View {
             bottomScrollInset: bottomScrollInset,
             usesLazyMount: false,
             pageLayout: TripDetailContentPagerPresentation.pagerPageLayout(for:),
+            pageHeader: pageHeader(for:),
             pageContent: pageContent(for:)
         )
         .onChange(of: hasStarted) { _, started in
@@ -103,76 +104,65 @@ struct TripDetailContentPager: View {
     }
 
     @ViewBuilder
-    private func pageContent(for page: TripDetailContentPage) -> some View {
-        pageBody(for: page) {
-            switch page {
-            case .plannedSites:
-                TripDetailPlannedSitesSection(
-                    trip: trip,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: onOpenDive
-                )
-            case .buddies:
-                if hasStarted {
-                    TripDetailBuddiesSection(
-                        buddies: aggregate.buddies,
-                        rosterBuddiesByID: rosterBuddiesByID,
-                        ownerProfile: ownerProfile
-                    )
-                } else {
-                    TripDetailPlannedBuddiesSection(
-                        trip: trip,
-                        ownerProfile: ownerProfile
-                    )
-                }
-            case .stats:
-                TripDetailTripStatsSection(
-                    tiles: statTiles,
-                    onOpenDive: onOpenDive
-                )
-            case .marineLife:
-                TripDetailMarineLifeSection(
-                    items: marineLifeItems,
-                    marineLifeCatalog: marineLifeCatalog,
-                    unitSystem: unitSystem,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: onOpenDive
-                )
-            case .activities:
-                linkedDivesSection
-            case .media:
-                TripDetailMediaGallerySection(
-                    mediaItems: mediaItems,
-                    timeZoneOffsetByMediaID: mediaTimeZoneOffsets,
-                    linkedMediaItems: linkedMediaItems,
-                    sightings: mediaSightings,
-                    marineLifeCatalog: marineLifeCatalog,
-                    ownerProfileID: ownerProfileID,
-                    featuredMediaPhotoID: featuredTripMediaPhotoID,
-                    selectedMediaID: $gallerySelectedMediaID,
-                    initialSelectedMediaID: initialSelectedMediaID,
-                    onToggleFeaturedTripMedia: onToggleFeaturedTripMedia,
-                    onOpenDive: onOpenDive
-                )
-            }
-        }
+    private func pageHeader(for page: TripDetailContentPage) -> some View {
+        BlueSheetDetailPinnedPageHeader(
+            title: TripDetailContentPagerPresentation.pageSubtitle(for: page),
+            accessibilityIdentifier:
+                TripDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: page)
+        )
     }
 
     @ViewBuilder
-    private func pageBody(
-        for page: TripDetailContentPage,
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text(TripDetailContentPagerPresentation.pageSubtitle(for: page))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier(
-                    TripDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: page)
+    private func pageContent(for page: TripDetailContentPage) -> some View {
+        switch page {
+        case .plannedSites:
+            TripDetailPlannedSitesSection(
+                trip: trip,
+                ownerProfileID: ownerProfileID,
+                onOpenDive: onOpenDive
+            )
+        case .buddies:
+            if hasStarted {
+                TripDetailBuddiesSection(
+                    buddies: aggregate.buddies,
+                    rosterBuddiesByID: rosterBuddiesByID,
+                    ownerProfile: ownerProfile
                 )
-            content()
+            } else {
+                TripDetailPlannedBuddiesSection(
+                    trip: trip,
+                    ownerProfile: ownerProfile
+                )
+            }
+        case .stats:
+            TripDetailTripStatsSection(
+                tiles: statTiles,
+                onOpenDive: onOpenDive
+            )
+        case .marineLife:
+            TripDetailMarineLifeSection(
+                items: marineLifeItems,
+                marineLifeCatalog: marineLifeCatalog,
+                unitSystem: unitSystem,
+                ownerProfileID: ownerProfileID,
+                onOpenDive: onOpenDive
+            )
+        case .activities:
+            linkedDivesSection
+        case .media:
+            TripDetailMediaGallerySection(
+                mediaItems: mediaItems,
+                timeZoneOffsetByMediaID: mediaTimeZoneOffsets,
+                linkedMediaItems: linkedMediaItems,
+                sightings: mediaSightings,
+                marineLifeCatalog: marineLifeCatalog,
+                ownerProfileID: ownerProfileID,
+                featuredMediaPhotoID: featuredTripMediaPhotoID,
+                selectedMediaID: $gallerySelectedMediaID,
+                initialSelectedMediaID: initialSelectedMediaID,
+                onToggleFeaturedTripMedia: onToggleFeaturedTripMedia,
+                onOpenDive: onOpenDive
+            )
         }
     }
 

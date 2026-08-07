@@ -40,8 +40,8 @@ Tap the **bell** (top left of Home) to open **Notifications** — buddy events s
 - **New buddy connections** — "Alex is now your dive buddy". Tap to open their friend profile.
 - **Shared activities** — "Alex logged a new dive" (with the site name when shared). Tap to open that shared activity.
 - **Tagged you** — when a friend tags you on a shared dive or snorkel, you also see "Alex tagged you in a new dive" (same tap target as the shared activity above).
-- **Likes on your posts** — "Alex liked your dive." (site name when available). Tap to open that activity in your logbook.
-- **Comments on your posts** — "Alex commented on your snorkel: Crystal clear today" (comment preview in the title and the secondary detail line). Tap to open that activity with the comment thread already open.
+- **Likes on your posts** — title like "Blue Hole has new likes" (site name when known, otherwise “your dive/snorkel”); secondary line is who liked it (“Alex liked your dive”). Tap to open that activity in your logbook.
+- **Comments on your posts** — title like "Alex commented on Blue Hole" (site name when known, otherwise “your dive/snorkel”); secondary line is a short comment preview. Tap to open that activity with the comment thread already open.
 - **Mentions** — "Alex mentioned you in a comment" (with a short preview when present). Tap to open that activity with the comment thread already open (your logbook if it is your post, or Buddy Feed if it is a friend’s).
 
 A small blue dot on the bell means there is something new since you last opened the list; opening Notifications clears it. **New** is unread items from the last two weeks. **Older** is everything else — including all items older than two weeks (whether or not you have opened them) and recent items you have already seen (those appear faded). If **New** is empty, it shows *You have no new notifications*. Pull down on the list to refresh. The list is built from your friend network, likes/comments on your shared activities, and comment mentions, so it shows these events even if a push notification never reached this device.

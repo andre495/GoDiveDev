@@ -256,15 +256,14 @@ private struct EquipmentLockerRowView: View {
     @ViewBuilder
     private var rowThumbnail: some View {
         #if canImport(UIKit)
-        if let data = item.equipmentPhoto, let image = UIImage(data: data) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        } else {
+        GoDiveCachedBlobImageView(
+            data: item.equipmentPhoto,
+            maxPixelEdge: 96
+        ) {
             rowThumbnailPlaceholder
         }
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         #else
         rowThumbnailPlaceholder
         #endif

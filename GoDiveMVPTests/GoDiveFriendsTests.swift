@@ -1726,6 +1726,26 @@ struct GoDiveFriendsTests {
                 knownDisplayNames: []
             ) == ["Blake"]
         )
+        // Other devices may lack the mentioned friend in `knownDisplayNames` — still color
+        // the full Capitalized multi-word name (not only the first token).
+        #expect(
+            GoDiveMentionAttributedTextPresentation.displayedMentionNames(
+                in: "Hi @Alex Smith thanks",
+                knownDisplayNames: []
+            ) == ["Alex Smith"]
+        )
+        #expect(
+            GoDiveMentionAttributedTextPresentation.displayedMentionNames(
+                in: "Hi @Alex went diving",
+                knownDisplayNames: []
+            ) == ["Alex"]
+        )
+        #expect(
+            GoDiveMentionAttributedTextPresentation.mentionSubstrings(
+                in: "Ping @Mary-Jane O’Neil!",
+                knownDisplayNames: []
+            ) == ["@Mary-Jane O’Neil"]
+        )
         let styled = GoDiveMentionAttributedTextPresentation.attributedString(
             text: "Hi @Sam",
             knownDisplayNames: ["Sam"],
@@ -2212,6 +2232,389 @@ struct GoDiveFriendsTests {
         #expect(GoDiveRemoteURLPolicy.sanitizedFirebaseStorageURL(from: "http://evil.com/x") == nil)
     }
 
+    @Test func friendProfile_remoteHeroClipsOverflowingMedia() {
+        #expect(FriendProfilePresentation.clipsOverflowingHeroMedia)
+    }
+
+    @Test func friendProfileHero_prefersAccountHeroAndInfersKind() {
+        let url = "https://firebasestorage.googleapis.com/v0/b/test/o/users%2Fuid%2FprofileHero.jpg?alt=media"
+        let hero = FriendProfileHeroPresentation.resolvedHero(
+            profileHeroURL: url,
+            profileHeroMediaKind: nil
+        )
+        #expect(hero?.kind == .image)
+        #expect(hero?.url.absoluteString.contains("profileHero.jpg") == true)
+        #expect(
+            FriendProfileHeroPresentation.hasAssociatedMedia(
+                profileHeroURL: url,
+                profileHeroMediaKind: nil
+            )
+        )
+        #expect(FriendProfileHeroPresentation.inferredKind(fromURLString: url) == .image)
+        #expect(
+            FriendProfileHeroPresentation.inferredKind(
+                fromURLString: "https://firebasestorage.googleapis.com/v0/b/test/o/users%2Fuid%2FprofileHero.mp4?alt=media"
+            ) == .video
+        )
+    }
+
+    @Test func friendProfileHero_fallsBackToNewestSharedDiveFeaturedMedia() {
+        let older = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "older",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Old Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                GoDiveSharedDiveProjectionMapping.MediaItemSnapshot(
+                    mediaID: "old-photo",
+                    kind: .photo,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/v0/b/test/o/old.jpg?alt=media",
+                    contentURL: "https://firebasestorage.googleapis.com/v0/b/test/o/old-full.jpg?alt=media",
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: "old-photo",
+            profileTrackBase64: nil
+        )
+        let newer = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "newer",
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "New Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                GoDiveSharedDiveProjectionMapping.MediaItemSnapshot(
+                    mediaID: "new-video",
+                    kind: .video,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/v0/b/test/o/new.jpg?alt=media",
+                    contentURL: "https://firebasestorage.googleapis.com/v0/b/test/o/new.mp4?alt=media",
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: "new-video",
+            profileTrackBase64: nil
+        )
+        let hero = FriendProfileHeroPresentation.resolvedHero(
+            profileHeroURL: nil,
+            profileHeroMediaKind: nil,
+            sharedDives: [older, newer]
+        )
+        #expect(hero?.kind == .video)
+        #expect(hero?.url.absoluteString.contains("new.mp4") == true)
+    }
+
+    @Test @MainActor func friendProfileLifetimeStats_buildsHighlightTilesFromSharedDives() {
+        let deepID = UUID()
+        let longID = UUID()
+        let deep = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: deepID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 40,
+            diveNumber: 1,
+            siteName: "Blue Hole",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [
+                .init(commonName: "Eagle Ray", scientificName: nil, catalogUUID: "ray-1"),
+                .init(commonName: "Eagle Ray", scientificName: nil, catalogUUID: "ray-1"),
+            ],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let long = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: longID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 90,
+            maxDepthMeters: 18,
+            diveNumber: 2,
+            siteName: "Blue Hole",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [
+                .init(commonName: "Turtle", scientificName: nil, catalogUUID: "turtle-1"),
+            ],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let stats = FriendProfileLifetimeStatsPresentation.build(from: [deep, long])
+        #expect(stats.diveCount == 2)
+        #expect(stats.deepestDive?.id == deepID)
+        #expect(stats.deepestMaxDepthMeters == 40)
+        #expect(stats.longestDive?.id == longID)
+        #expect(stats.longestDurationMinutes == 90)
+        #expect(stats.mostVisitedSite?.name == "Blue Hole")
+        #expect(stats.mostVisitedSite?.visitCount == 2)
+        #expect(stats.topSpecies?.commonName == "Eagle Ray")
+        #expect(stats.topSpecies?.sightingCount == 2)
+
+        let tiles = HomeLifetimeStatsPresentation.highlightStatTileDescriptors(
+            stats: stats,
+            unitSystem: .metric,
+            opensLeaderboards: false,
+            emptyFootnotes: .friendShared
+        )
+        #expect(tiles.count == 4)
+        #expect(tiles.allSatisfy { $0.leaderboardKind == nil })
+        #expect(
+            FriendProfileContentPagerPresentation.pages
+                == [.diverStats, .sharedActivities, .sharedMedia]
+        )
+        #expect(FriendProfileContentPagerPresentation.defaultPage == .diverStats)
+    }
+
+    @Test func friendProfileMapPins_sharedBlueTogetherRedTogetherWins() {
+        let sharedID = UUID()
+        let togetherID = UUID()
+        let sharedOnly = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: sharedID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Shared Reef",
+            locationName: nil,
+            entryLatitude: 17.3,
+            entryLongitude: -87.5,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let togetherShared = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: togetherID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 45,
+            maxDepthMeters: 20,
+            siteName: "Together Reef",
+            locationName: nil,
+            entryLatitude: 18.1,
+            entryLongitude: -88.2,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [.init(displayName: "Me", firebaseUID: "me-uid")],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let pins = FriendProfileSharedDiveMapPresentation.pins(
+            sharedDives: [sharedOnly, togetherShared],
+            togetherDives: [],
+            togetherActivityIDs: [togetherID],
+            catalogSites: [],
+            currentFirebaseUID: "me-uid"
+        )
+        #expect(pins.count == 2)
+        let byTitle = Dictionary(uniqueKeysWithValues: pins.map { ($0.title, $0.kind) })
+        #expect(byTitle["Shared Reef"] == .friendShared)
+        #expect(byTitle["Together Reef"] == .friendTogether)
+        #expect(TripDetailMapPinKind.friendShared.markerTintColor == .systemBlue)
+        #expect(TripDetailMapPinKind.friendTogether.markerTintColor == .systemRed)
+
+        let sameCoordShared = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: UUID().uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_200_000),
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            siteName: "Overlap Site",
+            locationName: nil,
+            entryLatitude: 19.0,
+            entryLongitude: -89.0,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let sameCoordTogether = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: UUID().uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_300_000),
+            durationMinutes: 35,
+            maxDepthMeters: 14,
+            siteName: "Overlap Site",
+            locationName: nil,
+            entryLatitude: 19.0,
+            entryLongitude: -89.0,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [.init(displayName: "Me", firebaseUID: "me-uid")],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let overlapPins = FriendProfileSharedDiveMapPresentation.pins(
+            sharedDives: [sameCoordShared, sameCoordTogether],
+            togetherDives: [],
+            togetherActivityIDs: [],
+            catalogSites: [],
+            currentFirebaseUID: "me-uid"
+        )
+        #expect(overlapPins.count == 1)
+        #expect(overlapPins.first?.kind == .friendTogether)
+    }
+
+    @Test func friendProfileActivityFilter_togetherUsesTaggedOrLocalIDs() {
+        let togetherID = UUID()
+        let otherID = UUID()
+        let together = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: togetherID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "A",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let other = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: otherID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "B",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let filtered = FriendProfileSharedDiveListPresentation.filteredDives(
+            [together, other],
+            filter: .together,
+            togetherActivityIDs: [togetherID],
+            currentFirebaseUID: nil
+        )
+        #expect(filtered.map(\.id) == [togetherID.uuidString])
+        #expect(
+            FriendProfileSharedMediaListPresentation.displayItems(from: []).isEmpty
+        )
+    }
+
+    @Test func friendProfileSharedDiveList_mapsLogbookRowsNewestFirst() {
+        let olderID = UUID()
+        let newerID = UUID()
+        let older = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: olderID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            diveNumber: 3,
+            siteName: "Old Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let newer = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: newerID.uuidString,
+            activityKind: .snorkel,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 55,
+            maxDepthMeters: nil,
+            siteName: "Lagoon",
+            locationName: nil,
+            swimDistanceMeters: 1200,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let rows = FriendProfileSharedDiveListPresentation.logbookRows(
+            from: [older, newer],
+            unitSystem: .imperial
+        )
+        #expect(rows.map(\.id) == [newerID, olderID])
+        #expect(rows[0].activityKind == .snorkel)
+        #expect(rows[0].diveNumberLabel == LogbookActivityRowPresentation.snorkelChipTitle)
+        #expect(rows[1].diveNumberLabel == "#3")
+        #expect(rows[1].detailLine.contains("ft"))
+        #expect(
+            FriendProfileSharedDiveListPresentation.dive(matching: olderID, in: [older, newer])?.id
+                == olderID.uuidString
+        )
+        #expect(FriendProfileSharedDiveListPresentation.sectionTitle == "Activities")
+    }
+
+    @Test func friendProfile_mediaMapToggle_requiresHeroAndPins() {
+        let heroURL = "https://firebasestorage.googleapis.com/v0/b/test/o/users%2Fuid%2FprofileHero.jpg?alt=media"
+        let hasMedia = FriendProfileHeroPresentation.hasAssociatedMedia(
+            profileHeroURL: heroURL,
+            profileHeroMediaKind: .image
+        )
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-1",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Blue Hole",
+            locationName: nil,
+            entryLatitude: 17.3,
+            entryLongitude: -87.5,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let pins = FriendProfileSharedDiveMapPresentation.pins(
+            sharedDives: [dive],
+            togetherDives: [],
+            togetherActivityIDs: [],
+            catalogSites: [],
+            currentFirebaseUID: nil
+        )
+        #expect(pins.count == 1)
+        #expect(
+            PushedDetailHeroModePresentation.showsModeToggle(
+                hasAssociatedMedia: hasMedia,
+                hasMapContent: !pins.isEmpty
+            )
+        )
+        #expect(
+            !PushedDetailHeroModePresentation.showsModeToggle(
+                hasAssociatedMedia: hasMedia,
+                hasMapContent: false
+            )
+        )
+    }
+
     @Test @MainActor func profileHeroFeaturedMediaSync_skipsNonSelfBuddy() {
         let container = try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
@@ -2470,12 +2873,22 @@ struct GoDiveFriendsTests {
         #expect(!GoDiveUserAvatarPinPresentation.showsGoDiveUserPin(isFriend: false))
         #expect(GoDiveUserAvatarPinPresentation.accessibilityLabel == "GoDive user")
         #expect(GoDiveUserAvatarPinPresentation.assetName == "GoDiveUserAvatarPin")
+        #expect(GoDiveUserAvatarPinPresentation.pinSideLengthFraction == 0.76)
+        #expect(GoDiveUserAvatarPinPresentation.pinSideLengthMinimum == 28)
         #expect(
             GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 48)
-                == max(28 as CGFloat, min(56, 48 * 0.76))
+                == 48 * GoDiveUserAvatarPinPresentation.pinSideLengthFraction
         )
-        #expect(GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 120) == 56)
+        // Profile / buddy identity avatar (120) keeps the same pin:avatar ratio as list chips.
+        #expect(
+            GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 120)
+                == 120 * GoDiveUserAvatarPinPresentation.pinSideLengthFraction
+        )
         #expect(GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 30) == 28)
+        let edge120 = GoDiveUserAvatarPinPresentation.pinEdgeOverlapOffset(forAvatarDiameter: 120)
+        let pin120 = GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 120)
+        #expect(edge120.width == pin120 * GoDiveUserAvatarPinPresentation.pinEdgeOutwardFraction)
+        #expect(edge120.height == pin120 * GoDiveUserAvatarPinPresentation.pinEdgeOutwardFraction)
         #expect(
             BuddiesListPresentation.goDiveUserPinSideLength(forAvatarDiameter: 48)
                 == GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 48)
@@ -2839,6 +3252,30 @@ struct GoDiveFriendsTests {
             !DiveActivityMapOverviewHeaderPresentation.usesBuddyOwnerLayout(
                 sharedByDisplayName: nil
             )
+        )
+        #expect(
+            DiveActivityMapOverviewHeaderPresentation.showsOpenFriendProfileControl(
+                onOpenSharedBy: {}
+            )
+        )
+        #expect(
+            !DiveActivityMapOverviewHeaderPresentation.showsOpenFriendProfileControl(
+                onOpenSharedBy: nil
+            )
+        )
+        let edge = FriendSharedActivityDetailPresentation.friendEdgeForProfileNavigation(
+            friendUID: "uid-alex",
+            displayName: "Alex",
+            photoURL: "https://example.com/a.jpg"
+        )
+        #expect(edge?.friendUID == "uid-alex")
+        #expect(edge?.displayName == "Alex")
+        #expect(
+            FriendSharedActivityDetailPresentation.friendEdgeForProfileNavigation(
+                friendUID: "  ",
+                displayName: "Alex",
+                photoURL: nil
+            ) == nil
         )
     }
 
@@ -3521,12 +3958,7 @@ struct GoDiveFriendsTests {
         #expect(resolved?.isFileURL == true)
     }
 
-    @Test func friendSharedMediaFullscreen_presentationZoomAndChrome() {
-        #expect(FriendSharedMediaFullscreenPresentation.clampedZoomScale(0.5) == 1)
-        #expect(FriendSharedMediaFullscreenPresentation.clampedZoomScale(2.5) == 2.5)
-        #expect(FriendSharedMediaFullscreenPresentation.clampedZoomScale(9) == 4)
-        #expect(!FriendSharedMediaFullscreenPresentation.allowsPanGesture(atZoomScale: 1))
-        #expect(FriendSharedMediaFullscreenPresentation.allowsPanGesture(atZoomScale: 1.5))
+    @Test func friendSharedMediaFullscreen_presentationAdjacentAndPositionLabel() {
         let items = [
             FriendSharedMediaPresentation.DisplayItem(
                 mediaID: "a",
@@ -3541,8 +3973,109 @@ struct GoDiveFriendsTests {
                 contentURL: nil
             ),
         ]
-        #expect(FriendSharedMediaFullscreenPresentation.pageIndex(for: "b", in: items) == 1)
-        #expect(FriendSharedMediaFullscreenPresentation.chromeTitle(pageIndex: 0, pageCount: 2) == "1 / 2")
+        #expect(
+            FriendSharedMediaFullscreenPresentation.adjacentMediaID(
+                selectedID: "a",
+                in: items,
+                offset: 1
+            ) == "b"
+        )
+        #expect(
+            FriendSharedMediaFullscreenPresentation.adjacentMediaID(
+                selectedID: "b",
+                in: items,
+                offset: -1
+            ) == "a"
+        )
+        #expect(
+            FriendSharedMediaFullscreenPresentation.adjacentMediaID(
+                selectedID: "a",
+                in: items,
+                offset: -1
+            ) == nil
+        )
+        #expect(
+            FriendSharedMediaFullscreenPresentation.mediaPositionLabel(
+                selectedID: "b",
+                in: items
+            ) == "2 of 2"
+        )
+        #expect(
+            FriendSharedMediaFullscreenPresentation.mediaPositionLabel(
+                selectedID: "a",
+                in: items
+            ) == "1 of 2"
+        )
+        #expect(
+            FriendSharedMediaFullscreenPresentation.openActivityAccessibilityIdentifier
+                == "FriendSharedMedia.Fullscreen.OpenActivity"
+        )
+        #expect(
+            FriendSharedMediaFullscreenPresentation.playbackToggleAccessibilityIdentifier
+                == "FriendSharedMedia.Fullscreen.PlaybackToggle"
+        )
+    }
+
+    @Test func friendProfileSharedMedia_diveByMediaID_mapsNewestOwningActivity() {
+        let olderID = UUID()
+        let newerID = UUID()
+        let older = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: olderID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            diveNumber: 3,
+            siteName: "Old Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                GoDiveSharedDiveProjectionMapping.MediaItemSnapshot(
+                    mediaID: "shared-photo",
+                    kind: .photo,
+                    thumbnailURL: "https://example.com/t.jpg",
+                    contentURL: "https://example.com/c.jpg"
+                ),
+            ],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let newer = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: newerID.uuidString,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 45,
+            maxDepthMeters: 20,
+            diveNumber: 7,
+            siteName: "New Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                GoDiveSharedDiveProjectionMapping.MediaItemSnapshot(
+                    mediaID: "shared-photo",
+                    kind: .photo,
+                    thumbnailURL: "https://example.com/t2.jpg",
+                    contentURL: "https://example.com/c2.jpg"
+                ),
+                GoDiveSharedDiveProjectionMapping.MediaItemSnapshot(
+                    mediaID: "other-photo",
+                    kind: .photo,
+                    thumbnailURL: "https://example.com/t3.jpg",
+                    contentURL: "https://example.com/c3.jpg"
+                ),
+            ],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let map = FriendProfileSharedMediaListPresentation.diveByMediaID(from: [older, newer])
+        #expect(map["shared-photo"]?.id == newerID.uuidString)
+        #expect(map["other-photo"]?.id == newerID.uuidString)
+        #expect(FriendSharedMediaFullscreenPresentation.diveNumberLabel(for: newer) == "#7")
+        #expect(FriendSharedMediaFullscreenPresentation.siteDisplayName(for: newer) == "New Reef")
     }
 
     #if canImport(UIKit)
@@ -3590,6 +4123,27 @@ struct GoDiveFriendsTests {
         #expect(GoDiveSharedMediaExport.cappedVideoExportDurationSeconds(0) == 0)
         #expect(GoDiveSharedMediaExport.cappedVideoExportDurationSeconds(-4).isZero)
     }
+
+    #if canImport(UIKit)
+    @Test func goDiveSharedMediaExport_thumbnailFromPreviewBytes_returnsWithoutPhotoKit() async {
+        let size = CGSize(width: 64, height: 48)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.green.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        guard let preview = image.jpegData(compressionQuality: 0.9), !preview.isEmpty else {
+            Issue.record("Expected preview JPEG bytes")
+            return
+        }
+        let exported = await GoDiveSharedMediaExport.exportThumbnailJPEG(
+            previewJPEGData: preview,
+            photosLocalIdentifier: nil
+        )
+        #expect(exported == preview)
+    }
+    #endif
 
     @Test func goDiveSharedMediaSelection_twelveVideos_capsAtTen() {
         let base = Date(timeIntervalSince1970: 1_700_000_000)
@@ -3753,6 +4307,75 @@ struct GoDiveFriendsTests {
         #expect(buddies.count == 1)
         #expect(buddies[0].displayName == "Alex")
         #expect(buddies[0].linkedFirebaseUID == "uid-alex")
+
+        let slugSightings = GoDiveSharedDiveProjectionMapping.sightingSnapshotsForShare(
+            marineLifeUUIDs: ["marine-life-caribbean-reef-shark", ""],
+            commonNameByUUID: ["marine-life-caribbean-reef-shark": "Caribbean Reef Shark"],
+            scientificNameByUUID: ["marine-life-caribbean-reef-shark": "Carcharhinus perezii"]
+        )
+        #expect(slugSightings.count == 1)
+        #expect(slugSightings[0].commonName == "Caribbean Reef Shark")
+        #expect(slugSightings[0].scientificName == "Carcharhinus perezii")
+        #expect(slugSightings[0].catalogUUID == "marine-life-caribbean-reef-shark")
+
+        #expect(
+            GoDiveSharedDiveProjectionMapping.resolvedSightingCommonName(
+                storedCommonName: "marine-life-caribbean-reef-shark",
+                catalogUUID: "marine-life-caribbean-reef-shark",
+                commonNameByUUID: ["marine-life-caribbean-reef-shark": "Caribbean Reef Shark"]
+            ) == "Caribbean Reef Shark"
+        )
+        #expect(
+            GoDiveSharedDiveProjectionMapping.resolvedSightingCommonName(
+                storedCommonName: "marine-life-caribbean-reef-shark",
+                catalogUUID: "marine-life-caribbean-reef-shark",
+                commonNameByUUID: [:]
+            ) == "Species"
+        )
+        #expect(
+            GoDiveSharedDiveProjectionMapping.looksLikeMarineLifeCatalogUUID(
+                "marine-life-caribbean-reef-shark"
+            )
+        )
+
+        let slugDiveID = UUID()
+        let slugDive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: slugDiveID.uuidString,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [
+                .init(
+                    commonName: "marine-life-caribbean-reef-shark",
+                    scientificName: nil,
+                    catalogUUID: "marine-life-caribbean-reef-shark"
+                ),
+            ],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let resolved = GoDiveSharedDiveProjectionMapping.withResolvedSightingNames(
+            slugDive,
+            commonNameByUUID: ["marine-life-caribbean-reef-shark": "Caribbean Reef Shark"]
+        )
+        #expect(resolved.sightings[0].commonName == "Caribbean Reef Shark")
+        #expect(
+            FriendSharedActivityDetailPresentation.displayMarineLife(
+                from: slugDive,
+                commonNameByUUID: ["marine-life-caribbean-reef-shark": "Caribbean Reef Shark"]
+            ).first?.commonName == "Caribbean Reef Shark"
+        )
+        let stats = FriendProfileLifetimeStatsPresentation.build(
+            from: [slugDive],
+            commonNameByUUID: ["marine-life-caribbean-reef-shark": "Caribbean Reef Shark"]
+        )
+        #expect(stats.topSpecies?.commonName == "Caribbean Reef Shark")
     }
 
     @Test func friendSharedDetail_displayBuddies_filtersByMediaID() {
@@ -5292,10 +5915,7 @@ struct GoDiveFriendsTests {
         )
         #expect(items.count == 3)
         #expect(items[0].id == commentEvent.id)
-        #expect(
-            items[0].message
-                == "Sam commented on your snorkel: Crystal clear water today"
-        )
+        #expect(items[0].message == "Sam commented on Bay")
         #expect(items[0].detail == "Crystal clear water today")
         #expect(items[0].friendPhotoURL?.contains("sam.jpg") == true)
         if case .buddyActivityCommented(let target) = items[0].kind {
@@ -5307,8 +5927,8 @@ struct GoDiveFriendsTests {
         }
 
         #expect(items[1].id == likeEvent.id)
-        #expect(items[1].message == "Sam liked your dive.")
-        #expect(items[1].detail == "Blue Hole")
+        #expect(items[1].message == "Blue Hole has new likes")
+        #expect(items[1].detail == "Sam liked your dive")
         if case .buddyActivityLiked(let target) = items[1].kind {
             #expect(target.activityID == activityID)
             #expect(!target.opensComments)
@@ -5319,9 +5939,33 @@ struct GoDiveFriendsTests {
         #expect(items[2].id == "friend-friend-sam")
         #expect(
             HomeNotificationsPresentation.activityLikedMessage(
+                activityKind: .scubaDive,
+                siteName: "Blue Hole"
+            ) == "Blue Hole has new likes"
+        )
+        #expect(
+            HomeNotificationsPresentation.activityLikedMessage(
+                activityKind: .scubaDive
+            ) == "your dive has new likes"
+        )
+        #expect(
+            HomeNotificationsPresentation.activityLikedDetail(
                 displayName: "Sam",
                 activityKind: .scubaDive
-            ) == "Sam liked your dive."
+            ) == "Sam liked your dive"
+        )
+        #expect(
+            HomeNotificationsPresentation.activityLikedDetail(
+                displayName: "Sam",
+                activityKind: .snorkel
+            ) == "Sam liked your snorkel"
+        )
+        #expect(
+            HomeNotificationsPresentation.activityCommentedMessage(
+                displayName: "Sam",
+                activityKind: .scubaDive,
+                siteName: "Blue Hole"
+            ) == "Sam commented on Blue Hole"
         )
         #expect(
             HomeNotificationsPresentation.activityCommentedMessage(
@@ -5330,10 +5974,14 @@ struct GoDiveFriendsTests {
             ) == "Sam commented on your dive"
         )
         #expect(
-            HomeNotificationsPresentation.commentedNotificationDetail(
-                commentText: "  Great dive  ",
-                siteName: "Blue Hole"
+            HomeNotificationsPresentation.commentNotificationPreviewDetail(
+                commentText: "  Great dive  "
             ) == "Great dive"
+        )
+        #expect(
+            HomeNotificationsPresentation.commentNotificationPreviewDetail(
+                commentText: "   "
+            ) == nil
         )
         #expect(
             HomeNotificationsPresentation.commentedNotificationDetail(
@@ -5462,6 +6110,8 @@ struct GoDiveFriendsTests {
         #expect(HomeNotificationsPresentation.rowOpacity(isUnread: false) == 0.48)
         #expect(HomeNotificationsPresentation.usesSemiboldTitle(isUnread: true))
         #expect(!HomeNotificationsPresentation.usesSemiboldTitle(isUnread: false))
+        #expect(HomeNotificationsPresentation.titleLineLimit == 2)
+        #expect(HomeNotificationsPresentation.detailAndTimeLineLimit == 1)
     }
 
     @Test func homeNotifications_sections_newIsUnreadAndRecent_olderIncludesAllPastTwoWeeks() {

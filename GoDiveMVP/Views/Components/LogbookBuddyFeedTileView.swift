@@ -142,8 +142,10 @@ struct LogbookBuddyFeedPostHeaderView: View {
     @ViewBuilder
     private func profileControl<Label: View>(@ViewBuilder label: () -> Label) -> some View {
         if let onOpenFriendProfile {
+            // `.borderless` so List rows don’t swallow the tap (`.plain` often fails in List).
             Button(action: onOpenFriendProfile, label: label)
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .contentShape(Rectangle())
                 .accessibilityLabel(row.friendDisplayName)
                 .accessibilityHint("Opens friend profile")
         } else {

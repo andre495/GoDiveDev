@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Read-only **Media** overview sheet for friend activities — mirrors owned **`ActivityPhotosPanelContent`**
@@ -8,6 +9,8 @@ struct FriendSharedActivityMediaPanelContent: View {
     var layoutHeight: CGFloat = 0
     @Binding var selectedPreviewID: String?
 
+    @Environment(\.modelContext) private var modelContext
+    @State private var commonNameByUUID: [String: String] = [:]
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var largeDetentMode: DiveActivityMediaLargeDetentMode = .marineLife
 
@@ -36,7 +39,10 @@ struct FriendSharedActivityMediaPanelContent: View {
     }
 
     private var taggedSpecies: [MarineLife] {
-        FriendSharedActivityDetailPresentation.displayMarineLife(from: dive)
+        FriendSharedActivityDetailPresentation.displayMarineLife(
+            from: dive,
+            commonNameByUUID: commonNameByUUID
+        )
     }
 
     private var taggedBuddies: [DiveBuddy] {
@@ -71,6 +77,9 @@ struct FriendSharedActivityMediaPanelContent: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .task(id: dive.id) {
+            commonNameByUUID = MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext)
+        }
         .onChange(of: selectedPreviewID) { _, _ in
             selectedTaggedSpeciesUUID = nil
             largeDetentMode = .marineLife

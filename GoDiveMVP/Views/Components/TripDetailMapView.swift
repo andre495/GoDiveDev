@@ -51,6 +51,9 @@ struct TripDetailMapView: View {
 
 extension TripDetailMapPresentation {
     nonisolated static func accessibilityLabel(for pins: [TripDetailMapPin]) -> String {
+        if pins.contains(where: { $0.kind == .friendShared || $0.kind == .friendTogether }) {
+            return FriendProfileSharedDiveMapPresentation.accessibilityLabel(for: pins)
+        }
         let plannedCount = pins.filter { $0.kind == .planned }.count
         let completedCount = pins.filter { $0.kind == .completed }.count
         switch (plannedCount, completedCount) {

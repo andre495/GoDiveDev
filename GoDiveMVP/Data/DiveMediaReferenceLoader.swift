@@ -55,6 +55,25 @@ enum DiveMediaReferenceLoader {
     #endif
 
     #if canImport(Photos) && canImport(UIKit)
+    /// Background export path (friend-share publish) — PhotoKit only, no MainActor image caches.
+    nonisolated static func imageForBackgroundExport(
+        localIdentifier: String,
+        targetSize: CGSize,
+        contentMode: PHImageContentMode = .aspectFill,
+        deliveryMode: PHImageRequestOptionsDeliveryMode = .highQualityFormat
+    ) async -> UIImage? {
+        guard targetSize.width > 0, targetSize.height > 0,
+              let phAsset = asset(localIdentifier: localIdentifier)
+        else { return nil }
+        return await fetchImageFromPhotoKit(
+            asset: phAsset,
+            targetSize: targetSize,
+            contentMode: contentMode,
+            deliveryMode: deliveryMode,
+            localIdentifier: localIdentifier
+        ).image
+    }
+
     /// Loads a (thumbnail or full-size) image for the asset. Works for both photo and video assets
     /// (videos return a poster frame). Returns **`nil`** when the original is unavailable.
     ///
@@ -379,6 +398,26 @@ enum DiveMediaReferenceLoader {
         let result = await task.value
         inflightVideoPlayerItemTasks[inflightKey] = nil
         return result
+    }
+
+    /// Background video export (friend-share) — skips the MainActor Home carousel gate/caches.
+    nonisolated static func loadVideoAssetForBackgroundExport(
+        localIdentifier: String,
+        timeoutSeconds: Double? = nil,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
+    ) async -> AVAsset? {
+        let timeout = timeoutSeconds ?? quality.requestTimeoutSeconds
+        guard let phAsset = asset(localIdentifier: localIdentifier) else { return nil }
+        let options = makeVideoRequestOptions(quality: quality)
+        let networkAllowed = options.isNetworkAccessAllowed
+        return await requestAVAssetFromPhotoKit(
+            asset: phAsset,
+            options: options,
+            timeoutSeconds: timeout,
+            localIdentifier: localIdentifier,
+            quality: quality,
+            networkAllowed: networkAllowed
+        )
     }
 
     /// Loads an **`AVAsset`** from PhotoKit for export / Fishial / session warm-cache that needs tracks.

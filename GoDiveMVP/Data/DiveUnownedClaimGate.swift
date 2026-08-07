@@ -51,16 +51,46 @@ enum DiveUnownedClaimGate: Sendable {
         return .claim
     }
 
+    /// Count-only evaluation — avoids materializing every dive/snorkel/buddy on launch.
     nonisolated static func decision(ownerID: UUID, modelContext: ModelContext) throws -> Decision {
-        let dives = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-        let snorkels = try modelContext.fetch(FetchDescriptor<SnorkelActivity>())
-        let buddies = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
-        return decision(
-            ownerID: ownerID,
-            diveOwnerIDs: dives.map(\.ownerProfileID),
-            snorkelOwnerIDs: snorkels.map(\.ownerProfileID),
-            buddyOwnerIDs: buddies.map(\.ownerProfileID)
+        let unownedDiveCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(predicate: #Predicate { $0.ownerProfileID == nil })
         )
+        let unownedSnorkelCount = try modelContext.fetchCount(
+            FetchDescriptor<SnorkelActivity>(predicate: #Predicate { $0.ownerProfileID == nil })
+        )
+        let unownedBuddyCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveBuddy>(predicate: #Predicate { $0.ownerProfileID == nil })
+        )
+        guard unownedDiveCount + unownedSnorkelCount + unownedBuddyCount > 0 else {
+            return .nothingToClaim
+        }
+
+        let otherDiveCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { dive in
+                    dive.ownerProfileID != nil && dive.ownerProfileID != ownerID
+                }
+            )
+        )
+        let otherSnorkelCount = try modelContext.fetchCount(
+            FetchDescriptor<SnorkelActivity>(
+                predicate: #Predicate { snorkel in
+                    snorkel.ownerProfileID != nil && snorkel.ownerProfileID != ownerID
+                }
+            )
+        )
+        let otherBuddyCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveBuddy>(
+                predicate: #Predicate { buddy in
+                    buddy.ownerProfileID != nil && buddy.ownerProfileID != ownerID
+                }
+            )
+        )
+        if otherDiveCount + otherSnorkelCount + otherBuddyCount > 0 {
+            return .skipOtherOwnersPresent
+        }
+        return .claim
     }
 
     /// `true` only for **`.claim`** (not when there is nothing to claim).

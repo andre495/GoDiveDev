@@ -111,21 +111,77 @@ enum HomeLifetimeStatsPresentation {
         let leaderboardKind: HomeLifetimeStatsLeaderboardKind?
     }
 
+    /// Empty-state footnotes under the four highlight tiles.
+    enum EmptyFootnotes: Sendable {
+        case owner
+        /// Friend profile — stats come from shared dives only.
+        case friendShared
+
+        nonisolated var deepest: String {
+            switch self {
+            case .owner: return deepestEmptyFootnote
+            case .friendShared: return "No shared depth yet"
+            }
+        }
+
+        nonisolated var longest: String {
+            switch self {
+            case .owner: return longestEmptyFootnote
+            case .friendShared: return "No shared bottom time yet"
+            }
+        }
+
+        nonisolated var topSite: String {
+            switch self {
+            case .owner: return topSiteEmptyFootnote
+            case .friendShared: return "No shared sites yet"
+            }
+        }
+
+        nonisolated var topSpecies: String {
+            switch self {
+            case .owner: return topSpeciesEmptyFootnote
+            case .friendShared: return "No shared marine life yet"
+            }
+        }
+    }
+
     nonisolated static func highlightStatTileDescriptors(
         stats: HomeLifetimeStats,
-        unitSystem: DiveDisplayUnitSystem
+        unitSystem: DiveDisplayUnitSystem,
+        opensLeaderboards: Bool = true,
+        emptyFootnotes: EmptyFootnotes = .owner
     ) -> [HighlightStatTileDescriptor] {
         [
-            deepestTileDescriptor(stats: stats, unitSystem: unitSystem),
-            longestTileDescriptor(stats: stats),
-            topSiteTileDescriptor(stats: stats),
-            topSpeciesTileDescriptor(stats: stats),
+            deepestTileDescriptor(
+                stats: stats,
+                unitSystem: unitSystem,
+                opensLeaderboards: opensLeaderboards,
+                emptyFootnotes: emptyFootnotes
+            ),
+            longestTileDescriptor(
+                stats: stats,
+                opensLeaderboards: opensLeaderboards,
+                emptyFootnotes: emptyFootnotes
+            ),
+            topSiteTileDescriptor(
+                stats: stats,
+                opensLeaderboards: opensLeaderboards,
+                emptyFootnotes: emptyFootnotes
+            ),
+            topSpeciesTileDescriptor(
+                stats: stats,
+                opensLeaderboards: opensLeaderboards,
+                emptyFootnotes: emptyFootnotes
+            ),
         ]
     }
 
     private nonisolated static func deepestTileDescriptor(
         stats: HomeLifetimeStats,
-        unitSystem: DiveDisplayUnitSystem
+        unitSystem: DiveDisplayUnitSystem,
+        opensLeaderboards: Bool,
+        emptyFootnotes: EmptyFootnotes
     ) -> HighlightStatTileDescriptor {
         if let deepest = stats.deepestDive, let depth = stats.deepestMaxDepthMeters {
             return HighlightStatTileDescriptor(
@@ -134,20 +190,24 @@ enum HomeLifetimeStatsPresentation {
                 value: DiveQuantityFormatting.depth(meters: depth, system: unitSystem),
                 footnote: deepest.siteDisplayName,
                 systemImage: "arrow.down.circle.fill",
-                leaderboardKind: .deepestDives
+                leaderboardKind: opensLeaderboards ? .deepestDives : nil
             )
         }
         return HighlightStatTileDescriptor(
             id: "deepest",
             title: "Deepest",
             value: emptyStatValue,
-            footnote: deepestEmptyFootnote,
+            footnote: emptyFootnotes.deepest,
             systemImage: "arrow.down.circle.fill",
             leaderboardKind: nil
         )
     }
 
-    private nonisolated static func longestTileDescriptor(stats: HomeLifetimeStats) -> HighlightStatTileDescriptor {
+    private nonisolated static func longestTileDescriptor(
+        stats: HomeLifetimeStats,
+        opensLeaderboards: Bool,
+        emptyFootnotes: EmptyFootnotes
+    ) -> HighlightStatTileDescriptor {
         if let longest = stats.longestDive, let minutes = stats.longestDurationMinutes {
             return HighlightStatTileDescriptor(
                 id: "longest",
@@ -155,20 +215,24 @@ enum HomeLifetimeStatsPresentation {
                 value: formattedDuration(minutes: minutes),
                 footnote: longest.siteDisplayName,
                 systemImage: "clock.fill",
-                leaderboardKind: .longestDives
+                leaderboardKind: opensLeaderboards ? .longestDives : nil
             )
         }
         return HighlightStatTileDescriptor(
             id: "longest",
             title: "Longest",
             value: emptyStatValue,
-            footnote: longestEmptyFootnote,
+            footnote: emptyFootnotes.longest,
             systemImage: "clock.fill",
             leaderboardKind: nil
         )
     }
 
-    private nonisolated static func topSiteTileDescriptor(stats: HomeLifetimeStats) -> HighlightStatTileDescriptor {
+    private nonisolated static func topSiteTileDescriptor(
+        stats: HomeLifetimeStats,
+        opensLeaderboards: Bool,
+        emptyFootnotes: EmptyFootnotes
+    ) -> HighlightStatTileDescriptor {
         if let site = stats.mostVisitedSite {
             return HighlightStatTileDescriptor(
                 id: "top-site",
@@ -176,20 +240,24 @@ enum HomeLifetimeStatsPresentation {
                 value: site.name,
                 footnote: siteVisitLabel(count: site.visitCount),
                 systemImage: "mappin.circle.fill",
-                leaderboardKind: .topSites
+                leaderboardKind: opensLeaderboards ? .topSites : nil
             )
         }
         return HighlightStatTileDescriptor(
             id: "top-site",
             title: "Top site",
             value: emptyStatValue,
-            footnote: topSiteEmptyFootnote,
+            footnote: emptyFootnotes.topSite,
             systemImage: "mappin.circle.fill",
             leaderboardKind: nil
         )
     }
 
-    private nonisolated static func topSpeciesTileDescriptor(stats: HomeLifetimeStats) -> HighlightStatTileDescriptor {
+    private nonisolated static func topSpeciesTileDescriptor(
+        stats: HomeLifetimeStats,
+        opensLeaderboards: Bool,
+        emptyFootnotes: EmptyFootnotes
+    ) -> HighlightStatTileDescriptor {
         if let species = stats.topSpecies {
             return HighlightStatTileDescriptor(
                 id: "top-species",
@@ -197,14 +265,14 @@ enum HomeLifetimeStatsPresentation {
                 value: species.commonName,
                 footnote: sightingCountLabel(count: species.sightingCount),
                 systemImage: "fish.fill",
-                leaderboardKind: .topSpecies
+                leaderboardKind: opensLeaderboards ? .topSpecies : nil
             )
         }
         return HighlightStatTileDescriptor(
             id: "top-species",
             title: "Top species",
             value: topSpeciesEmptyValue,
-            footnote: topSpeciesEmptyFootnote,
+            footnote: emptyFootnotes.topSpecies,
             systemImage: "fish.fill",
             leaderboardKind: nil
         )

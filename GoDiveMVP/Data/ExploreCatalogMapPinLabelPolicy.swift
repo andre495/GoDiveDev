@@ -20,6 +20,8 @@ enum ExploreCatalogMapPinLabelPolicy: Equatable, Sendable {
     nonisolated static func policy(for scope: ExploreSiteScope) -> Self {
         switch scope {
         case .logbook:
+            // My Sites must add every pin immediately — never use All Sites dynamic density
+            // (device logs showed dynamic + not-yet-ready Google viewport → markersOnMap=0).
             return .progressiveZoomReveal
         case .allSites:
             return .pinOnlyAlways

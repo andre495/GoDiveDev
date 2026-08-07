@@ -6,7 +6,8 @@ enum AppLaunchPostOverlayPresentation: Sendable {
     /// First Home rebuild starts immediately after root appear (stats-first two-phase paint).
     nonisolated static let initialHomeRebuildDeferNanoseconds: UInt64 = 0
 
-    /// Quiet window after splash dismiss before full Home sighting/media enrich (`buildAsync`).
+    /// Quiet window after splash dismiss before full Home media enrich (`buildAsync`).
+    /// Lifetime stats (Top Species / Top Buddies) already paint on the launch path.
     nonisolated static let postChromeHomeEnrichDeferNanoseconds: UInt64 = 500_000_000
 
     /// Quiet window before PhotoKit carousel warm (stills + serial video) — swipe/tabs first.

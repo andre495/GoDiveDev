@@ -36,7 +36,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             sitesChangeSignature: sitesChangeSignature
         )
         context.coordinator.applyRegion(on: mapView, sites: sites, animated: false)
-        context.coordinator.refreshMapPresentation(on: mapView, force: true)
+        context.coordinator.schedulePinnedRefresh(on: mapView, reason: "makeUIView")
         return mapView
     }
 
@@ -52,13 +52,18 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             sitesChangeSignature: sitesChangeSignature
         )
         let focusPending = context.coordinator.isFocusRequestPending(focusRequest)
-        if sitesChanged, !focusPending {
+        if sitesChanged, !focusPending,
+           context.coordinator.shouldRefitCamera(for: sites) {
             context.coordinator.applyRegion(on: mapView, sites: sites, animated: true)
         }
         if sitesChanged || interactionChanged, !focusPending {
             context.coordinator.deselectAllAnnotations(on: mapView)
         }
-        context.coordinator.refreshMapPresentation(on: mapView, force: sitesChanged || interactionChanged)
+        if sitesChanged || interactionChanged {
+            context.coordinator.schedulePinnedRefresh(on: mapView, reason: "updateUIView")
+        } else {
+            context.coordinator.refreshMapPresentation(on: mapView, force: false)
+        }
         context.coordinator.applyFocusRequestIfNeeded(
             on: mapView,
             focusRequest: focusRequest,
@@ -81,6 +86,8 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
         private var stickyPinVisibility = ExploreCatalogMapStickyPinVisibility.State()
         private var lastPresentationRefreshTimestamp: CFAbsoluteTime = 0
         private let presentationRefreshMinimumInterval: CFAbsoluteTime = 0.08
+        private var deferredRefreshWorkItem: DispatchWorkItem?
+        private var lastFittedSiteIDs: Set<UUID> = []
 
         init(
             pinLabelPolicy: ExploreCatalogMapPinLabelPolicy,
@@ -90,6 +97,21 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             self.pinLabelPolicy = pinLabelPolicy
             self.usesPinCallout = usesPinCallout
             self.onSiteSelected = onSiteSelected
+        }
+
+        func schedulePinnedRefresh(on mapView: MKMapView, reason: String) {
+            deferredRefreshWorkItem?.cancel()
+            let refresh: () -> Void = { [weak self, weak mapView] in
+                guard let self, let mapView else { return }
+                self.refreshMapPresentation(on: mapView, force: true)
+                ExplorePinsDiagnostics.note(
+                    "mapKit refresh(\(reason)) sites=\(self.sites.count) dynamic=\(self.pinLabelPolicy.usesDynamicPinDensity) annotations=\(mapView.annotations.count)"
+                )
+            }
+            DispatchQueue.main.async(execute: refresh)
+            let delayed = DispatchWorkItem(block: refresh)
+            deferredRefreshWorkItem = delayed
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: delayed)
         }
 
         @discardableResult
@@ -148,12 +170,25 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             return created
         }
 
+        func shouldRefitCamera(for sites: [ExploreCatalogMapPresentation.PlottedSite]) -> Bool {
+            let nextIDs = Set(sites.map(\.id))
+            guard ExploreCatalogMapCameraFitPresentation.shouldRefitCamera(
+                previousSiteIDs: lastFittedSiteIDs,
+                nextSiteIDs: nextIDs
+            ) else {
+                return false
+            }
+            lastFittedSiteIDs = nextIDs
+            return true
+        }
+
         func applyRegion(
             on mapView: MKMapView,
             sites: [ExploreCatalogMapPresentation.PlottedSite],
             animated: Bool
         ) {
             guard let region = ExploreCatalogMapPresentation.region(for: sites) else { return }
+            lastFittedSiteIDs = Set(sites.map(\.id))
             mapView.setRegion(region, animated: animated)
         }
 
@@ -209,7 +244,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             }
             lastPresentationRefreshTimestamp = now
 
-            let viewport = Self.viewport(from: mapView)
+            let viewport = Self.viewport(from: mapView, sites: sites)
             let freshEligible = pinLabelPolicy.visibleSiteIDs(
                 sites: sites,
                 viewport: viewport
@@ -370,14 +405,31 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             markerView.rightCalloutAccessoryView = nil
         }
 
-        private static func viewport(from mapView: MKMapView) -> ExploreCatalogMapViewport {
-            ExploreCatalogMapViewport(
+        private static func viewport(
+            from mapView: MKMapView,
+            sites: [ExploreCatalogMapPresentation.PlottedSite]
+        ) -> ExploreCatalogMapViewport {
+            let projected = ExploreCatalogMapViewport(
                 center: DiveCoordinate(
                     latitude: mapView.region.center.latitude,
                     longitude: mapView.region.center.longitude
                 ),
                 latitudeSpan: mapView.region.span.latitudeDelta,
                 longitudeSpan: mapView.region.span.longitudeDelta
+            )
+            if projected.latitudeSpan > 1e-6, projected.longitudeSpan > 1e-6 {
+                return projected
+            }
+            guard let region = ExploreCatalogMapPresentation.boundingRegion(for: sites) else {
+                return projected
+            }
+            return ExploreCatalogMapViewport(
+                center: DiveCoordinate(
+                    latitude: region.centerLatitude,
+                    longitude: region.centerLongitude
+                ),
+                latitudeSpan: region.latitudeDelta,
+                longitudeSpan: region.longitudeDelta
             )
         }
 

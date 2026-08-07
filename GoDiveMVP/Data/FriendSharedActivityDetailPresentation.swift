@@ -16,6 +16,22 @@ enum FriendSharedActivityDetailPresentation: Sendable {
         .readOnlySections,
     ]
 
+    /// Friend edge for opening a profile from Buddy Feed / shared-activity chrome.
+    nonisolated static func friendEdgeForProfileNavigation(
+        friendUID: String?,
+        displayName: String,
+        photoURL: String?
+    ) -> GoDiveFriendGraphService.FriendEdge? {
+        let uid = friendUID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !uid.isEmpty else { return nil }
+        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return GoDiveFriendGraphService.friendEdge(
+            friendUID: uid,
+            displayName: name.isEmpty ? "Dive buddy" : name,
+            photoURL: photoURL
+        )
+    }
+
     struct SnorkelDerivedSnapshot: Sendable, Equatable {
         var heartRateSamples: [SnorkelHeartRateProfileSample]
         var trackCoordinates: [DiveCoordinate]
@@ -268,16 +284,22 @@ enum FriendSharedActivityDetailPresentation: Sendable {
 
     /// Ephemeral catalog rows for read-only large-detent marine-life chrome.
     nonisolated static func displayMarineLife(
-        from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+        from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        commonNameByUUID: [String: String] = [:]
     ) -> [MarineLife] {
         dive.sightings.map { sighting in
             let catalogUUID = sighting.catalogUUID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let resolvedName = GoDiveSharedDiveProjectionMapping.resolvedSightingCommonName(
+                storedCommonName: sighting.commonName,
+                catalogUUID: sighting.catalogUUID,
+                commonNameByUUID: commonNameByUUID
+            )
             let stableUUID = catalogUUID.isEmpty
-                ? "friend-sighting-\(sighting.commonName.lowercased().replacingOccurrences(of: " ", with: "-"))"
+                ? "friend-sighting-\(resolvedName.lowercased().replacingOccurrences(of: " ", with: "-"))"
                 : catalogUUID
             return MarineLife(
                 uuid: stableUUID,
-                commonName: sighting.commonName,
+                commonName: resolvedName,
                 scientificName: sighting.scientificName ?? ""
             )
         }

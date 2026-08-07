@@ -209,7 +209,9 @@ enum GoDiveMentionPresentation: Sendable {
     }
 
     /// Ranges of `@DisplayName` (including `@`) to color in notes/comments.
-    /// Prefers longest known display names; falls back to a single `@token` (no spaces).
+    /// Prefers longest known display names; falls back to an inferred name body
+    /// (one or more letter tokens, allowing a space before each Capitalized part so
+    /// `@Alex Kim` still highlights on devices that lack that name in `knownDisplayNames`).
     nonisolated static func mentionRanges(
         in text: String,
         knownDisplayNames: [String]
@@ -235,9 +237,11 @@ enum GoDiveMentionPresentation: Sendable {
                     index = end
                     continue
                 }
-                if let tokenEnd = singleTokenMentionEnd(in: text, afterAt: afterAt), tokenEnd > afterAt {
-                    ranges.append(index..<tokenEnd)
-                    index = tokenEnd
+                if let bodyEnd = inferredMentionBodyEnd(in: text, afterAt: afterAt),
+                   bodyEnd > afterAt
+                {
+                    ranges.append(index..<bodyEnd)
+                    index = bodyEnd
                     continue
                 }
             }
@@ -265,18 +269,45 @@ enum GoDiveMentionPresentation: Sendable {
 
     // MARK: - Private
 
-    /// End index of a single-token mention body (no spaces), or `afterAt` when empty.
-    nonisolated private static func singleTokenMentionEnd(
+    /// End index of an inferred mention body when no known display name matched.
+    /// Takes the first letter-token, then each `" " + CapitalizedToken` (so full names
+    /// survive without a local friends list, without swallowing `@Alex went diving`).
+    nonisolated static func inferredMentionBodyEnd(
         in text: String,
         afterAt: String.Index
     ) -> String.Index? {
-        guard afterAt < text.endIndex else { return afterAt }
-        var end = afterAt
+        guard let firstEnd = nameTokenEnd(in: text, from: afterAt), firstEnd > afterAt else {
+            return afterAt
+        }
+        var end = firstEnd
+        while end < text.endIndex {
+            guard text[end] == " " else { break }
+            let afterSpace = text.index(after: end)
+            guard afterSpace < text.endIndex else { break }
+            let next = text[afterSpace]
+            guard next.isLetter, next.isUppercase else { break }
+            guard let tokenEnd = nameTokenEnd(in: text, from: afterSpace),
+                  tokenEnd > afterSpace
+            else { break }
+            end = tokenEnd
+        }
+        return end
+    }
+
+    /// End index after a name token starting at `from` (`Letter` then letters / `'` / `-`).
+    nonisolated private static func nameTokenEnd(
+        in text: String,
+        from start: String.Index
+    ) -> String.Index? {
+        guard start < text.endIndex, text[start].isLetter else { return nil }
+        var end = text.index(after: start)
         while end < text.endIndex {
             let ch = text[end]
-            if ch.isWhitespace || ch.isNewline || ch == "@" { break }
-            if ch.isPunctuation, ch != "'" , ch != "’", ch != "-" { break }
-            end = text.index(after: end)
+            if ch.isLetter || ch == "'" || ch == "’" || ch == "-" {
+                end = text.index(after: end)
+                continue
+            }
+            break
         }
         return end
     }

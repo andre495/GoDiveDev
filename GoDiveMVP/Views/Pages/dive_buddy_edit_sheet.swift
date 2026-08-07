@@ -1,10 +1,12 @@
+import Contacts
 import SwiftData
 import SwiftUI
 
-/// Edit **`DiveBuddy`** display name and profile photo.
+/// Edit **`DiveBuddy`** display name, profile photo, and Contacts link.
 struct DiveBuddyEditSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AccountSession.self) private var accountSession
 
     @Bindable var buddy: DiveBuddy
     var onSaved: () -> Void = {}
@@ -14,6 +16,9 @@ struct DiveBuddyEditSheetView: View {
     @State private var saveErrorMessage: String?
     @State private var deleteErrorMessage: String?
     @State private var showsDeleteConfirmation = false
+    @State private var showsContactPicker = false
+    @State private var contactsAccessError: String?
+    @State private var contactLinkError: String?
 
     var body: some View {
         NavigationStack {
@@ -44,6 +49,35 @@ struct DiveBuddyEditSheetView: View {
                         .textInputAutocapitalization(.words)
                         .accessibilityIdentifier("DiveBuddyEditSheet.NameField")
                 }
+
+                #if canImport(UIKit)
+                Section(DiveBuddyEditContactPresentation.sectionTitle) {
+                    Button {
+                        presentContactPicker()
+                    } label: {
+                        Label(
+                            DiveBuddyEditContactPresentation.linkButtonTitle(
+                                isLinked: buddy.contactsIdentifier != nil
+                            ),
+                            systemImage: buddy.contactsIdentifier != nil
+                                ? "person.crop.circle"
+                                : "person.crop.circle.badge.plus"
+                        )
+                    }
+                    .accessibilityIdentifier(
+                        DiveBuddyEditContactPresentation.linkAccessibilityIdentifier
+                    )
+
+                    if buddy.contactsIdentifier != nil {
+                        Button(DiveBuddyEditContactPresentation.disconnectButtonTitle, role: .destructive) {
+                            disconnectContact()
+                        }
+                        .accessibilityIdentifier(
+                            DiveBuddyEditContactPresentation.disconnectAccessibilityIdentifier
+                        )
+                    }
+                }
+                #endif
 
                 Section {
                     Button("Delete buddy", role: .destructive) {
@@ -81,6 +115,16 @@ struct DiveBuddyEditSheetView: View {
             } message: {
                 Text(deleteErrorMessage ?? "Try again.")
             }
+            .alert("Contacts", isPresented: contactsAccessAlertBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(contactsAccessError ?? "")
+            }
+            .alert("Could not link contact", isPresented: contactLinkAlertBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(contactLinkError ?? "")
+            }
             .confirmationDialog(
                 "Delete buddy?",
                 isPresented: $showsDeleteConfirmation,
@@ -94,6 +138,19 @@ struct DiveBuddyEditSheetView: View {
                     "This removes \(buddy.displayName) from your roster and untags them on all dives. This cannot be undone."
                 )
             }
+            #if canImport(UIKit)
+            .sheet(isPresented: $showsContactPicker) {
+                ContactPickerView(
+                    onPick: { contact in
+                        showsContactPicker = false
+                        linkContact(contact)
+                    },
+                    onCancel: {
+                        showsContactPicker = false
+                    }
+                )
+            }
+            #endif
         }
         .equipmentAddSheetPresentation()
         .onAppear {
@@ -117,6 +174,20 @@ struct DiveBuddyEditSheetView: View {
         Binding(
             get: { deleteErrorMessage != nil },
             set: { if !$0 { deleteErrorMessage = nil } }
+        )
+    }
+
+    private var contactsAccessAlertBinding: Binding<Bool> {
+        Binding(
+            get: { contactsAccessError != nil },
+            set: { if !$0 { contactsAccessError = nil } }
+        )
+    }
+
+    private var contactLinkAlertBinding: Binding<Bool> {
+        Binding(
+            get: { contactLinkError != nil },
+            set: { if !$0 { contactLinkError = nil } }
         )
     }
 
@@ -144,4 +215,39 @@ struct DiveBuddyEditSheetView: View {
             deleteErrorMessage = error.localizedDescription
         }
     }
+
+    #if canImport(UIKit)
+    private func presentContactPicker() {
+        ContactsPickerAccess.presentIfAuthorized(
+            onAuthorized: { showsContactPicker = true },
+            onError: { contactsAccessError = $0 }
+        )
+    }
+
+    private func linkContact(_ contact: CNContact) {
+        do {
+            try DiveBuddyContactLinking.apply(
+                contact: contact,
+                to: buddy,
+                owner: accountSession.currentProfile,
+                modelContext: modelContext
+            )
+            try modelContext.save()
+            nameText = buddy.displayName
+            DiveBuddyRosterChangeNotification.post()
+        } catch {
+            contactLinkError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func disconnectContact() {
+        DiveBuddyContactLinking.disconnect(buddy)
+        do {
+            try modelContext.save()
+            DiveBuddyRosterChangeNotification.post()
+        } catch {
+            saveErrorMessage = error.localizedDescription
+        }
+    }
+    #endif
 }

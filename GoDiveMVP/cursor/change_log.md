@@ -4090,6 +4090,212 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Single enrich pass** — the +500 ms enrich task loads **`fetchCommonNameByUUID`** (off-main) first when the name map is empty, so the deferred ~2 s catalog task no longer schedules a second full rebuild; **`reloadHomeNavigationCatalogsIfNeeded`** skips re-fetching names once loaded.
 - **Tests:** **`homeOverviewAggregateBuilder_buildAsync_offMainCaptureBindsOnlyCarouselPicks`** (seeds survive, only picks bound, picks match the daily shuffle, **`withCarouselMedia`** preserves seeds).
 
-## 134 - Next batch
+## 134 - Friend profiles, Explore pins, launch perf **(pushed)**
+
+**Summary:** Explore defaults straight to **My Sites** when activities exist (Home index / one-row fetch latch) — skip All Sites session seed and All Sites fallback so the map does not flash full catalog then jump.
+
+**Summary:** Explore pin first-paint — prewarm All Sites snapshot at launch; sync-seed on Explore select; defer map mount until pins exist; skip camera refit when only `isVisited` changes (no empty-map → recenter flash).
+
+- **`ExploreSiteScopeSessionCache`** + launch **`prewarmReferenceSnapshot`** after dive_sites JSON warm.
+- Placeholder until pins ready; Google/MapKit refit only when site-ID set changes.
+- **Tests:** `exploreCatalogMapCameraFitPresentation_refitsOnlyWhenSiteIDSetChanges`, `exploreSiteScopeSessionCache_prewarmProducesNonEmptyAllSitesSnapshot`.
+
+**Summary:** Bug fix — Logbook My Activities empty after idle-tab optimization: restore always-live owner dive/snorkel `@Query` on **`LogbookView`** (drop **`OwnerActivityLogQueryBridge`** for Logbook). Bridge + cache-latch races left the list blank.
+
+**Summary:** Bug fix — launch crash (`EXC_BREAKPOINT`) in **`HomeOverviewAggregate.buildLaunchAsync`**: duplicate `marineLifeUUID` sighting seeds hit **`Dictionary(uniqueKeysWithValues:)`**. Device crash logs pointed at Home rebuild, not Explore.
+
+- Use **`godiveUniquingKeysWithValues`** for launch sighting name maps, carousel media maps, trip titles, buddy roster maps.
+- Explore pin rebuild: reference phase off-main; only while Explore is selected (no main-thread ~3k-site `make()` during Home launch).
+- **Test:** **`homeOverviewAggregateComputer_build_toleratesDuplicateSightingMarineLifeUUIDs`**.
+
+**Summary:** Performance — Home cold launch paints **Top Species** and **Top Buddies** with first chrome (no post-splash wait).
+
+- **`captureLaunch`** includes denormalized sightings + thin owner-tagged common-name resolve (catalog / user species); buddy tags already on launch path.
+- Post-splash enrich stays for media / media-buddy overlays only; prefer launch thin name map over a full catalog fetch when present.
+- Removed **`.id(contentFingerprint)`** remount on **`HomeLifetimeStatsSection`** so enrich no longer tears down the stats band.
+- **`MarineLifeCatalogLoader.commonNameByUUID(uuids:)`** / thin async fetch for small UUID sets.
+- **Test:** **`homeOverviewAggregateBuilder_launchPath_includesTopSpeciesAndBuddiesWithoutMediaJPEG`**.
+
+**Summary:** Bug fix — Explore pins blank after idle-tab optimization; device diagnostics showed `mapView body sites=0`. Pin rebuild when Explore is selected; keep idle dive bridge.
+
+**Summary:** Explore Google Maps pins — device diagnostics: All Sites `dynamic` refresh ran with an invalid/degenerate projection (`markersOnMap=0`); My Sites briefly mounted 3k sites under density culling. Defer pin refresh until camera settles; fall back to site-bounds viewport when projection span is ~0; keep My Sites on progressive (non-density) policy; align scope/display before map update.
+
+**Summary:** Explore pins triage — device diagnostics showed SwiftUI had 68/3k pins but the map stayed blank; remount map on signature change; rebuild phase 2 uses loaded UI catalog (background `ModelContext` fetch returned catalog=0).
+
+- Pulled **`explore-pins-diagnostics.txt`** from device: seed/rebuild succeeded (`display=68` My Sites) while pins still invisible → map coordinator issue.
+- **`.id(mapPlottableSignature)`** on Explore map to remount after All Sites → My Sites churn.
+- Phase 2 uses **`diveSites` / `userDiveSites`** from **`DiveSiteCatalogLoader`** (not a fresh empty catalog fetch).
+- Debounced rebuild; Google map update logs marker counts.
+
+**Summary:** Bug fix — Explore pins: seed All Sites from bundled reference immediately; two-phase rebuild (reference first, SwiftData second); dynamic pin density when plotted count is large; **`ExplorePins`** console diagnostics.
+
+- Synchronous reference seed so the map never waits on CloudKit/SwiftData fetches.
+- Rebuild phase 1 = reference-only; phase 2 enriches My Sites / visited tint from the store.
+- Pin policy uses **`pinOnlyAlways`** when plotted site count ≥ 100 (avoids adding ~3k annotations under My Sites policy).
+- Logger category **`ExplorePins`** for device console triage.
+
+**Summary:** Bug fix — Explore pins still blank: stop canceling pin rebuild on spurious `onDisappear`, defer My Sites until logbook pins exist, fall back to All Sites for first paint.
+
+- **`onDisappear`** no longer cancels **`scopeCacheRebuildTask`** (TabView was aborting the detached ODM rebuild).
+- Prefer / keep All Sites pins when My Sites is still empty; only flip default scope once logbook plottable sites exist.
+- Force rebuild when Explore is selected with an empty pin display.
+- **Tests:** `exploreScopeCacheRebuildPresentation_allowsRebuildBeforeLiveDiveSnapshot` (expanded).
+
+**Summary:** Bug fix — Logbook My Activities loads again after idle-tab query bridge (empty `@Query` flash).
+
+- Do not latch the initial list cache from a transient empty bridge delivery.
+- Rebuild on later bridge deliveries when the list is still empty but activities exist.
+- Refuse applying an empty display-cache result while the store still has activities.
+- **Tests:** `logbookRootAppearPresentation_rebuildsOnTabSelectOnlyWhenColdOrEmpty` (updated).
+
+**Summary:** Bug fix — Explore map pins load again on first select (idle-tab dive-query race).
+
+- Scope-cache rebuild no longer waits for **`OwnerDiveActivitiesQueryBridge`** (All Sites uses bundled ODM refs).
+- Default My Sites / All Sites waits for the first live dive snapshot; latch used until then.
+- Do not wipe on-screen pins when applying empty My Sites from a stale cache mid-rebuild.
+- **Test:** `exploreScopeCacheRebuildPresentation_allowsRebuildBeforeLiveDiveSnapshot`.
+
+**Summary:** Performance — friend-share publish keeps PhotoKit / JPEG / SHA-256 / Storage / LZFSE track encode off the main actor.
+
+- **Export** — **`GoDiveSharedMediaExport`** thumbnail / content JPEG / MP4 use **`Task.detached`** + **`DiveMediaReferenceLoader`** background PhotoKit helpers (no session caches).
+- **Upload** — content phase + Storage tier upload are **nonisolated** (no `@MainActor` hop per job); publish-state checkpoints use nonisolated record APIs.
+- **Tracks** — friend-share profile / swim track blobs snapshot samples on main, LZFSE-encode in **`Task.detached`**, then assign + save.
+- **Test:** `goDiveSharedMediaExport_thumbnailFromPreviewBytes_returnsWithoutPhotoKit`.
+- **Compile** — split Logbook store-observer modifier chain so Swift can type-check after idle-tab bridge wiring.
+
+**Summary:** Performance — idle root tabs no longer hold live full-owner dive `@Query`s (Home stays the always-live publisher).
+
+- **Bridges** — **`OwnerDiveActivitiesQueryBridge`** / **`OwnerActivityLogQueryBridge`** mount owner dive (and snorkel) observation only while Logbook / Explore are selected; snapshots stay in `@State` when idle.
+- **Field Guide** — dropped root dive `@Query`; dive pushes resolve via **`OwnerDiveActivityDestinationView`** + **`OwnerDiveActivityLookup`**.
+- **Explore / Logbook** — dive/snorkel destinations use fetch-by-id hosts; Explore latches `hasLoggedActivities`, skips idle scope rebuilds / empty index publishes.
+- **Search** — index warmer schedules only after the Search tab is selected (stays warm on return).
+- **Tests:** **`rootTabOwnerDiveQueryPresentation_*`**, **`ownerDiveActivityLookup_fetchesDiveAndSnorkelByID`**.
+
+**Summary:** Performance — cheaper launch ownership healing + marine seed skip; off-main image decode; Explore scope cache off-main + dive-sites prewarm.
+
+- **Launch healing** — **`DiveUnownedClaimGate`** / **`AccountSessionLocalOwnershipHealing`** / **`claimUnowned*`** use count + nil-owner predicates instead of fetching every dive/snorkel/buddy every restore.
+- **Marine seed** — store bundled file size/mtime with the SHA fingerprint so relaunch skips reading ~700 KB **`marine_life.json`** when unchanged.
+- **Images** — **`GoDiveDecodedImageCache`** + **`GoDiveCachedBlobImageView`**: Field Guide bundled photos, equipment/cert/search blobs, and logbook row thumbs decode/downsample off-main; logbook rows use stored previews only (no PhotoKit during scroll).
+- **Explore** — scope cache rebuild always runs in **`Task.detached`** with a background **`ModelContext`**; launch prewarms **`DiveSiteReferenceCatalog`**.
+- **Tests:** claim-gate count path, marine resource attributes, preview cache-only load, decoded-image cache keys, Explore make-from-IDs, dive-sites prewarm.
+
+**Summary:** Home comment notifications — title is “{Name} commented on {activity}”; detail is comment preview.
+
+- Activity label prefers site name, else “your dive/snorkel”; 50-char preview moves to the secondary line only.
+- **Test:** `homeNotifications_items_includeOwnedLikesAndComments`.
+- **Docs:** **`docs/home.md`**.
+
+**Summary:** Home like notifications — title is “{activity} has new likes”; detail is “{Name} liked your dive/snorkel”.
+
+- Same activity label as comments (site when known, else your dive/snorkel).
+- **Test:** `homeNotifications_items_includeOwnedLikesAndComments`.
+- **Docs:** **`docs/home.md`**.
+
+**Summary:** Home Notifications rows clamp title to 2 lines; detail + relative time to 1 line.
+
+- **`HomeNotificationsPresentation.titleLineLimit`** / **`detailAndTimeLineLimit`**; comment previews no longer wrap to a second detail line.
+- **Test:** line-limit constants asserted with unread chrome helpers.
+
+**Summary:** Bug fix — buddy-shared marine life showed catalog UUID slugs (`marine-life-…`) instead of Field Guide names.
+
+- **Write** — friend-share projections resolve `commonName` / `scientificName` from local catalog (+ user species) instead of copying `marineLifeUUID` into `commonName`; snorkel shares now include sightings too.
+- **Read** — Buddy Feed / friend profile / shared detail resolve slug names against the viewer’s catalog so already-published docs show “Caribbean Reef Shark” (etc.).
+- **Test:** `friendSharedActivityDetailPresentation_mapsReadOnlyMediaTagModels` covers share snapshots + read resolve + profile Top species.
+
+**Summary:** Buddy Feed + shared activity chrome — buddy avatar/name opens friend profile.
+
+- Feed header uses List-safe **`.borderless`** profile buttons; shared Map/Tank/HR identity header + **Shared by** row push friend profile (Logbook / Home).
+- Minimized overview expand tap stays on site/place/date (not the buddy row).
+- **Test:** `friendEdgeForProfileNavigation` + open-profile control helper.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Bug fix — `@Full Name` mentions highlight the full name on every device (not only the first token).
+
+- Root cause: mention coloring fell back to a single no-space token when the viewer lacked that display name in `knownDisplayNames`.
+- Infer multi-word Capitalized mention bodies (`@Alex Kim`) without swallowing `@Alex went…`.
+- **Test:** empty-known-names full-name + lowercase-stop cases.
+
+**Summary:** Bug fix — friend profile remote hero no longer bleeds past the blue-sheet seam.
+
+- Profiles with Firebase **`profileHero`** photo/video (e.g. Andre) looked badly clipped vs friends with no hero (placeholder only).
+- **`FriendProfileRemoteHeroView`:** GeometryReader-bounded aspect-fill stills; video UIView **`clipsToBounds`**; **`compositingGroup` + clip** (Buddy Feed / equipment hero parity).
+- **Test:** `friendProfile_remoteHeroClipsOverflowingMedia`.
+
+**Summary:** Friend profile media/map toggle matches buddy detail (account hero media).
+
+- **`FriendProfileHeroPresentation`** resolves account **`profileHero`** (infers image/video from URL when kind missing) and falls back to newest shared-dive featured media.
+- **`FriendProfileView`** shows the same **`PushedDetailHeroModeToggle`** when hero media + shared-site map pins both exist.
+- **Tests:** `friendProfileHero_prefersAccountHeroAndInfersKind`, `friendProfileHero_fallsBackToNewestSharedDiveFeaturedMedia`, `friendProfile_mediaMapToggle_requiresHeroAndPins`.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** GoDive avatar pin keeps list-chip ratio on profile (120 pt) avatars.
+
+- Removed the **56** pt pin cap so **`pinSideLengthFraction` (0.76)** + **`pinEdgeOutwardFraction` (0.32)** apply at profile size the same as tagged-buddy / notification chips.
+- **Test:** `buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly` (120 pt side + rim offset).
+
+**Summary:** Friend profile shared dives live in the blue sheet (book toolbar removed).
+
+- **`FriendProfileSharedDivesPanel`** + **`FriendProfileSharedDiveListPresentation`** — logbook-style rows in the sheet (buddy-detail parity); tap opens **`FriendSharedDiveDetailView`**.
+- Removed corner **book** toolbar / standalone **`FriendSharedLogbookView`**.
+- **Test:** `friendProfileSharedDiveList_mapsLogbookRowsNewestFirst`.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Friend profile pager — Diver stats (4 tiles) then Shared dives.
+
+- **`FriendProfileContentPager`**: page 1 = same highlight tiles as Profile (**`HomeLifetimeStatsSection`**, friend empty footnotes, no leaderboard navigation); page 2 = shared dive list.
+- **`FriendProfileLifetimeStatsPresentation`** builds stats from shared scuba projections + sightings.
+- **Test:** `friendProfileLifetimeStats_buildsHighlightTilesFromSharedDives`.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** GoDive friend profiles vs local buddies — 3-page friend pager + blue/red map pins.
+
+- **Local buddies** unchanged: **Dives together** / **Trips together** / **Tagged media**.
+- **GoDive friends** (**`FriendProfileView`**): **Diver stats** → **Shared activities** (**All** / **Together** filter) → **Shared media** grid.
+- Map header: **blue** shared-site pins, **red** activities-together; same coordinate prefers red (**`TripDetailMapPinKind.friendShared` / `.friendTogether`**).
+- **`FriendProfileTogetherPresentation`**, **`FriendProfileSharedDiveMapPresentation`**, **`FriendProfileSharedMediaListPresentation`**.
+- **Tests:** map pin coloring + together filter; pager pages updated.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Local buddy Contacts link moved into Edit buddy sheet.
+
+- Removed avatar contact badge from **`ViewDiveBuddyDetails`**.
+- **`DiveBuddyEditSheetView`** Contact section: **Connect to Contact** / **Change contact**, **Disconnect contact**.
+- Silent Contacts refresh on buddy detail open when already linked.
+- **Test:** `diveBuddyEditContactPresentation_titlesForLinkState`.
+- **Docs:** **`docs/trips-and-buddies.md`**.
+
+**Summary:** Blue-sheet content titles pinned; friend activities glass All/Together toggle top-right.
+
+- **`BlueSheetDetailPager`** pinned **`pageHeader`** above scroll/static body; **`BlueSheetDetailPinnedPageHeader`**.
+- Wired titles for buddy / trip / dive site / reference site / species / friend media + activities.
+- Friend shared activities: Explore/Logbook-style **`FriendProfileActivityFilterToggle`** (All / Together) trailing in the pinned title row.
+- **Tests:** pinned spacing + filter presentation; **`showsPinnedPageHeaders`** true where titles show.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Fix Swift 6 warnings — buddy-feed snapshot no longer passes **`ModelContext`** via **`async let`**.
+
+- Home notifications + Home badge refresh await **`fetchBuddyFeedSnapshot`** on the main actor; function stays **`@MainActor`**.
+
+**Summary:** Friend profile activities page title is **Activities** (was Shared activities).
+
+- **`FriendProfileContentPagerPresentation.sharedActivitiesPageTitle`** → "Activities".
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Friend shared-media fullscreen matches buddy tagged-media chrome (view-only).
+
+- **`FriendSharedMediaFullscreenView`**: play/pause, activity chip, buddy/fish tag overview; no star / plus / AI.
+- Profile grid passes dive-by-media context; chip opens the shared activity.
+- **Tests:** dive-by-media map + chrome a11y ids.
+- **Docs:** **`docs/friends.md`**.
+
+**Summary:** Friend shared-media **playback** duplicated from **`LinkedMediaFullscreenView`** (local buddy tagged media).
+
+- Custom horizontal pager + vertical dismiss (no `TabView` / pinch-zoom); **X** + **`N of M`**; landscape unlock; tap chrome; center play/pause.
+- **`FriendSharedRemoteVideoPlayerView`**: 300 ms settle mount, unmount when inactive, hold-pause while selected (same contract as dive Media item in Linked fullscreen).
+- Aspect-fill stills via **`FriendSharedMediaImageView`** (progressive on selected).
+- **Tests:** adjacent browse + **`1 of N`** position label (replaces zoom / `1 / N` chrome helpers).
+- **Docs:** **`docs/friends.md`**.
+
+## 135 - Next batch
 
 

@@ -44,7 +44,8 @@ struct HomeOverviewLaunchCapture: Sendable {
 
 /// Main-actor capture of owner dive relationships into Sendable Home build inputs.
 enum HomeOverviewSnapshotSeeding {
-    /// Cold-launch capture — scalar dives + denormalized buddy/trip/media **index** (no sighting walks, no JPEG retain).
+    /// Cold-launch capture — scalar dives + denormalized buddy tags + sightings for lifetime stats
+    /// (no media JPEG retain / media-buddy walks — those stay on the enrich path).
     @MainActor
     static func captureLaunch(
         activities: [DiveActivity],
@@ -54,6 +55,7 @@ enum HomeOverviewSnapshotSeeding {
         ownerProfileID: UUID?,
         ownerProfile: UserProfile?,
         modelContext: ModelContext,
+        commonNameByUUID: [String: String] = [:],
         referenceDate: Date = .now
     ) -> HomeOverviewLaunchCapture {
         let selfBuddyID = resolveSelfBuddyID(ownerProfile: ownerProfile, modelContext: modelContext)
@@ -70,9 +72,34 @@ enum HomeOverviewSnapshotSeeding {
             buddyRoster: buddyRoster,
             modelContext: modelContext
         )
+        var names = commonNameByUUID
+        let sightingUUIDs = Set(
+            HomeDiveScalarSeeding.fetchSightingInstances(
+                ownerDiveIDs: ownerDiveIDs,
+                activities: activities,
+                modelContext: modelContext
+            ).map(\.marineLifeUUID)
+        )
+        let missingNameUUIDs = sightingUUIDs.filter { uuid in
+            let existing = names[uuid]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return existing.isEmpty
+        }
+        if !missingNameUUIDs.isEmpty {
+            let resolved = MarineLifeCatalogLoader.commonNameByUUID(
+                uuids: Set(missingNameUUIDs),
+                modelContext: modelContext
+            )
+            names.merge(resolved) { _, new in new }
+        }
+        let sightingSeeds = HomeDiveScalarSeeding.sightingSeeds(
+            ownerDiveIDs: ownerDiveIDs,
+            activities: activities,
+            commonNameByUUID: names,
+            modelContext: modelContext
+        )
 
         // Media index is loaded after stats paint (see **`buildLaunchAsync`**) so JPEG/relationship
-        // fallback never blocks lifetime stats.
+        // fallback never blocks lifetime stats / Top Species / Top Buddies.
         let input = HomeOverviewBuildInput(
             activitySeeds: activitySeeds,
             tripSeeds: tripMaps.tripSeeds,
@@ -80,7 +107,7 @@ enum HomeOverviewSnapshotSeeding {
             linkedSiteDisplayNameByID: siteMaps.linkedSiteDisplayNameByID,
             buddyTagSeeds: buddyTagSeeds,
             mediaPhotoSeeds: [],
-            sightingSeeds: [],
+            sightingSeeds: sightingSeeds,
             mediaBuddyTagSeeds: [],
             automaticallyRenumberDives: automaticallyRenumberDives,
             displayUnits: displayUnits,

@@ -1,11 +1,29 @@
+import SwiftData
 import SwiftUI
 
-/// Friend’s public profile — mirrors owner **Profile** chrome; sheet panel is intentionally empty.
+/// GoDive friend profile — stats / shared activities / shared media; local buddies use **`ViewDiveBuddyDetails`**.
 struct FriendProfileView: View {
     let friend: GoDiveFriendGraphService.FriendEdge
 
+    @Environment(\.modelContext) private var modelContext
+    @Environment(AccountSession.self) private var accountSession
+
     @State private var profile: GoDiveFriendGraphService.PublicProfileSummary?
     @State private var sharedDiveCount: Int?
+    @State private var sharedDives: [GoDiveSharedDiveProjectionMapping.FriendVisibleDive] = []
+    @State private var togetherActivityIDs: Set<UUID> = []
+    @State private var togetherDiveActivities: [DiveActivity] = []
+    @State private var activityFilter: FriendProfileActivityListFilter = .all
+    @State private var sharedMediaItems: [FriendSharedMediaPresentation.DisplayItem] = []
+    @State private var sharedMediaDiveByMediaID:
+        [String: GoDiveSharedDiveProjectionMapping.FriendVisibleDive] = [:]
+    @State private var fullscreenSelectedMediaID: String?
+    @State private var lifetimeStats: HomeLifetimeStats = HomeLifetimeStatsPresentation.build(
+        dives: [],
+        sightings: []
+    )
+    @State private var isLoadingSharedContent = true
+    @State private var selectedSharedDive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive?
     @State private var allowsHeroVideoAutoplay = false
     @State private var friendHeroMode: PushedDetailHeroHeaderView.Mode = .media
     @State private var friendMapPins: [TripDetailMapPin] = []
@@ -24,18 +42,40 @@ struct FriendProfileView: View {
         profile?.photoURL ?? friend.photoURL
     }
 
-    private var heroURL: URL? {
-        let raw = profile?.profileHeroURL ?? friend.profileHeroURL
-        guard let raw else { return nil }
-        return GoDiveRemoteURLPolicy.sanitizedFirebaseStorageURL(from: raw)
+    private var diveDisplayUnitSystem: DiveDisplayUnitSystem {
+        AppUserSettings.diveDisplayUnitSystem()
     }
 
-    private var heroKind: GoDiveProfileHeroMediaKind? {
-        profile?.profileHeroMediaKind ?? friend.profileHeroMediaKind
+    private var currentFirebaseUID: String? {
+        GoDiveFirebaseAuthSession.currentFirebaseUID()
     }
 
-    private var friendHasRemoteHeroMedia: Bool {
-        heroURL != nil && heroKind != nil
+    private var filteredSharedDives: [GoDiveSharedDiveProjectionMapping.FriendVisibleDive] {
+        FriendProfileSharedDiveListPresentation.filteredDives(
+            sharedDives,
+            filter: activityFilter,
+            togetherActivityIDs: togetherActivityIDs,
+            currentFirebaseUID: currentFirebaseUID
+        )
+    }
+
+    private var sharedActivityRows: [DiveLogbookRowDisplayData] {
+        FriendProfileSharedDiveListPresentation.logbookRows(
+            from: filteredSharedDives,
+            unitSystem: diveDisplayUnitSystem
+        )
+    }
+
+    private var resolvedHero: FriendProfileHeroPresentation.ResolvedHero? {
+        FriendProfileHeroPresentation.resolvedHero(
+            profileHeroURL: profile?.profileHeroURL ?? friend.profileHeroURL,
+            profileHeroMediaKind: profile?.profileHeroMediaKind ?? friend.profileHeroMediaKind,
+            sharedDives: sharedDives
+        )
+    }
+
+    private var friendHasAssociatedMedia: Bool {
+        resolvedHero != nil
     }
 
     private var friendHasMapContent: Bool {
@@ -44,7 +84,7 @@ struct FriendProfileView: View {
 
     private var showsFriendHeroModeToggle: Bool {
         PushedDetailHeroModePresentation.showsModeToggle(
-            hasAssociatedMedia: friendHasRemoteHeroMedia,
+            hasAssociatedMedia: friendHasAssociatedMedia,
             hasMapContent: friendHasMapContent
         )
     }
@@ -73,6 +113,7 @@ struct FriendProfileView: View {
                     )
                     .padding(.trailing, AppTheme.Spacing.md)
                     .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
+                    .zIndex(3)
                 }
             },
             panelOverlay: {
@@ -84,16 +125,34 @@ struct FriendProfileView: View {
             pinnedContent: {
                 pinnedSummary
             },
-            panelContent: { _, _ in
-                Color.clear
-                    .frame(minHeight: 120)
-                    .accessibilityHidden(true)
+            panelContent: { bottomScrollInset, _ in
+                FriendProfileContentPager(
+                    lifetimeStats: lifetimeStats,
+                    unitSystem: diveDisplayUnitSystem,
+                    sharedActivityRows: sharedActivityRows,
+                    sharedMediaItems: sharedMediaItems,
+                    sharedMediaDiveByMediaID: sharedMediaDiveByMediaID,
+                    isLoadingSharedContent: isLoadingSharedContent,
+                    activityFilter: $activityFilter,
+                    fullscreenSelectedMediaID: $fullscreenSelectedMediaID,
+                    bottomScrollInset: bottomScrollInset,
+                    onOpenDive: openSharedDive(id:),
+                    onOpenActivityFromMedia: openSharedDiveFromMedia(_:)
+                )
             },
             topChrome: { safeTop, topInset, _ in
                 friendTopChrome(safeTop: safeTop, topInset: topInset)
             }
         )
         .hidesBottomTabBarWhenPushed()
+        .navigationDestination(item: $selectedSharedDive) { dive in
+            FriendSharedDiveDetailView(
+                dive: dive,
+                friendName: displayName,
+                friendPhotoURL: photoURL,
+                friendUID: friend.friendUID
+            )
+        }
         .task {
             await refreshProfile()
             try? await Task.sleep(for: PushedNavigationDeferralPresentation.afterPushMapDeferral)
@@ -105,6 +164,9 @@ struct FriendProfileView: View {
             syncFriendHeroMode()
         }
         .onChange(of: profile?.profileHeroURL) { _, _ in
+            syncFriendHeroMode()
+        }
+        .onChange(of: sharedDives.count) { _, _ in
             syncFriendHeroMode()
         }
     }
@@ -123,16 +185,7 @@ struct FriendProfileView: View {
                 showsBrandWordmark: false,
                 statusBarSafeAreaTop: safeTop,
                 statusBarUsesListChromeFeather: BlueSheetTopChromePresentation.DetailTopFade.usesListStatusBarScrim
-            ) {
-                NavigationLink {
-                    FriendSharedLogbookView(friend: friend)
-                } label: {
-                    Image(systemName: "book.closed")
-                        .appToolbarIconButtonLabel()
-                }
-                .appStandaloneIconButtonStyle()
-                .accessibilityLabel(FriendProfilePresentation.sharedLogbookToolbarAccessibilityLabel)
-            }
+            )
             .frame(maxWidth: .infinity, alignment: .top)
             .zIndex(1)
         }
@@ -173,16 +226,70 @@ struct FriendProfileView: View {
         )
     }
 
+    private func openSharedDive(id: UUID) {
+        selectedSharedDive = FriendProfileSharedDiveListPresentation.dive(
+            matching: id,
+            in: sharedDives
+        )
+    }
+
+    private func openSharedDiveFromMedia(_ dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive) {
+        fullscreenSelectedMediaID = nil
+        selectedSharedDive = dive
+    }
+
     private func refreshProfile() async {
+        isLoadingSharedContent = true
         async let profileTask = GoDiveFriendGraphService.fetchPublicProfile(uid: friend.friendUID)
         async let divesTask = GoDiveSharedDiveProjectionSync.fetchFriendSharedDives(friendUID: friend.friendUID)
         let fetchedProfile = await profileTask
-        let dives = await divesTask
-        let mapPins = FriendProfileSharedDiveMapPresentation.pins(from: dives)
+        let fetchedDives = await divesTask
+        let commonNameByUUID = MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext)
+        let dives = GoDiveSharedDiveProjectionSync.resolvingSightingDisplayNames(
+            fetchedDives,
+            modelContext: modelContext
+        )
+
+        let ownerID = accountSession.currentProfile?.id
+        let togetherActivities: [DiveActivity]
+        let catalogSites: [DiveSite]
+        if let ownerID {
+            togetherActivities = FriendProfileTogetherPresentation.togetherDiveActivities(
+                friendUID: friend.friendUID,
+                ownerProfileID: ownerID,
+                modelContext: modelContext
+            )
+            catalogSites = DiveBuddyDetailPresentation.catalogSitesFromSharedDives(togetherActivities)
+        } else {
+            togetherActivities = []
+            catalogSites = []
+        }
+        let togetherIDs = FriendProfileTogetherPresentation.togetherActivityIDs(from: togetherActivities)
+        let mapPins = FriendProfileSharedDiveMapPresentation.pins(
+            sharedDives: dives,
+            togetherDives: togetherActivities,
+            togetherActivityIDs: togetherIDs,
+            catalogSites: catalogSites,
+            currentFirebaseUID: currentFirebaseUID
+        )
+        let mediaItems = FriendProfileSharedMediaListPresentation.displayItems(from: dives)
+        let mediaDiveMap = FriendProfileSharedMediaListPresentation.diveByMediaID(from: dives)
+        let stats = FriendProfileLifetimeStatsPresentation.build(
+            from: dives,
+            commonNameByUUID: commonNameByUUID
+        )
+
         await MainActor.run {
             profile = fetchedProfile
+            sharedDives = dives
             sharedDiveCount = dives.count
+            togetherDiveActivities = togetherActivities
+            togetherActivityIDs = togetherIDs
+            sharedMediaItems = mediaItems
+            sharedMediaDiveByMediaID = mediaDiveMap
+            lifetimeStats = stats
             friendMapPins = mapPins
+            isLoadingSharedContent = false
             syncFriendHeroMode()
         }
     }
@@ -190,28 +297,29 @@ struct FriendProfileView: View {
     private func syncFriendHeroMode() {
         friendHeroMode = PushedDetailHeroModePresentation.enforceModeWhenToggleHidden(
             friendHeroMode,
-            hasAssociatedMedia: friendHasRemoteHeroMedia,
+            hasAssociatedMedia: friendHasAssociatedMedia,
             hasMapContent: friendHasMapContent
         )
     }
 
     @ViewBuilder
     private func friendHeroBandContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
+        let hero = resolvedHero
         let heroFitLayout = context.mapFitLayout()
         let heroModeBinding = PushedDetailHeroModePresentation.heroModeBinding(
-            hasAssociatedMedia: friendHasRemoteHeroMedia,
+            hasAssociatedMedia: friendHasAssociatedMedia,
             hasMapContent: friendHasMapContent,
             mode: $friendHeroMode
         )
 
         BlueSheetDetailHeroBandFill(accessibilityIdentifier: "FriendProfile.HeroBand") {
             FriendProfileHeroHeaderView(
-                heroURL: heroURL,
-                mediaKind: heroKind,
+                heroURL: hero?.url,
+                mediaKind: hero?.kind,
                 mapPins: showsDeferredFriendMap ? friendMapPins : [],
                 mapFitLayout: heroFitLayout,
                 isMapContentReady: showsDeferredFriendMap,
-                shouldAutoPlayVideo: allowsHeroVideoAutoplay && heroKind == .video,
+                shouldAutoPlayVideo: allowsHeroVideoAutoplay && hero?.kind == .video,
                 selectedMode: heroModeBinding
             )
         }

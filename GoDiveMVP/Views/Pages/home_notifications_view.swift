@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Home bell → past notifications (buddy connections, shared activities, likes, comments, mentions).
@@ -9,6 +10,7 @@ struct HomeNotificationsView: View {
     let onOpenOwnedActivity: (HomeNotificationsPresentation.OwnedActivityTarget) -> Void
     let onOpenMention: (HomeNotificationsPresentation.MentionTarget) -> Void
 
+    @Environment(\.modelContext) private var modelContext
     @State private var items: [HomeNotificationsPresentation.Item] = []
     @State private var isLoading = false
     @State private var hasLoadedOnce = false
@@ -55,9 +57,11 @@ struct HomeNotificationsView: View {
             }
             didCaptureUnreadBaseline = true
         }
-        async let snapshotTask = GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
         async let ownedSocialTask = HomeNotificationsOwnedSocialSync.fetchEvents()
-        let snapshot = await snapshotTask
+        // Await on the main actor (not `async let`) so `ModelContext` is not sent across isolation.
+        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot(
+            modelContext: modelContext
+        )
         async let mentionTask = HomeNotificationsMentionSync.fetchEvents(feedRows: snapshot.rows)
         let ownedSocial = await ownedSocialTask
         let mentions = await mentionTask
@@ -271,19 +275,23 @@ private struct HomeNotificationRowView: View {
                             isUnread ? AppTheme.Colors.textPrimary : AppTheme.Colors.secondaryText
                         )
                         .multilineTextAlignment(.leading)
+                        .lineLimit(HomeNotificationsPresentation.titleLineLimit)
+                        .truncationMode(.tail)
 
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         if let detail = item.detail {
                             Text(detail)
-                                // Comment previews need a bit more room than a site name.
-                                .lineLimit(commentDetailLineLimit(for: item.kind))
+                                .lineLimit(HomeNotificationsPresentation.detailAndTimeLineLimit)
+                                .truncationMode(.tail)
                             Text("·")
                         }
                         Text(item.date, format: .relative(presentation: .named))
+                            .lineLimit(1)
                             .layoutPriority(1)
                     }
                     .font(.footnote)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .lineLimit(HomeNotificationsPresentation.detailAndTimeLineLimit)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -307,14 +315,5 @@ private struct HomeNotificationRowView: View {
             return "\(status). \(item.message). \(detail)"
         }
         return "\(status). \(item.message)"
-    }
-
-    private func commentDetailLineLimit(for kind: HomeNotificationsPresentation.Item.Kind) -> Int {
-        switch kind {
-        case .buddyActivityCommented, .buddyActivityMentioned:
-            return 2
-        default:
-            return 1
-        }
     }
 }

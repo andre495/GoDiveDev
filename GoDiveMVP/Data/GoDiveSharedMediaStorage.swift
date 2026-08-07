@@ -5,7 +5,7 @@ import FirebaseStorage
 
 /// Opt-in dive/snorkel media uploads for friend-visible shares (schema v3 tiered Storage).
 enum GoDiveSharedMediaStorage: Sendable {
-    private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FriendShareMedia")
+    nonisolated private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FriendShareMedia")
 
     /// Storage object file names under **`users/{uid}/sharedMedia/{activityId}/{mediaId}/`**.
     enum Tier: String, Sendable, CaseIterable {
@@ -64,8 +64,8 @@ enum GoDiveSharedMediaStorage: Sendable {
         "users/\(ownerUID)/sharedMedia/"
     }
 
-    @MainActor
-    static func uploadTier(
+    /// Firebase Storage upload — nonisolated so friend-share content/thumb phases stay off the main actor.
+    nonisolated static func uploadTier(
         ownerUID: String,
         activityID: UUID,
         mediaID: UUID,
@@ -90,8 +90,7 @@ enum GoDiveSharedMediaStorage: Sendable {
         )
     }
 
-    @MainActor
-    private static func uploadTierData(
+    nonisolated private static func uploadTierData(
         ownerUID: String,
         activityID: UUID,
         mediaID: UUID,
@@ -117,8 +116,7 @@ enum GoDiveSharedMediaStorage: Sendable {
         }
     }
 
-    @MainActor
-    private static func uploadTierFile(
+    nonisolated private static func uploadTierFile(
         ownerUID: String,
         activityID: UUID,
         mediaID: UUID,

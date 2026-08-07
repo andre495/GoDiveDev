@@ -50,9 +50,9 @@ enum HomeOverviewRebuildPresentation: Sendable {
     }
 }
 
-/// Cold Home first paint: scalar launch path before background sighting enrichment.
+/// Cold Home first paint: stats launch path (dives + buddies + sightings) before media enrich.
 enum HomeOverviewFirstPaintPresentation: Sendable {
-    /// When the owner query already has dives, use scalar launch + pick-3 JPEG seed before full enrich.
+    /// When the owner query already has dives, use launch stats + pick-3 JPEG seed before full media enrich.
     nonisolated static func shouldUseTwoPhaseInitialRebuild(
         hasPerformedInitialHomeBuild: Bool,
         ownerDiveActivityCount: Int

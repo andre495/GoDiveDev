@@ -42,7 +42,7 @@ enum HomeDiveScalarSeeding {
     nonisolated static func siteMaps(
         from activities: [DiveActivity]
     ) -> (diveSiteIDByActivityID: [UUID: UUID?], linkedSiteDisplayNameByID: [UUID: String]) {
-        let diveSiteIDByActivityID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0.diveSiteID) })
+        let diveSiteIDByActivityID = Dictionary(godiveUniquingKeysWithValues: activities.map { ($0.id, $0.diveSiteID) })
         var linkedSiteDisplayNameByID: [UUID: String] = [:]
         for activity in activities {
             guard let siteID = activity.diveSiteID else { continue }
@@ -133,7 +133,7 @@ enum HomeDiveScalarSeeding {
             }
         )
         let tags = (try? modelContext.fetch(descriptor)) ?? []
-        let buddyByID = Dictionary(uniqueKeysWithValues: buddyRoster.map { ($0.id, $0) })
+        let buddyByID = Dictionary(godiveUniquingKeysWithValues: buddyRoster.map { ($0.id, $0) })
 
         let fromDenormalized = tags.compactMap { tag -> HomeBuddyLeaderboardPresentation.TagInput? in
             guard let diveID = tag.diveActivityID, ownerDiveIDs.contains(diveID),
@@ -337,7 +337,7 @@ enum HomeDiveScalarSeeding {
             }
         )
         let rows = (try? modelContext.fetch(descriptor)) ?? []
-        let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
+        let byID = Dictionary(godiveUniquingKeysWithValues: rows.map { ($0.id, $0) })
         return ids.compactMap { byID[$0] }
     }
 }

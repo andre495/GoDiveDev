@@ -331,9 +331,11 @@ struct LogOverviewView: View {
             hasFetchedNotificationsBadge = false
             return
         }
-        async let snapshotTask = GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
         async let ownedSocialTask = HomeNotificationsOwnedSocialSync.fetchEvents()
-        let snapshot = await snapshotTask
+        // Await on the main actor (not `async let`) so `ModelContext` is not sent across isolation.
+        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot(
+            modelContext: modelContext
+        )
         async let mentionTask = HomeNotificationsMentionSync.fetchEvents(feedRows: snapshot.rows)
         let ownedSocial = await ownedSocialTask
         let mentions = await mentionTask
@@ -425,7 +427,6 @@ struct LogOverviewView: View {
                 onOpenLeaderboard: { pushHome(.lifetimeStatsLeaderboard($0)) },
                 onOpenBuddy: openBuddyOrProfile
             )
-            .id(homeAggregate.contentFingerprint)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -575,7 +576,18 @@ struct LogOverviewView: View {
                 friendName: row.friendDisplayName,
                 friendPhotoURL: row.friendPhotoURL,
                 friendUID: row.friendUID,
-                opensCommentsOnAppear: opensComments
+                opensCommentsOnAppear: opensComments,
+                onOpenFriendProfile: {
+                    pushHome(
+                        .friendProfile(
+                            GoDiveFriendGraphService.friendEdge(
+                                friendUID: row.friendUID,
+                                displayName: row.friendDisplayName,
+                                photoURL: row.friendPhotoURL
+                            )
+                        )
+                    )
+                }
             )
             .hidesBottomTabBarWhenPushed()
         case .ownedSharedActivity(let activityID, let activityKind, let opensComments):
@@ -744,6 +756,7 @@ struct LogOverviewView: View {
         )
 
         if useLaunchPath {
+            // Top Species / Top Buddies paint with first chrome — denormalized sightings + thin name map.
             let launch = await HomeOverviewAggregateBuilder.buildLaunchAsync(
                 activities: ownerDiveActivities,
                 buddyRoster: ownerDiveBuddies,
@@ -751,10 +764,14 @@ struct LogOverviewView: View {
                 displayUnits: diveDisplayUnitSystem,
                 ownerProfileID: ownerProfileID,
                 ownerProfile: ownerProfile,
-                modelContext: modelContext
+                modelContext: modelContext,
+                commonNameByUUID: marineLifeCommonNameByUUID
             )
             guard generation == homeOverviewRebuildGeneration else { return }
             homeAggregate = launch.aggregate
+            if !launch.commonNameByUUID.isEmpty {
+                marineLifeCommonNameByUUID.merge(launch.commonNameByUUID) { _, new in new }
+            }
             // Keep **`hasPerformedInitialHomeBuild`** false until chrome is marked ready so incidental
             // rebuilds stay skipped and cannot cancel this path before splash dismiss.
             if let ownerProfileID {
@@ -789,7 +806,7 @@ struct LogOverviewView: View {
             markHomeLaunchChromeReadyIfNeeded()
             hasPerformedInitialHomeBuild = true
 
-            // Sightings / full media enrich after a quiet interactive window — do not contend with swipe/tabs.
+            // Full media / media-buddy enrich after a quiet interactive window — stats already painted.
             let activities = ownerDiveActivities
             let buddies = ownerDiveBuddies
             let commonNames = marineLifeCommonNameByUUID
@@ -802,8 +819,8 @@ struct LogOverviewView: View {
                     try? await Task.sleep(nanoseconds: enrichDefer)
                 }
                 guard generation == homeOverviewRebuildGeneration else { return }
-                // Load the marine common-name map (off-main) before enrich so one pass has species
-                // names — no second full rebuild after the deferred catalog task.
+                // Prefer the launch thin map; only fetch the full catalog map when still empty
+                // (covers species tagged after launch before the deferred catalog task).
                 var names = commonNames
                 if names.isEmpty {
                     names = await MarineLifeCatalogLoader.fetchCommonNameByUUID(

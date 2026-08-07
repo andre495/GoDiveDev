@@ -10,13 +10,16 @@ struct EquipmentDetailHeroBand: View {
     var body: some View {
         BlueSheetDetailHeroBandFill(accessibilityIdentifier: "EquipmentDetails.Hero") {
             #if canImport(UIKit)
-            if let photoData, let image = UIImage(data: photoData) {
+            if photoData != nil {
                 GeometryReader { proxy in
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                        .clipped()
+                    GoDiveCachedBlobImageView(
+                        data: photoData,
+                        maxPixelEdge: max(proxy.size.width, proxy.size.height) * 2
+                    ) {
+                        heroPlaceholder
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
                 }
                 .accessibilityLabel("Equipment photo")
             } else {

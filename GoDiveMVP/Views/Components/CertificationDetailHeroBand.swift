@@ -15,19 +15,22 @@ struct CertificationDetailHeroBand: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 #if canImport(UIKit)
-                if let photoData, let image = UIImage(data: photoData) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        // Width-first like media heroes — do not height-squeeze the card narrower.
-                        .frame(maxWidth: .infinity)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, CertificationDetailHeroPresentation.cardPhotoHorizontalInset)
-                        .padding(
-                            .bottom,
-                            CertificationDetailHeroPresentation.cardPhotoSeamBottomInset
-                        )
-                        .accessibilityLabel("Certification card photo")
+                if photoData != nil {
+                    GoDiveCachedBlobImageView(
+                        data: photoData,
+                        maxPixelEdge: 1_200,
+                        contentMode: .fit
+                    ) {
+                        heroPlaceholder
+                    }
+                    .frame(maxWidth: .infinity)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, CertificationDetailHeroPresentation.cardPhotoHorizontalInset)
+                    .padding(
+                        .bottom,
+                        CertificationDetailHeroPresentation.cardPhotoSeamBottomInset
+                    )
+                    .accessibilityLabel("Certification card photo")
                 } else {
                     heroPlaceholder
                 }

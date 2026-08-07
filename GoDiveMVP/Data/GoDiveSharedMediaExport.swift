@@ -17,60 +17,78 @@ import ImageIO
 /// Phase one of a publish only needs **`exportThumbnailJPEG`** (stored 256 px preview bytes when
 /// available — no PhotoKit). The expensive content tiers (**4096 px JPEG**, **1080p MP4**) are
 /// exported lazily by the background upload queue via the `photosLocalIdentifier` variants.
+///
+/// Encode / PhotoKit / transcode work is **nonisolated** so friend-share publish does not monopolize
+/// the main actor after imports and edits.
 enum GoDiveSharedMediaExport: Sendable {
 
     @MainActor
     static func exportThumbnailJPEG<T: ActivityOverviewGalleryMedia>(for media: T) async -> Data? {
-        if let preview = media.previewJPEGData, !preview.isEmpty {
-            if preview.count <= GoDiveSharedMediaLimits.thumbMaxBytes {
-                return preview
+        await exportThumbnailJPEG(
+            previewJPEGData: media.previewJPEGData,
+            photosLocalIdentifier: media.libraryAssetLocalIdentifier
+        )
+    }
+
+    /// Thumbnail export from Sendable inputs — safe to call off the main actor.
+    nonisolated static func exportThumbnailJPEG(
+        previewJPEGData: Data?,
+        photosLocalIdentifier: String?
+    ) async -> Data? {
+        await Task.detached(priority: .utility) {
+            if let preview = previewJPEGData, !preview.isEmpty {
+                if preview.count <= GoDiveSharedMediaLimits.thumbMaxBytes {
+                    return preview
+                }
+                #if canImport(UIKit)
+                if let image = UIImage(data: preview) {
+                    return DiveMediaPreviewPersistence.encodePreviewJPEG(image)
+                }
+                #endif
             }
-            #if canImport(UIKit)
-            if let image = UIImage(data: preview) {
-                return DiveMediaPreviewPersistence.encodePreviewJPEG(image)
-            }
+            let localID = photosLocalIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !localID.isEmpty else { return nil }
+            #if canImport(Photos) && canImport(UIKit)
+            let edge = DiveMediaPreviewPersistence.storedPreviewEdge
+            guard let image = await DiveMediaReferenceLoader.imageForBackgroundExport(
+                localIdentifier: localID,
+                targetSize: CGSize(width: edge, height: edge),
+                contentMode: .aspectFill,
+                deliveryMode: .highQualityFormat
+            ) else { return nil }
+            return DiveMediaPreviewPersistence.encodePreviewJPEG(image)
+            #else
+            return nil
             #endif
-        }
-        guard let localID = media.libraryAssetLocalIdentifier else { return nil }
-        let edge = DiveMediaPreviewPersistence.storedPreviewEdge
-        guard let image = await DiveMediaReferenceLoader.image(
-            localIdentifier: localID,
-            targetSize: CGSize(width: edge, height: edge),
-            contentMode: .aspectFill,
-            deliveryMode: .highQualityFormat
-        ) else { return nil }
-        #if canImport(UIKit)
-        return DiveMediaPreviewPersistence.encodePreviewJPEG(image)
-        #else
-        return nil
-        #endif
+        }.value
     }
 
     /// Full-quality share JPEG for the content tier (background queue).
-    @MainActor
-    static func exportPhotoContentJPEG(photosLocalIdentifier: String) async -> Data? {
+    nonisolated static func exportPhotoContentJPEG(photosLocalIdentifier: String) async -> Data? {
         let localID = photosLocalIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !localID.isEmpty else { return nil }
-        let edge = CGFloat(GoDiveSharedMediaLimits.photoContentMaxPixelEdge)
-        guard let image = await DiveMediaReferenceLoader.image(
-            localIdentifier: localID,
-            targetSize: CGSize(width: edge, height: edge),
-            contentMode: .aspectFill,
-            deliveryMode: .highQualityFormat
-        ) else { return nil }
-        #if canImport(UIKit)
-        return sharePhotoJPEG(from: image)
-        #else
-        return nil
-        #endif
+        return await Task.detached(priority: .utility) {
+            #if canImport(Photos) && canImport(UIKit)
+            let edge = CGFloat(GoDiveSharedMediaLimits.photoContentMaxPixelEdge)
+            guard let image = await DiveMediaReferenceLoader.imageForBackgroundExport(
+                localIdentifier: localID,
+                targetSize: CGSize(width: edge, height: edge),
+                contentMode: .aspectFill,
+                deliveryMode: .highQualityFormat
+            ) else { return nil }
+            return sharePhotoJPEG(from: image)
+            #else
+            return nil
+            #endif
+        }.value
     }
 
     /// 1080p / 30 s MP4 for the content tier (background queue).
-    @MainActor
-    static func exportSharedVideoMP4(photosLocalIdentifier: String) async -> Data? {
+    nonisolated static func exportSharedVideoMP4(photosLocalIdentifier: String) async -> Data? {
         let localID = photosLocalIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !localID.isEmpty else { return nil }
-        guard let asset = await DiveMediaReferenceLoader.loadVideoAsset(
+        #if canImport(Photos) && canImport(AVFoundation)
+        guard let asset = await DiveMediaReferenceLoader.loadVideoAssetForBackgroundExport(
             localIdentifier: localID,
             quality: .fullQuality
         ) else { return nil }
@@ -78,6 +96,9 @@ enum GoDiveSharedMediaExport: Sendable {
         return await Task.detached(priority: .utility) {
             await transcodeToSharedMP4(asset: asset)
         }.value
+        #else
+        return nil
+        #endif
     }
 
     #if canImport(UIKit)

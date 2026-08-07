@@ -8,6 +8,9 @@ struct FriendSharedActivityIdentityHeader: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
     var friendPhotoURL: String? = nil
+    var onOpenFriendProfile: (() -> Void)? = nil
+    /// Tap site / place / date (not buddy row) — e.g. expand minimized overview.
+    var onTapNonOwnerContent: (() -> Void)? = nil
 
     var body: some View {
         DiveActivityMapOverviewHeader(
@@ -19,7 +22,9 @@ struct FriendSharedActivityIdentityHeader: View {
             regionCountryLine: FriendSharedActivityDetailPresentation.regionCountryLine(for: dive),
             dateDashTimeLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive),
             sharedByDisplayName: friendName,
-            sharedByPhotoURL: friendPhotoURL
+            sharedByPhotoURL: friendPhotoURL,
+            onOpenSharedBy: onOpenFriendProfile,
+            onTapNonOwnerContent: onTapNonOwnerContent
         )
     }
 }
@@ -31,6 +36,7 @@ struct FriendSharedActivityMapPanelContent: View {
     var friendUID: String? = nil
     var opensCommentsOnAppear: Bool = false
     var onOpenCommentsOnAppearConsumed: (() -> Void)? = nil
+    var onOpenFriendProfile: (() -> Void)? = nil
     let showsTaggedYou: Bool
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
 
@@ -57,6 +63,7 @@ struct FriendSharedActivityMapPanelContent: View {
         friendUID: String? = nil,
         opensCommentsOnAppear: Bool = false,
         onOpenCommentsOnAppearConsumed: (() -> Void)? = nil,
+        onOpenFriendProfile: (() -> Void)? = nil,
         showsTaggedYou: Bool,
         overviewSheetDetent: Binding<DiveActivityOverviewDetent>,
         ownerProfileID: UUID? = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
@@ -67,9 +74,9 @@ struct FriendSharedActivityMapPanelContent: View {
         self.friendUID = friendUID
         self.opensCommentsOnAppear = opensCommentsOnAppear
         self.onOpenCommentsOnAppearConsumed = onOpenCommentsOnAppearConsumed
+        self.onOpenFriendProfile = onOpenFriendProfile
         self.showsTaggedYou = showsTaggedYou
         _overviewSheetDetent = overviewSheetDetent
-
 
         let filterOwnerID = ownerProfileID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         _ownedBuddies = Query(
@@ -82,15 +89,6 @@ struct FriendSharedActivityMapPanelContent: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             mapOverviewHeader
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    guard overviewSheetDetent == .minimized else { return }
-                    withAnimation(.diveOverviewPanelDetent) {
-                        overviewSheetDetent = .large
-                    }
-                }
-                .accessibilityAddTraits(overviewSheetDetent == .minimized ? .isButton : [])
-                .accessibilityHint(overviewSheetDetent == .minimized ? "Expands activity details" : "")
 
             if showsStatsBox {
                 DiveActivityMapOverviewStatsBox(
@@ -125,7 +123,8 @@ struct FriendSharedActivityMapPanelContent: View {
                         showsSharedBySection: false,
                         showsBuddyAvatars: true,
                         localRosterBuddies: ownedBuddies,
-                        avatarLookup: buddyAvatarLookup
+                        avatarLookup: buddyAvatarLookup,
+                        onOpenFriendProfile: onOpenFriendProfile
                     )
                 }
                 .opacity(detailsOpacity)
@@ -146,7 +145,15 @@ struct FriendSharedActivityMapPanelContent: View {
         FriendSharedActivityIdentityHeader(
             dive: dive,
             friendName: friendName,
-            friendPhotoURL: friendPhotoURL
+            friendPhotoURL: friendPhotoURL,
+            onOpenFriendProfile: onOpenFriendProfile,
+            onTapNonOwnerContent: overviewSheetDetent == .minimized
+                ? {
+                    withAnimation(.diveOverviewPanelDetent) {
+                        overviewSheetDetent = .large
+                    }
+                }
+                : nil
         )
     }
 
@@ -209,6 +216,7 @@ struct FriendSharedActivityTankPanelContent: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
     var friendPhotoURL: String? = nil
+    var onOpenFriendProfile: (() -> Void)? = nil
     let showsTaggedYou: Bool
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
 
@@ -220,7 +228,8 @@ struct FriendSharedActivityTankPanelContent: View {
                 FriendSharedActivityIdentityHeader(
                     dive: dive,
                     friendName: friendName,
-                    friendPhotoURL: friendPhotoURL
+                    friendPhotoURL: friendPhotoURL,
+                    onOpenFriendProfile: onOpenFriendProfile
                 )
             }
 
@@ -231,7 +240,8 @@ struct FriendSharedActivityTankPanelContent: View {
                 friendName: friendName,
                 showsTaggedYou: showsTaggedYou,
                 showsNotesSection: false,
-                showsBuddiesSection: false
+                showsBuddiesSection: false,
+                onOpenFriendProfile: onOpenFriendProfile
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -308,6 +318,7 @@ struct FriendSharedActivityTankPanelContent: View {
 struct FriendSharedActivityHeartRatePanelContent: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
+    var onOpenFriendProfile: (() -> Void)? = nil
     let showsTaggedYou: Bool
     let snorkelSnapshot: FriendSharedActivityDetailPresentation.SnorkelDerivedSnapshot
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
@@ -330,7 +341,8 @@ struct FriendSharedActivityHeartRatePanelContent: View {
             FriendSharedActivityReadOnlySectionsView(
                 dive: dive,
                 friendName: friendName,
-                showsTaggedYou: showsTaggedYou
+                showsTaggedYou: showsTaggedYou,
+                onOpenFriendProfile: onOpenFriendProfile
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -354,6 +366,17 @@ struct FriendSharedActivityReadOnlySectionsView: View {
     var showsBuddyAvatars: Bool = false
     var localRosterBuddies: [DiveBuddy] = []
     var avatarLookup: BuddyFeedAvatarLookup = .empty
+    var onOpenFriendProfile: (() -> Void)? = nil
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var commonNameByUUID: [String: String] = [:]
+
+    private var displayDive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive {
+        GoDiveSharedDiveProjectionMapping.withResolvedSightingNames(
+            dive,
+            commonNameByUUID: commonNameByUUID
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -378,11 +401,15 @@ struct FriendSharedActivityReadOnlySectionsView: View {
                 tagsSection
             }
 
+
             if showsBuddiesSection {
                 buddiesSection
             }
             marineLifeSection
             equipmentSection
+        }
+        .task(id: dive.id) {
+            commonNameByUUID = MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext)
         }
     }
 
@@ -391,8 +418,19 @@ struct FriendSharedActivityReadOnlySectionsView: View {
             Text("Shared by")
                 .foregroundStyle(AppTheme.Colors.secondaryText)
             Spacer()
-            Text(friendName)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
+            if let onOpenFriendProfile {
+                Button(action: onOpenFriendProfile) {
+                    Text(friendName)
+                        .foregroundStyle(AppTheme.Colors.accent)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityHint(
+                    DiveActivityMapOverviewHeaderPresentation.openFriendProfileAccessibilityHint
+                )
+            } else {
+                Text(friendName)
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+            }
         }
         .font(.body)
     }
@@ -468,10 +506,11 @@ struct FriendSharedActivityReadOnlySectionsView: View {
 
     @ViewBuilder
     private var marineLifeSection: some View {
-        if !dive.sightings.isEmpty {
+        let sightings = displayDive.sightings
+        if !sightings.isEmpty {
             sectionCard(title: "Marine life") {
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(dive.sightings.enumerated()), id: \.offset) { _, sighting in
+                    ForEach(Array(sightings.enumerated()), id: \.offset) { _, sighting in
                         Text(sighting.commonName)
                             .foregroundStyle(AppTheme.Colors.textPrimary)
                     }

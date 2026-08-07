@@ -48,7 +48,7 @@ struct HomeOverviewAggregate: Sendable {
         _ photos: [DiveMediaPhoto],
         mediaPhotoSeeds: [HomeOverviewMediaPhotoSeed]? = nil
     ) -> HomeOverviewAggregate {
-        let mediaByID = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
+        let mediaByID = Dictionary(godiveUniquingKeysWithValues: photos.map { ($0.id, $0) })
         return HomeOverviewAggregate(
             contentFingerprint: contentFingerprint,
             carouselFingerprint: carouselFingerprint,
@@ -75,13 +75,15 @@ struct HomeOverviewAggregate: Sendable {
 struct HomeOverviewLaunchBuild: Sendable {
     let aggregate: HomeOverviewAggregate
     let mediaPhotoSeeds: [HomeOverviewMediaPhotoSeed]
+    /// Thin common-name map resolved for owner-tagged species during launch (may be partial).
+    let commonNameByUUID: [String: String]
 }
 
 /// Builds **`HomeOverviewAggregate`** from SwiftData models.
 @MainActor
 enum HomeOverviewAggregateBuilder {
 
-    /// Millisecond-scale Home launch — scalars + media index; caller loads only picked JPEG rows.
+    /// Millisecond-scale Home launch — scalars + sightings/buddies for stats; caller loads pick JPEG rows.
     static func buildLaunchAsync(
         activities: [DiveActivity],
         buddyRoster: [DiveBuddy],
@@ -90,6 +92,7 @@ enum HomeOverviewAggregateBuilder {
         ownerProfileID: UUID?,
         ownerProfile: UserProfile? = nil,
         modelContext: ModelContext,
+        commonNameByUUID: [String: String] = [:],
         referenceDate: Date = .now
     ) async -> HomeOverviewLaunchBuild {
         let capture = HomeOverviewSnapshotSeeding.captureLaunch(
@@ -100,8 +103,16 @@ enum HomeOverviewAggregateBuilder {
             ownerProfileID: ownerProfileID,
             ownerProfile: ownerProfile,
             modelContext: modelContext,
+            commonNameByUUID: commonNameByUUID,
             referenceDate: referenceDate
         )
+        // Sighting seeds can repeat the same marineLifeUUID across dives — uniqueKeys traps.
+        let resolvedNames = Dictionary(
+            godiveUniquingKeysWithValues: capture.input.sightingSeeds.map { ($0.marineLifeUUID, $0.commonName) }
+        ).merging(commonNameByUUID) { seedName, existing in
+            let trimmed = existing.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? seedName : existing
+        }
 
         let computed = await Task.detached(priority: .userInitiated) {
             HomeOverviewAggregateComputer.build(from: capture.input)
@@ -114,7 +125,11 @@ enum HomeOverviewAggregateBuilder {
             ownerSightings: []
         )
         // Media index is loaded by the caller after stats paint.
-        return HomeOverviewLaunchBuild(aggregate: aggregate, mediaPhotoSeeds: [])
+        return HomeOverviewLaunchBuild(
+            aggregate: aggregate,
+            mediaPhotoSeeds: [],
+            commonNameByUUID: resolvedNames
+        )
     }
 
     static func buildAsync(
@@ -342,6 +357,7 @@ enum HomeOverviewAggregateBuilder {
         ownerProfileID: UUID?,
         ownerProfile: UserProfile? = nil,
         modelContext: ModelContext,
+        commonNameByUUID: [String: String] = [:],
         referenceDate: Date = .now
     ) -> HomeOverviewLaunchBuild {
         let capture = HomeOverviewSnapshotSeeding.captureLaunch(
@@ -352,8 +368,15 @@ enum HomeOverviewAggregateBuilder {
             ownerProfileID: ownerProfileID,
             ownerProfile: ownerProfile,
             modelContext: modelContext,
+            commonNameByUUID: commonNameByUUID,
             referenceDate: referenceDate
         )
+        let resolvedNames = Dictionary(
+            godiveUniquingKeysWithValues: capture.input.sightingSeeds.map { ($0.marineLifeUUID, $0.commonName) }
+        ).merging(commonNameByUUID) { seedName, existing in
+            let trimmed = existing.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? seedName : existing
+        }
         let computed = HomeOverviewAggregateComputer.build(from: capture.input)
         let aggregate = assemble(
             computed: computed,
@@ -361,7 +384,11 @@ enum HomeOverviewAggregateBuilder {
             carouselMedia: [],
             ownerSightings: []
         )
-        return HomeOverviewLaunchBuild(aggregate: aggregate, mediaPhotoSeeds: capture.mediaPhotoSeeds)
+        return HomeOverviewLaunchBuild(
+            aggregate: aggregate,
+            mediaPhotoSeeds: capture.mediaPhotoSeeds,
+            commonNameByUUID: resolvedNames
+        )
     }
 
     private static func resolveOwnerSightings(
@@ -391,7 +418,7 @@ enum HomeOverviewAggregateBuilder {
         mediaPhotoSeeds: [HomeOverviewMediaPhotoSeed] = []
     ) -> HomeOverviewAggregate {
         let divesByID = Dictionary(godiveUniquingKeysWithValues: activities.map { ($0.id, $0) })
-        let mediaByID = Dictionary(uniqueKeysWithValues: carouselMedia.map { ($0.id, $0) })
+        let mediaByID = Dictionary(godiveUniquingKeysWithValues: carouselMedia.map { ($0.id, $0) })
 
         return HomeOverviewAggregate(
             contentFingerprint: computed.contentFingerprint,

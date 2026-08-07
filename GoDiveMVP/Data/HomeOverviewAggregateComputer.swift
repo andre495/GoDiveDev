@@ -20,7 +20,7 @@ struct HomeOverviewComputedResult: Sendable {
 enum HomeOverviewAggregateComputer {
     nonisolated static func build(from input: HomeOverviewBuildInput) -> HomeOverviewComputedResult {
         let ownerDiveIDs = Set(input.activitySeeds.map(\.id))
-        let tripTitleByID = Dictionary(uniqueKeysWithValues: input.tripSeeds.map { ($0.tripID, $0.displayTitle) })
+        let tripTitleByID = Dictionary(godiveUniquingKeysWithValues: input.tripSeeds.map { ($0.tripID, $0.displayTitle) })
         let tripAccentIndexByID = LogbookTripGroupAccentPresentation.accentColorIndexByTripID(
             seeds: input.activitySeeds,
             tripSeeds: input.tripSeeds,

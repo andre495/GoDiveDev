@@ -19,9 +19,30 @@ enum AccountSessionLocalOwnershipHealing: Sendable {
         // Missing-profile UUIDs first — otherwise **`DiveUnownedClaimGate`** treats them as
         // "other owners" and refuses to claim remaining **`nil`** rows.
         healed += try reassignMissingOwnerProfileRows(to: owner, modelContext: modelContext)
-        healed += try DiveActivityOwnership.claimUnownedDives(for: owner, modelContext: modelContext)
-        healed += try SnorkelActivityOwnership.claimUnownedSnorkels(for: owner, modelContext: modelContext)
-        healed += try DiveBuddyOwnership.claimUnownedBuddies(for: owner, modelContext: modelContext)
+
+        // Evaluate the claim gate once (count-only) so we do not re-scan on each claim helper.
+        let claimDecision = try DiveUnownedClaimGate.decision(
+            ownerID: owner.id,
+            modelContext: modelContext
+        )
+        if claimDecision == .claim {
+            healed += try DiveActivityOwnership.claimUnownedDives(
+                for: owner,
+                modelContext: modelContext,
+                force: true
+            )
+            healed += try SnorkelActivityOwnership.claimUnownedSnorkels(
+                for: owner,
+                modelContext: modelContext,
+                force: true
+            )
+            healed += try DiveBuddyOwnership.claimUnownedBuddies(
+                for: owner,
+                modelContext: modelContext,
+                force: true
+            )
+        }
+
         healed += try adoptStrandedActivitiesIfSoleLocalAccount(for: owner, modelContext: modelContext)
         return healed
     }
@@ -32,28 +53,80 @@ enum AccountSessionLocalOwnershipHealing: Sendable {
         to owner: UserProfile,
         modelContext: ModelContext
     ) throws -> Int {
+        let ownerID = owner.id
         let knownIDs = Set(try modelContext.fetch(FetchDescriptor<UserProfile>()).map(\.id))
+
+        // Healthy single-account stores own every row — skip materializing the full logbook.
+        let foreignDiveCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { dive in
+                    dive.ownerProfileID != nil && dive.ownerProfileID != ownerID
+                }
+            )
+        )
+        let foreignSnorkelCount = try modelContext.fetchCount(
+            FetchDescriptor<SnorkelActivity>(
+                predicate: #Predicate { snorkel in
+                    snorkel.ownerProfileID != nil && snorkel.ownerProfileID != ownerID
+                }
+            )
+        )
+        let foreignBuddyCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveBuddy>(
+                predicate: #Predicate { buddy in
+                    buddy.ownerProfileID != nil && buddy.ownerProfileID != ownerID
+                }
+            )
+        )
+        guard foreignDiveCount + foreignSnorkelCount + foreignBuddyCount > 0 else {
+            return 0
+        }
+
         var count = 0
 
-        let dives = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-        for dive in dives {
-            guard let oid = dive.ownerProfileID, !knownIDs.contains(oid) else { continue }
-            DiveActivityOwnership.assignOwner(owner, to: dive)
-            count += 1
+        if foreignDiveCount > 0 {
+            let dives = try modelContext.fetch(
+                FetchDescriptor<DiveActivity>(
+                    predicate: #Predicate { dive in
+                        dive.ownerProfileID != nil && dive.ownerProfileID != ownerID
+                    }
+                )
+            )
+            for dive in dives {
+                guard let oid = dive.ownerProfileID, !knownIDs.contains(oid) else { continue }
+                DiveActivityOwnership.assignOwner(owner, to: dive)
+                count += 1
+            }
         }
 
-        let snorkels = try modelContext.fetch(FetchDescriptor<SnorkelActivity>())
-        for snorkel in snorkels {
-            guard let oid = snorkel.ownerProfileID, !knownIDs.contains(oid) else { continue }
-            SnorkelActivityOwnership.assignOwner(owner, to: snorkel)
-            count += 1
+        if foreignSnorkelCount > 0 {
+            let snorkels = try modelContext.fetch(
+                FetchDescriptor<SnorkelActivity>(
+                    predicate: #Predicate { snorkel in
+                        snorkel.ownerProfileID != nil && snorkel.ownerProfileID != ownerID
+                    }
+                )
+            )
+            for snorkel in snorkels {
+                guard let oid = snorkel.ownerProfileID, !knownIDs.contains(oid) else { continue }
+                SnorkelActivityOwnership.assignOwner(owner, to: snorkel)
+                count += 1
+            }
         }
 
-        let buddies = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
-        for buddy in buddies {
-            guard let oid = buddy.ownerProfileID, !knownIDs.contains(oid) else { continue }
-            DiveBuddyOwnership.assignOwner(owner, to: buddy)
-            count += 1
+        if foreignBuddyCount > 0 {
+            let buddies = try modelContext.fetch(
+                FetchDescriptor<DiveBuddy>(
+                    predicate: #Predicate { buddy in
+                        buddy.ownerProfileID != nil && buddy.ownerProfileID != ownerID
+                    }
+                )
+            )
+            for buddy in buddies {
+                guard let oid = buddy.ownerProfileID, !knownIDs.contains(oid) else { continue }
+                DiveBuddyOwnership.assignOwner(owner, to: buddy)
+                count += 1
+            }
         }
 
         if count > 0 {
@@ -78,10 +151,21 @@ enum AccountSessionLocalOwnershipHealing: Sendable {
         )
         guard ownedDiveCount + ownedSnorkelCount == 0 else { return 0 }
 
-        let dives = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-        let snorkels = try modelContext.fetch(FetchDescriptor<SnorkelActivity>())
-        let buddies = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
-        guard !dives.isEmpty || !snorkels.isEmpty else { return 0 }
+        let foreignDiveCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { dive in
+                    dive.ownerProfileID != nil && dive.ownerProfileID != ownerID
+                }
+            )
+        )
+        let foreignSnorkelCount = try modelContext.fetchCount(
+            FetchDescriptor<SnorkelActivity>(
+                predicate: #Predicate { snorkel in
+                    snorkel.ownerProfileID != nil && snorkel.ownerProfileID != ownerID
+                }
+            )
+        )
+        guard foreignDiveCount + foreignSnorkelCount > 0 else { return 0 }
 
         let ownerApple = owner.appleUserIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         let profiles = try modelContext.fetch(FetchDescriptor<UserProfile>())
@@ -100,16 +184,38 @@ enum AccountSessionLocalOwnershipHealing: Sendable {
             }
         }
 
+        let dives = try modelContext.fetch(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { dive in
+                    dive.ownerProfileID != nil && dive.ownerProfileID != ownerID
+                }
+            )
+        )
+        let snorkels = try modelContext.fetch(
+            FetchDescriptor<SnorkelActivity>(
+                predicate: #Predicate { snorkel in
+                    snorkel.ownerProfileID != nil && snorkel.ownerProfileID != ownerID
+                }
+            )
+        )
+        let buddies = try modelContext.fetch(
+            FetchDescriptor<DiveBuddy>(
+                predicate: #Predicate { buddy in
+                    buddy.ownerProfileID != nil && buddy.ownerProfileID != ownerID
+                }
+            )
+        )
+
         var count = 0
-        for dive in dives where dive.ownerProfileID != ownerID {
+        for dive in dives {
             DiveActivityOwnership.assignOwner(owner, to: dive)
             count += 1
         }
-        for snorkel in snorkels where snorkel.ownerProfileID != ownerID {
+        for snorkel in snorkels {
             SnorkelActivityOwnership.assignOwner(owner, to: snorkel)
             count += 1
         }
-        for buddy in buddies where buddy.ownerProfileID != ownerID {
+        for buddy in buddies {
             DiveBuddyOwnership.assignOwner(owner, to: buddy)
             count += 1
         }

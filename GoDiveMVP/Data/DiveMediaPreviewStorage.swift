@@ -27,18 +27,45 @@ enum DiveMediaPreviewStorage {
         return cache
     }()
 
+    /// Cache-only lookup — safe to call from view bodies during scroll.
+    @MainActor
+    static func cachedStoredPreviewImage(for media: DiveMediaPhoto) -> UIImage? {
+        decodedPreviewCache.object(forKey: media.id.uuidString as NSString)
+    }
+
     @MainActor
     static func storedPreviewImage(for media: DiveMediaPhoto) -> UIImage? {
-        let key = media.id.uuidString as NSString
-        if let cached = decodedPreviewCache.object(forKey: key) {
+        if let cached = cachedStoredPreviewImage(for: media) {
             return cached
         }
         guard let image = DiveMediaPreviewPersistence.decodePreviewJPEG(media.previewJPEGData) else {
             return nil
         }
+        storeDecodedPreview(image, for: media.id)
+        return image
+    }
+
+    /// Decodes the stored JPEG off the main actor on cache miss.
+    @MainActor
+    static func loadStoredPreviewImage(for media: DiveMediaPhoto) async -> UIImage? {
+        if let cached = cachedStoredPreviewImage(for: media) {
+            return cached
+        }
+        guard let data = media.previewJPEGData, !data.isEmpty else { return nil }
+        let mediaID = media.id
+        let decoded = await Task.detached(priority: .userInitiated) {
+            DiveMediaPreviewPersistence.decodePreviewJPEG(data)
+        }.value
+        guard let decoded else { return nil }
+        storeDecodedPreview(decoded, for: mediaID)
+        return decoded
+    }
+
+    @MainActor
+    private static func storeDecodedPreview(_ image: UIImage, for mediaID: UUID) {
+        let key = mediaID.uuidString as NSString
         let pixelCost = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
         decodedPreviewCache.setObject(image, forKey: key, cost: max(pixelCost, 1))
-        return image
     }
 
     /// Copies the persisted JPEG into the session warm cache under the **stored-preview** edge so PhotoKit

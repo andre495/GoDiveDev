@@ -2001,6 +2001,10 @@ struct HomeLifetimeStatsSection: View {
     var includesBuddyLeaderboard: Bool = true
     /// When **`false`**, omit the **X dives | X hr bottom time** line (Profile **Diver stats**). Home keeps the default.
     var includesLifetimeSummaryHeader: Bool = true
+    /// When **`false`**, highlight tiles are not tappable leaderboard destinations (friend profile).
+    var opensLeaderboards: Bool = true
+    /// Empty-tile footnotes — owner logbook vs friend shared-dive stats.
+    var emptyFootnotes: HomeLifetimeStatsPresentation.EmptyFootnotes = .owner
 
     private var showsBuddyLeaderboard: Bool {
         guard includesBuddyLeaderboard else { return false }
@@ -2146,7 +2150,9 @@ struct HomeLifetimeStatsSection: View {
     private var highlightTiles: [HomeHighlightStatTile] {
         HomeLifetimeStatsPresentation.highlightStatTileDescriptors(
             stats: stats,
-            unitSystem: unitSystem
+            unitSystem: unitSystem,
+            opensLeaderboards: opensLeaderboards,
+            emptyFootnotes: emptyFootnotes
         )
         .map { descriptor in
             HomeHighlightStatTile(

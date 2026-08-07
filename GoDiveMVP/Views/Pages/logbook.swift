@@ -9,6 +9,8 @@ struct LogbookView: View {
     @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
+    /// Always-live owner queries — Logbook is the activity list surface; idle-tab bridging
+    /// left My Activities blank when the bridge snapshot raced the cache latch.
     @Query private var activities: [DiveActivity]
     @Query private var snorkelActivities: [SnorkelActivity]
     @Query private var ownerTrips: [DiveTrip]
@@ -179,6 +181,14 @@ struct LogbookView: View {
     }
 
     private func attachLogbookStoreObservers<Content: View>(to content: Content) -> some View {
+        attachLogbookLifecycleObservers(
+            to: attachLogbookFeedScopeObservers(
+                to: attachLogbookActivitySnapshotObservers(to: content)
+            )
+        )
+    }
+
+    private func attachLogbookActivitySnapshotObservers<Content: View>(to content: Content) -> some View {
         content
             .onAppear(perform: handleLogbookRootAppear)
             .task(id: ownerProfileID) {
@@ -202,6 +212,10 @@ struct LogbookView: View {
             .onChange(of: myActivitiesKindFilter) { _, _ in
                 scheduleLogbookCacheRefresh()
             }
+    }
+
+    private func attachLogbookFeedScopeObservers<Content: View>(to content: Content) -> some View {
+        content
             .onAppear(perform: consumePendingLogbookRouteIfNeeded)
             .onChange(of: pendingRoute) { _, _ in
                 consumePendingLogbookRouteIfNeeded()
@@ -219,6 +233,10 @@ struct LogbookView: View {
                     performDeferredLogbookCacheBuildIfNeeded()
                 }
             }
+    }
+
+    private func attachLogbookLifecycleObservers<Content: View>(to content: Content) -> some View {
+        content
             .onChange(of: path.count) { oldCount, newCount in
                 if newCount == 0, oldCount > 0 {
                     refreshBuddyFeedWhenBuddyFeedListVisible()
@@ -316,7 +334,9 @@ struct LogbookView: View {
     ) async -> Bool {
         let maxAttempts = LogbookBuddyFeedPushDeepLinkPresentation.maxLoadAttempts
         for attempt in 0..<maxAttempts {
-            let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+            let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot(
+                modelContext: modelContext
+            )
             // Always apply — supersede in-flight auto-refreshes so the deep link sees this data.
             applyBuddyFeedSnapshotInvalidatingInFlightRefresh(snapshot)
 
@@ -358,10 +378,14 @@ struct LogbookView: View {
         diveDocumentID: String,
         friends: [GoDiveFriendGraphService.FriendEdge]
     ) async -> Bool {
-        guard let dive = await GoDiveSharedDiveProjectionSync.fetchFriendSharedDive(
+        guard let fetched = await GoDiveSharedDiveProjectionSync.fetchFriendSharedDive(
             friendUID: friendUID,
             diveDocumentID: diveDocumentID
         ) else { return false }
+        let dive = GoDiveSharedDiveProjectionSync.resolvingSightingDisplayNames(
+            fetched,
+            modelContext: modelContext
+        )
 
         let friend = friends.first(where: { $0.friendUID == friendUID })
             ?? buddyFeedFriends.first(where: { $0.friendUID == friendUID })
@@ -491,7 +515,7 @@ struct LogbookView: View {
             isLogbookTabSelected: isLogbookTabSelected,
             hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild
         ) else {
-            if logbookDisplayItems.isEmpty, !visibleActivities.isEmpty {
+            if logbookDisplayItems.isEmpty, visibleMyActivitiesCount > 0 {
                 scheduleLogbookCacheRefresh()
             }
             return
@@ -504,7 +528,7 @@ struct LogbookView: View {
             isLogbookTabSelected: isLogbookTabSelected,
             hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild,
             hasDisplayRows: !logbookDisplayItems.isEmpty,
-            hasVisibleActivities: !visibleActivities.isEmpty
+            hasVisibleActivities: visibleMyActivitiesCount > 0
         ) else {
             return
         }
@@ -670,7 +694,9 @@ struct LogbookView: View {
             }
         }
         GoDiveFirebaseBootstrap.configureIfNeeded()
-        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot(
+            modelContext: modelContext
+        )
         // Push deep-link (or a newer refresh) may have bumped the generation — keep that state.
         guard generation == buddyFeedLoadGeneration else { return }
         applyBuddyFeedSnapshot(snapshot)
@@ -719,58 +745,48 @@ struct LogbookView: View {
         case .tripPlanner:
             TripPlannerView()
         case .diveDetail(let id):
-            if let activity = activities.first(where: { $0.id == id }) {
-                ViewSingleActivity(
-                    activity: activity,
-                    opensCommentsOnAppear: GoDiveOwnedActivityCommentsDeepLinkStore.shared.consume(
-                        activityID: id
-                    )
+            OwnerDiveActivityDestinationView(
+                activityID: id,
+                opensCommentsOnAppear: GoDiveOwnedActivityCommentsDeepLinkStore.shared.consume(
+                    activityID: id
                 )
-            } else {
-                ActivityMissingDestinationPopView {
-                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
-                        path,
-                        activityID: id
-                    )
-                }
+            ) {
+                path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                    path,
+                    activityID: id
+                )
             }
         case .snorkelDetail(let id):
-            if let activity = snorkelActivities.first(where: { $0.id == id }) {
-                ViewSingleSnorkelActivity(
-                    activity: activity,
-                    opensCommentsOnAppear: GoDiveOwnedActivityCommentsDeepLinkStore.shared.consume(
-                        activityID: id
-                    )
+            OwnerSnorkelActivityDestinationView(
+                activityID: id,
+                opensCommentsOnAppear: GoDiveOwnedActivityCommentsDeepLinkStore.shared.consume(
+                    activityID: id
                 )
-            } else {
-                ActivityMissingDestinationPopView {
-                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
-                        path,
-                        activityID: id
-                    )
-                }
+            ) {
+                path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                    path,
+                    activityID: id
+                )
             }
         case .snorkelMedia(let id, let mediaID):
-            if let activity = snorkelActivities.first(where: { $0.id == id }) {
-                ViewSingleSnorkelActivity(activity: activity, initialMediaFocusID: mediaID)
-            } else {
-                ActivityMissingDestinationPopView {
-                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
-                        path,
-                        activityID: id
-                    )
-                }
+            OwnerSnorkelActivityDestinationView(
+                activityID: id,
+                initialMediaFocusID: mediaID
+            ) {
+                path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                    path,
+                    activityID: id
+                )
             }
         case .diveMedia(let id, let mediaID):
-            if let activity = activities.first(where: { $0.id == id }) {
-                ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
-            } else {
-                ActivityMissingDestinationPopView {
-                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
-                        path,
-                        activityID: id
-                    )
-                }
+            OwnerDiveActivityDestinationView(
+                activityID: id,
+                initialMediaFocusID: mediaID
+            ) {
+                path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                    path,
+                    activityID: id
+                )
             }
         case .tripDetail(let tripID):
             TripDetailStackNavigationPresentation.tripDetailDestination(tripID: tripID)
@@ -796,7 +812,18 @@ struct LogbookView: View {
                     friendPhotoURL: row.friendPhotoURL,
                     friendUID: row.friendUID,
                     opensCommentsOnAppear: opensComments,
-                    scrollToTaggedBuddiesOnAppear: scrollToTaggedBuddies
+                    scrollToTaggedBuddiesOnAppear: scrollToTaggedBuddies,
+                    onOpenFriendProfile: {
+                        pushLogbook(
+                            .friendProfile(
+                                GoDiveFriendGraphService.friendEdge(
+                                    friendUID: row.friendUID,
+                                    displayName: row.friendDisplayName,
+                                    photoURL: row.friendPhotoURL
+                                )
+                            )
+                        )
+                    }
                 )
                     .hidesBottomTabBarWhenPushed()
             } else {
@@ -904,6 +931,10 @@ struct LogbookView: View {
         }.value
 
         guard generation == logbookCacheRefreshGeneration else { return }
+        guard LogbookRootAppearPresentation.shouldApplyDisplayCacheResult(
+            incomingItemCount: result.items.count,
+            visibleActivityCount: visibleMyActivitiesCount
+        ) else { return }
         logbookDisplayItems = result.items
         duplicateActivityIds = result.duplicateIds
     }
@@ -953,6 +984,10 @@ struct LogbookView: View {
                 }.value
                 await MainActor.run {
                     guard generation == logbookCacheRefreshGeneration else { return }
+                    guard LogbookRootAppearPresentation.shouldApplyDisplayCacheResult(
+                        incomingItemCount: result.items.count,
+                        visibleActivityCount: visibleMyActivitiesCount
+                    ) else { return }
                     logbookDisplayItems = result.items
                     duplicateActivityIds = result.duplicateIds
                 }

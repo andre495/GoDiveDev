@@ -8,6 +8,18 @@ import UIKit
 enum GalleryMediaPhotoKit {
 
     #if canImport(UIKit)
+    /// Cache-only — does not JPEG-decode on the main actor.
+    @MainActor
+    static func cachedStoredPreviewImage(for media: some PhotoLibraryMediaRow) -> UIImage? {
+        if let dive = media as? DiveMediaPhoto {
+            return DiveMediaPreviewStorage.cachedStoredPreviewImage(for: dive)
+        }
+        if let snorkel = media as? SnorkelMediaPhoto {
+            return SnorkelMediaPreviewStorage.cachedStoredPreviewImage(for: snorkel)
+        }
+        return nil
+    }
+
     @MainActor
     static func storedPreviewImage(for media: some PhotoLibraryMediaRow) -> UIImage? {
         if let dive = media as? DiveMediaPhoto {
@@ -17,6 +29,20 @@ enum GalleryMediaPhotoKit {
             return SnorkelMediaPreviewStorage.storedPreviewImage(for: snorkel)
         }
         return DiveMediaPreviewPersistence.decodePreviewJPEG(media.previewJPEGData)
+    }
+
+    @MainActor
+    static func loadStoredPreviewImage(for media: some PhotoLibraryMediaRow) async -> UIImage? {
+        if let dive = media as? DiveMediaPhoto {
+            return await DiveMediaPreviewStorage.loadStoredPreviewImage(for: dive)
+        }
+        if let snorkel = media as? SnorkelMediaPhoto {
+            return await SnorkelMediaPreviewStorage.loadStoredPreviewImage(for: snorkel)
+        }
+        guard let data = media.previewJPEGData, !data.isEmpty else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            DiveMediaPreviewPersistence.decodePreviewJPEG(data)
+        }.value
     }
 
     @MainActor

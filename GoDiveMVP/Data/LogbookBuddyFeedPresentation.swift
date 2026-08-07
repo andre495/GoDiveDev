@@ -212,6 +212,23 @@ enum LogbookBuddyFeedPresentation: Sendable {
         "\(friendUID)_\(diveDocumentID)"
     }
 
+    /// Resolves slug/`marine-life-*` sighting names against the local Field Guide catalog.
+    nonisolated static func resolvingSightingDisplayNames(
+        rows: [Row],
+        commonNameByUUID: [String: String],
+        scientificNameByUUID: [String: String] = [:]
+    ) -> [Row] {
+        rows.map { row in
+            var next = row
+            next.dive = GoDiveSharedDiveProjectionMapping.withResolvedSightingNames(
+                row.dive,
+                commonNameByUUID: commonNameByUUID,
+                scientificNameByUUID: scientificNameByUUID
+            )
+            return next
+        }
+    }
+
     nonisolated static func rows(
         friends: [GoDiveFriendGraphService.FriendEdge],
         divesByFriendUID: [String: [GoDiveSharedDiveProjectionMapping.FriendVisibleDive]]

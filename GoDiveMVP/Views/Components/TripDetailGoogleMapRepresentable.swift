@@ -234,7 +234,7 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
         }
 
         private static func markerTint(for kind: TripDetailMapPinKind) -> UIColor {
-            kind == .planned ? .systemBlue : .systemRed
+            kind.markerTintColor
         }
     }
 }

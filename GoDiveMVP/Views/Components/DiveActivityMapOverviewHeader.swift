@@ -18,11 +18,27 @@ struct DiveActivityMapOverviewHeader: View {
     /// When set, shows buddy avatar + name above the site title and moves activity identity to the site row.
     var sharedByDisplayName: String? = nil
     var sharedByPhotoURL: String? = nil
+    /// Tap buddy avatar/name → friend profile (does not expand the overview sheet).
+    var onOpenSharedBy: (() -> Void)? = nil
+    /// Tap site / place / date (not the buddy row) — e.g. expand minimized overview.
+    var onTapNonOwnerContent: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             if usesBuddyOwnerHeader {
                 buddyOwnerRow
+                nonOwnerContent
+            } else {
+                nonOwnerContent
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("DiveOverview.MapHeader")
+    }
+
+    private var nonOwnerContent: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            if usesBuddyOwnerHeader {
                 siteTitleWithTrailingIdentity
             } else {
                 if showsIdentityLeadingRow {
@@ -49,8 +65,11 @@ struct DiveActivityMapOverviewHeader: View {
                 .multilineTextAlignment(.leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTapNonOwnerContent?()
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("DiveOverview.MapHeader")
     }
 
     private var usesBuddyOwnerHeader: Bool {
@@ -77,7 +96,25 @@ struct DiveActivityMapOverviewHeader: View {
         }
     }
 
+    @ViewBuilder
     private var buddyOwnerRow: some View {
+        if let onOpenSharedBy {
+            Button(action: onOpenSharedBy) {
+                buddyOwnerRowLabel
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(buddyOwnerAccessibilityLabel)
+            .accessibilityHint(
+                DiveActivityMapOverviewHeaderPresentation.openFriendProfileAccessibilityHint
+            )
+        } else {
+            buddyOwnerRowLabel
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(buddyOwnerAccessibilityLabel)
+        }
+    }
+
+    private var buddyOwnerRowLabel: some View {
         HStack(spacing: AppTheme.Spacing.sm) {
             FriendSharedMapOwnerAvatarView(
                 displayName: sharedByDisplayName ?? "",
@@ -93,12 +130,13 @@ struct DiveActivityMapOverviewHeader: View {
 
             Spacer(minLength: 0)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            sharedByDisplayName.map {
-                "\($0), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
-            } ?? GoDiveUserAvatarPinPresentation.accessibilityLabel
-        )
+        .contentShape(Rectangle())
+    }
+
+    private var buddyOwnerAccessibilityLabel: String {
+        sharedByDisplayName.map {
+            "\($0), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+        } ?? GoDiveUserAvatarPinPresentation.accessibilityLabel
     }
 
     private var identityTrailingCluster: some View {

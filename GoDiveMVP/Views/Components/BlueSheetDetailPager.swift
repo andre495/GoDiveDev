@@ -10,7 +10,8 @@ struct BlueSheetDetailPagerPageLayout: Sendable {
 }
 
 /// Swipable **`TabView`** pager chrome for blue-sheet **detail** pages.
-struct BlueSheetDetailPager<Page: Hashable & Identifiable, PageContent: View>: View {
+/// Page headers sit above the scroll/static body so content-area titles stay pinned.
+struct BlueSheetDetailPager<Page: Hashable & Identifiable, PageHeader: View, PageContent: View>: View {
     let pagerAccessibilityIdentifier: String
     let pages: [Page]
     @Binding var selectedPage: Page
@@ -18,6 +19,7 @@ struct BlueSheetDetailPager<Page: Hashable & Identifiable, PageContent: View>: V
     var usesLazyMount: Bool
     var onPageFirstMounted: ((Page) -> Void)?
     let pageLayout: (Page) -> BlueSheetDetailPagerPageLayout
+    @ViewBuilder let pageHeader: (Page) -> PageHeader
     @ViewBuilder let pageContent: (Page) -> PageContent
 
     @State private var mountedPages: Set<Page>
@@ -30,6 +32,7 @@ struct BlueSheetDetailPager<Page: Hashable & Identifiable, PageContent: View>: V
         usesLazyMount: Bool = true,
         onPageFirstMounted: ((Page) -> Void)? = nil,
         pageLayout: @escaping (Page) -> BlueSheetDetailPagerPageLayout,
+        @ViewBuilder pageHeader: @escaping (Page) -> PageHeader,
         @ViewBuilder pageContent: @escaping (Page) -> PageContent
     ) {
         self.pagerAccessibilityIdentifier = pagerAccessibilityIdentifier
@@ -39,6 +42,7 @@ struct BlueSheetDetailPager<Page: Hashable & Identifiable, PageContent: View>: V
         self.usesLazyMount = usesLazyMount
         self.onPageFirstMounted = onPageFirstMounted
         self.pageLayout = pageLayout
+        self.pageHeader = pageHeader
         self.pageContent = pageContent
         _mountedPages = State(
             initialValue: usesLazyMount ? [selection.wrappedValue] : Set(pages)
@@ -86,43 +90,83 @@ struct BlueSheetDetailPager<Page: Hashable & Identifiable, PageContent: View>: V
     }
 
     @ViewBuilder
+    private func resolvedPageHeader(for page: Page) -> some View {
+        if usesLazyMount, !mountedPages.contains(page) {
+            EmptyView()
+        } else {
+            pageHeader(page)
+        }
+    }
+
+    @ViewBuilder
     private func pagerPage(_ page: Page) -> some View {
         let layout = pageLayout(page)
 
-        Group {
-            if layout.usesStaticLayout {
-                VStack(spacing: 0) {
-                    resolvedPageContent(for: page)
-                        .frame(
-                            maxWidth: .infinity,
-                            maxHeight: .infinity,
-                            alignment: layout.staticContentAlignment
-                        )
+        VStack(alignment: .leading, spacing: 0) {
+            // Empty headers must not reserve spacing (no `.frame` wrapper).
+            resolvedPageHeader(for: page)
 
-                    Color.clear
-                        .frame(height: bottomScrollInset)
-                        .accessibilityHidden(true)
-                }
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: BlueSheetDetailPagerPresentation.scrollPageSpacing) {
+            Group {
+                if layout.usesStaticLayout {
+                    VStack(spacing: 0) {
                         resolvedPageContent(for: page)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: .infinity,
+                                alignment: layout.staticContentAlignment
+                            )
 
                         Color.clear
-                            .frame(height: bottomScrollInset + layout.scrollBottomInsetExtra)
+                            .frame(height: bottomScrollInset)
                             .accessibilityHidden(true)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: BlueSheetDetailPagerPresentation.scrollPageSpacing) {
+                            resolvedPageContent(for: page)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Color.clear
+                                .frame(height: bottomScrollInset + layout.scrollBottomInsetExtra)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .scrollClipDisabled(false)
+                    .scrollDismissesKeyboard(.interactively)
+                    .ignoresSafeArea(edges: .bottom)
                 }
-                .scrollClipDisabled(false)
-                .scrollDismissesKeyboard(.interactively)
-                .ignoresSafeArea(edges: .bottom)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .homeSheetPanelBottomScrollFade()
         .accessibilityLabel(layout.accessibilityLabel)
         .accessibilityIdentifier(layout.accessibilityIdentifier)
+    }
+}
+
+extension BlueSheetDetailPager where PageHeader == EmptyView {
+    init(
+        pagerAccessibilityIdentifier: String,
+        pages: [Page],
+        selection: Binding<Page>,
+        bottomScrollInset: CGFloat,
+        usesLazyMount: Bool = true,
+        onPageFirstMounted: ((Page) -> Void)? = nil,
+        pageLayout: @escaping (Page) -> BlueSheetDetailPagerPageLayout,
+        @ViewBuilder pageContent: @escaping (Page) -> PageContent
+    ) {
+        self.init(
+            pagerAccessibilityIdentifier: pagerAccessibilityIdentifier,
+            pages: pages,
+            selection: selection,
+            bottomScrollInset: bottomScrollInset,
+            usesLazyMount: usesLazyMount,
+            onPageFirstMounted: onPageFirstMounted,
+            pageLayout: pageLayout,
+            pageHeader: { _ in EmptyView() },
+            pageContent: pageContent
+        )
     }
 }

@@ -90,7 +90,7 @@ enum ExploreCatalogMapSiteCallout {
     static func makeTripMapPinImage(kind: TripDetailMapPinKind) -> UIImage? {
         UIImage(systemName: "mappin.circle.fill")?
             .withTintColor(
-                kind == .planned ? .systemBlue : .systemRed,
+                kind.markerTintColor,
                 renderingMode: .alwaysOriginal
             )
     }

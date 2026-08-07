@@ -38,44 +38,34 @@ struct FieldGuideSpeciesDetailContentPager: View {
             selection: $selectedPage,
             bottomScrollInset: bottomScrollInset,
             pageLayout: FieldGuideSpeciesDetailContentPagerPresentation.pagerPageLayout(for:),
+            pageHeader: pageHeader(for:),
             pageContent: pageContent(for:)
         )
     }
 
     @ViewBuilder
-    private func pageContent(for page: FieldGuideSpeciesDetailContentPage) -> some View {
-        pageBody(for: page) {
-            switch page {
-            case .about:
-                aboutContent
-            case .stats:
-                statsContent
-            case .similarSpecies:
-                similarSpeciesContent
-            case .taggedDives:
-                taggedDivesContent
-            case .taggedMedia:
-                taggedMediaContent
-            }
-        }
+    private func pageHeader(for page: FieldGuideSpeciesDetailContentPage) -> some View {
+        BlueSheetDetailPinnedPageHeader(
+            title: FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: page),
+            accessibilityIdentifier:
+                FieldGuideSpeciesDetailContentPagerPresentation
+                .pageSubtitleAccessibilityIdentifier(for: page)
+        )
     }
 
     @ViewBuilder
-    private func pageBody(
-        for page: FieldGuideSpeciesDetailContentPage,
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text(FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: page))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier(
-                    FieldGuideSpeciesDetailContentPagerPresentation
-                        .pageSubtitleAccessibilityIdentifier(for: page)
-                )
-            content()
+    private func pageContent(for page: FieldGuideSpeciesDetailContentPage) -> some View {
+        switch page {
+        case .about:
+            aboutContent
+        case .stats:
+            statsContent
+        case .similarSpecies:
+            similarSpeciesContent
+        case .taggedDives:
+            taggedDivesContent
+        case .taggedMedia:
+            taggedMediaContent
         }
     }
 

@@ -623,7 +623,7 @@ struct GoDiveMVPTests {
         #expect(
             DiveBuddyDetailContentPagerPresentation.pinnedPageHeaderBottomSpacing == AppTheme.Spacing.md
         )
-        #expect(!DiveBuddyDetailContentPagerPresentation.showsPinnedPageHeaders)
+        #expect(DiveBuddyDetailContentPagerPresentation.showsPinnedPageHeaders)
         #expect(
             DiveBuddyDetailContentPagerPresentation.pageSubtitle(for: .divesTogether)
                 == "Dives Together"
@@ -5757,9 +5757,24 @@ struct GoDiveMVPTests {
             userSites: userSite.map { [$0] } ?? [],
             ownerActivities: [activity]
         )
+        let fromIDs = ExploreSiteScopeCache.make(
+            catalog: [],
+            userSites: userSite.map { [$0] } ?? [],
+            logbookSiteIDs: logbookIDs
+        )
         #expect(logbookIDs.contains(orphanSiteID))
         #expect(snapshot.hasLogbookSites)
         #expect(snapshot.logbookPlottableSites.contains(where: { $0.id == orphanSiteID }))
+        #expect(fromIDs.logbookSiteIDs == snapshot.logbookSiteIDs)
+        #expect(fromIDs.hasLogbookSites == snapshot.hasLogbookSites)
+    }
+
+    @Test func diveSiteReferenceCatalog_prewarmBundledReference_populatesCache() {
+        DiveSiteReferenceCatalog.resetCacheForTesting()
+        DiveSiteReferenceCatalog.prewarmBundledReference()
+        let count = DiveSiteReferenceCatalog.bundledReference().count
+        #expect(count > 0)
+        #expect(DiveSiteReferenceCatalog.bundledReferenceByID().count == count)
     }
 
     @Test @MainActor
@@ -7269,6 +7284,17 @@ struct GoDiveMVPTests {
     @Test func blueSheetDetailPagerPresentation_tripScrollInsetExtraUsesThemeSpacing() {
         #expect(BlueSheetDetailPagerPresentation.tripScrollBottomInsetExtra == AppTheme.Spacing.lg)
         #expect(BlueSheetDetailPagerPresentation.scrollPageSpacing == AppTheme.Spacing.lg)
+        #expect(BlueSheetDetailPagerPresentation.pinnedPageHeaderBottomSpacing == AppTheme.Spacing.md)
+    }
+
+    @Test func friendProfileActivityFilter_togglePresentationMatchesGlassSegmentChrome() {
+        #expect(FriendProfileActivityListFilter.all.title == "All")
+        #expect(FriendProfileActivityListFilter.together.title == "Together")
+        #expect(FriendProfileActivityListFilter.all.systemImage == "list.bullet")
+        #expect(FriendProfileActivityListFilter.together.systemImage == "person.2.fill")
+        #expect(ExploreDiveSiteDetailContentPagerPresentation.showsPinnedPageHeaders)
+        #expect(FieldGuideSpeciesDetailContentPagerPresentation.showsPinnedPageHeaders)
+        #expect(ProfileDetailContentPagerPresentation.showsPinnedPageHeaders == false)
     }
 
     @Test @MainActor func exploreReferenceSiteDetailContentPagerPresentation_singleTab() {
@@ -8077,6 +8103,29 @@ struct GoDiveMVPTests {
             $0.uuid == "marine-life-french-angelfish"
         }
         #expect(afterReseed?.aboutText != "MUTATED_FOR_SKIP_TEST")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_storesResourceAttributesForLaunchSkip() throws {
+        let suiteName = "test.marineLife.resourceAttrs.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        guard
+            let fileURL = Bundle.main.url(forResource: MarineLifeCatalogSeeder.bundledResourceName, withExtension: "json"),
+            let expectedAttributes = MarineLifeCatalogSeeder.resourceAttributesToken(at: fileURL)
+        else {
+            Issue.record("Bundled marine_life.json missing from test host")
+            return
+        }
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context, userDefaults: defaults)
+        #expect(defaults.string(forKey: MarineLifeCatalogSeeder.appliedFingerprintDefaultsKey) != nil)
+        #expect(
+            defaults.string(forKey: MarineLifeCatalogSeeder.appliedResourceAttributesDefaultsKey)
+                == expectedAttributes
+        )
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_prunesSpeciesRemovedFromBundledJSON() throws {
@@ -15044,6 +15093,71 @@ struct GoDiveMVPTests {
         #expect(tighter.count > mid.count)
     }
 
+    @Test func exploreCatalogMapCameraFitPresentation_refitsOnlyWhenSiteIDSetChanges() {
+        let a = UUID()
+        let b = UUID()
+        #expect(
+            ExploreCatalogMapCameraFitPresentation.shouldRefitCamera(
+                previousSiteIDs: [],
+                nextSiteIDs: [a, b]
+            )
+        )
+        #expect(
+            !ExploreCatalogMapCameraFitPresentation.shouldRefitCamera(
+                previousSiteIDs: [a, b],
+                nextSiteIDs: [a, b]
+            )
+        )
+        #expect(
+            ExploreCatalogMapCameraFitPresentation.shouldRefitCamera(
+                previousSiteIDs: [a, b],
+                nextSiteIDs: [a]
+            )
+        )
+    }
+
+    @Test func exploreSiteScopeSessionCache_prewarmProducesNonEmptyAllSitesSnapshot() {
+        ExploreSiteScopeSessionCache.resetForTesting()
+        DiveSiteReferenceCatalog.resetCacheForTesting()
+        ExploreSiteScopeSessionCache.prewarmReferenceSnapshot()
+        let warm = ExploreSiteScopeSessionCache.cachedReferenceSnapshot()
+        #expect(warm != nil)
+        #expect((warm?.allSitesPlottableSites.count ?? 0) > 0)
+        ExploreSiteScopeSessionCache.resetForTesting()
+        DiveSiteReferenceCatalog.resetCacheForTesting()
+    }
+
+    @Test func exploreCatalogMapPinDensity_degenerateViewportYieldsNoPins_untilCoveredBySiteBounds() {
+        let sites = (0..<40).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(
+                    latitude: 10 + Double(index % 8) * 0.2,
+                    longitude: -60 + Double(index / 8) * 0.2
+                )
+            )
+        }
+        let degenerate = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 0, longitude: 0),
+            latitudeSpan: 0,
+            longitudeSpan: 0
+        )
+        #expect(ExploreCatalogMapPinDensity.visibleSiteIDs(sites: sites, viewport: degenerate).isEmpty)
+
+        let coveringRegion = ExploreCatalogMapPresentation.boundingRegion(for: sites)
+        #expect(coveringRegion != nil)
+        let covering = ExploreCatalogMapViewport(
+            center: DiveCoordinate(
+                latitude: coveringRegion!.centerLatitude,
+                longitude: coveringRegion!.centerLongitude
+            ),
+            latitudeSpan: coveringRegion!.latitudeDelta,
+            longitudeSpan: coveringRegion!.longitudeDelta
+        )
+        #expect(!ExploreCatalogMapPinDensity.visibleSiteIDs(sites: sites, viewport: covering).isEmpty)
+    }
+
     @Test func exploreCatalogMapPinLabelPolicy_allSites_neverLabelsPins() {
         let sites = [
             ExploreCatalogMapPresentation.PlottedSite(
@@ -15082,6 +15196,8 @@ struct GoDiveMVPTests {
             sites: manySites,
             viewport: viewport
         ).count == manySites.count)
+        #expect(ExploreCatalogMapPinLabelPolicy.policy(for: .logbook) == .progressiveZoomReveal)
+        #expect(ExploreCatalogMapPinLabelPolicy.policy(for: .allSites) == .pinOnlyAlways)
     }
 
     @Test func exploreCatalogMapLabelVisibility_fewerLabelsWhenZoomedOut() {
@@ -16795,6 +16911,35 @@ struct GoDiveMVPTests {
         #expect(DiveMediaPreviewStorage.storedPreviewImage(for: missing) == nil)
     }
 
+    @Test @MainActor func diveMediaPreviewStorage_cachedStoredPreviewImage_skipsDecodeUntilLoaded() async {
+        let media = DiveMediaPhoto(
+            sortOrder: 0,
+            photosLocalIdentifier: "preview-cache-only-test"
+        )
+        media.previewJPEGData = DiveMediaPreviewPersistence.encodePreviewJPEG(solidTestImage(edge: 48))
+        #expect(DiveMediaPreviewStorage.cachedStoredPreviewImage(for: media) == nil)
+        let loaded = await DiveMediaPreviewStorage.loadStoredPreviewImage(for: media)
+        #expect(loaded != nil)
+        #expect(DiveMediaPreviewStorage.cachedStoredPreviewImage(for: media) === loaded)
+    }
+
+    @Test func goDiveDecodedImageCachePresentation_cacheKeysAreStable() {
+        let data = Data([0x01, 0x02, 0x03, 0x04])
+        let keyA = GoDiveDecodedImageCachePresentation.cacheKey(for: data)
+        let keyB = GoDiveDecodedImageCachePresentation.cacheKey(for: data)
+        #expect(keyA == keyB)
+        #expect(keyA != GoDiveDecodedImageCachePresentation.cacheKey(for: Data([0x99])))
+        let fileURL = URL(fileURLWithPath: "/tmp/catalog-photo.jpg")
+        #expect(
+            GoDiveDecodedImageCachePresentation.cacheKey(fileURL: fileURL, maxPixelEdge: 160)
+                == GoDiveDecodedImageCachePresentation.cacheKey(fileURL: fileURL, maxPixelEdge: 160)
+        )
+        #expect(
+            GoDiveDecodedImageCachePresentation.cacheKey(fileURL: fileURL, maxPixelEdge: 160)
+                != GoDiveDecodedImageCachePresentation.cacheKey(fileURL: fileURL, maxPixelEdge: 480)
+        )
+    }
+
     @Test @MainActor func homeMediaHighlightSessionCache_hasDisplayableImage_usesStoredPreview() {
         HomeMediaHighlightSessionCache.shared.clear()
         let media = DiveMediaPhoto(
@@ -17997,6 +18142,70 @@ struct GoDiveMVPTests {
         #expect(result.mediaHighlightSightings.isEmpty)
     }
 
+    @Test func homeOverviewAggregateComputer_build_toleratesDuplicateSightingMarineLifeUUIDs() {
+        let diveID = UUID()
+        let activitySeed = LogbookActivitySnapshotSeed(
+            id: diveID,
+            kind: .scubaDive,
+            sourceDiveId: nil,
+            sourceActivityId: nil,
+            startTime: Date(timeIntervalSinceReferenceDate: 0),
+            maxDepthMeters: 18,
+            swimDistanceMeters: nil,
+            durationMinutes: 40,
+            bottomTimeSeconds: nil,
+            diveNumber: 1,
+            diveNumberExplicitlyNone: false,
+            displayName: "Wall",
+            formattedStartDateOnly: "Jan 3",
+            resolvedSiteNameLowercased: "wall",
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
+        )
+        let input = HomeOverviewBuildInput(
+            activitySeeds: [activitySeed],
+            tripSeeds: [],
+            diveSiteIDByActivityID: [diveID: nil],
+            linkedSiteDisplayNameByID: [:],
+            buddyTagSeeds: [],
+            mediaPhotoSeeds: [],
+            sightingSeeds: [
+                HomeOverviewSightingSeed(
+                    mediaPhotoID: UUID(),
+                    diveActivityID: diveID,
+                    marineLifeUUID: "turtle-uuid",
+                    commonName: "Green sea turtle"
+                ),
+                HomeOverviewSightingSeed(
+                    mediaPhotoID: UUID(),
+                    diveActivityID: diveID,
+                    marineLifeUUID: "turtle-uuid",
+                    commonName: "Green sea turtle"
+                ),
+            ],
+            mediaBuddyTagSeeds: [],
+            automaticallyRenumberDives: false,
+            displayUnits: .metric,
+            ownerProfileID: UUID(),
+            selfBuddyID: nil,
+            referenceDate: Date(timeIntervalSinceReferenceDate: 0)
+        )
+
+        // Launch path previously trapped here via Dictionary(uniqueKeysWithValues:).
+        let resolvedNames = Dictionary(
+            godiveUniquingKeysWithValues: input.sightingSeeds.map { ($0.marineLifeUUID, $0.commonName) }
+        )
+        #expect(resolvedNames.count == 1)
+        #expect(resolvedNames["turtle-uuid"] == "Green sea turtle")
+
+        let result = HomeOverviewAggregateComputer.build(from: input)
+        #expect(result.sightingCountInputs.count == 2)
+        #expect(result.lifetimeStats.diveCount == 1)
+    }
+
     @Test func appPerformanceSignpost_intervalNamesAreStable() {
         #expect(AppPerformanceSignpost.Interval.launchContainerLoad.rawValue == "LaunchContainerLoad")
         #expect(AppPerformanceSignpost.Interval.launchSessionRestore.rawValue == "LaunchSessionRestore")
@@ -18063,7 +18272,7 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func homeOverviewAggregateBuilder_launchPath_scalarStatsAndMediaIndexWithoutSightings() throws {
+    func homeOverviewAggregateBuilder_launchPath_includesTopSpeciesAndBuddiesWithoutMediaJPEG() throws {
         let schema = Schema([
             DiveActivity.self,
             DiveMediaPhoto.self,
@@ -18072,6 +18281,7 @@ struct GoDiveMVPTests {
             DiveTrip.self,
             DiveTripActivityLink.self,
             SightingInstance.self,
+            MarineLife.self,
             UserProfile.self,
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -18101,11 +18311,27 @@ struct GoDiveMVPTests {
         media.diveActivityID = dive.id
         media.dive = dive
         context.insert(media)
+        let manta = MarineLife(uuid: "ml-launch-manta", commonName: "Manta Ray")
+        context.insert(manta)
+        let sighting = SightingInstance(
+            marineLifeUUID: manta.uuid,
+            sightingDateTime: Date(timeIntervalSinceReferenceDate: 110),
+            diveActivity: dive
+        )
+        sighting.diveActivityID = dive.id
+        context.insert(sighting)
+        let buddy = DiveBuddy(displayName: "Alex Dive")
+        buddy.ownerProfileID = owner.id
+        context.insert(buddy)
+        let tag = DiveBuddyTag(buddy: buddy, dive: dive)
+        tag.diveActivityID = dive.id
+        tag.buddyID = buddy.id
+        context.insert(tag)
         try context.save()
 
         let launch = HomeOverviewAggregateBuilder.buildLaunch(
             activities: [dive],
-            buddyRoster: [],
+            buddyRoster: [buddy],
             automaticallyRenumberDives: true,
             ownerProfileID: owner.id,
             ownerProfile: owner,
@@ -18116,6 +18342,12 @@ struct GoDiveMVPTests {
         #expect(launch.aggregate.ownerMediaPhotos.isEmpty)
         #expect(launch.aggregate.ownerSightings.isEmpty)
         #expect(launch.aggregate.diveStatsInputs[0].siteDisplayName == "Blue Hole")
+        #expect(launch.aggregate.lifetimeStats.topSpecies?.commonName == "Manta Ray")
+        #expect(launch.aggregate.lifetimeStats.topSpecies?.sightingCount == 1)
+        #expect(launch.aggregate.sightingCountInputs.count == 1)
+        #expect(launch.aggregate.buddyLeaderboard.count == 1)
+        #expect(launch.aggregate.buddyLeaderboard[0].displayName == "Alex Dive")
+        #expect(launch.commonNameByUUID[manta.uuid] == "Manta Ray")
 
         let mediaSeeds = HomeDiveScalarSeeding.mediaPhotoSeeds(
             ownerDiveIDs: [dive.id],
@@ -18337,6 +18569,19 @@ struct GoDiveMVPTests {
         #expect(names["ml-turtle"] == "Green Turtle")
         #expect(MarineLifeCatalogLoader.commonNameByUUID(from: [manta, turtle])["ml-manta"] == "Manta Ray")
 
+        let thinNames = await MarineLifeCatalogLoader.fetchCommonNameByUUID(
+            uuids: ["ml-manta"],
+            container: dual.container
+        )
+        #expect(thinNames["ml-manta"] == "Manta Ray")
+        #expect(thinNames["ml-turtle"] == nil)
+        #expect(
+            MarineLifeCatalogLoader.commonNameByUUID(
+                uuids: ["ml-turtle"],
+                modelContext: context
+            )["ml-turtle"] == "Green Turtle"
+        )
+
         let bound = MarineLifeCatalogLoader.bindModels(uuids: ["ml-manta"], modelContext: context)
         #expect(bound.count == 1)
         #expect(bound[0].uuid == "ml-manta")
@@ -18395,6 +18640,37 @@ struct GoDiveMVPTests {
 
         AppLaunchSessionRestorePresentation.clearPersistedProfileID(userDefaults: defaults)
         #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID(userDefaults: defaults) == nil)
+    }
+
+    @Test @MainActor
+    func diveUnownedClaimGate_modelContext_usesCountOnlyDecision() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "claim-gate-count", displayName: "Owner")
+        context.insert(owner)
+
+        let owned = DiveActivity(source: .manual, startTime: .now, durationMinutes: 20, maxDepthMeters: 10)
+        owned.ownerProfileID = owner.id
+        context.insert(owned)
+        try context.save()
+
+        #expect(
+            try DiveUnownedClaimGate.decision(ownerID: owner.id, modelContext: context) == .nothingToClaim
+        )
+
+        let orphan = DiveActivity(
+            source: .manual,
+            startTime: .now.addingTimeInterval(-60),
+            durationMinutes: 25,
+            maxDepthMeters: 12
+        )
+        orphan.ownerProfileID = nil
+        context.insert(orphan)
+        try context.save()
+
+        #expect(
+            try DiveUnownedClaimGate.decision(ownerID: owner.id, modelContext: context) == .claim
+        )
     }
 
     @Test func diveUnownedClaimGate_skipsWhenOtherOwnerPresent() {
@@ -20723,6 +20999,79 @@ struct GoDiveMVPTests {
         #expect(stranded.ownerProfileID == sessionOwner.id)
     }
 
+    @Test func rootTabOwnerDiveQueryPresentation_mountsOnlyWhenSelectedOrDiveOnPath() {
+        #expect(
+            !RootTabOwnerDiveQueryPresentation.shouldMountLiveOwnerDiveQuery(
+                isTabSelected: false,
+                pathContainsDiveDetail: false
+            )
+        )
+        #expect(
+            RootTabOwnerDiveQueryPresentation.shouldMountLiveOwnerDiveQuery(
+                isTabSelected: true,
+                pathContainsDiveDetail: false
+            )
+        )
+        #expect(
+            RootTabOwnerDiveQueryPresentation.shouldMountLiveOwnerDiveQuery(
+                isTabSelected: false,
+                pathContainsDiveDetail: true
+            )
+        )
+        #expect(
+            !RootTabOwnerDiveQueryPresentation.shouldPublishOwnerDiveIndex(
+                isTabSelected: false,
+                activityCount: 12
+            )
+        )
+        #expect(
+            !RootTabOwnerDiveQueryPresentation.shouldPublishOwnerDiveIndex(
+                isTabSelected: true,
+                activityCount: 0
+            )
+        )
+        #expect(
+            RootTabOwnerDiveQueryPresentation.shouldPublishOwnerDiveIndex(
+                isTabSelected: true,
+                activityCount: 3
+            )
+        )
+        #expect(
+            RootTabOwnerDiveQueryPresentation.shouldScheduleSearchIndexMount(
+                isSearchTabSelected: true,
+                isSearchIndexMounted: false
+            )
+        )
+        #expect(
+            !RootTabOwnerDiveQueryPresentation.shouldScheduleSearchIndexMount(
+                isSearchTabSelected: false,
+                isSearchIndexMounted: false
+            )
+        )
+        #expect(
+            !RootTabOwnerDiveQueryPresentation.shouldScheduleSearchIndexMount(
+                isSearchTabSelected: true,
+                isSearchIndexMounted: true
+            )
+        )
+    }
+
+    @Test @MainActor
+    func ownerDiveActivityLookup_fetchesDiveAndSnorkelByID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 30, maxDepthMeters: 18)
+        let snorkel = SnorkelActivity(startTime: .now.addingTimeInterval(-3_600), durationMinutes: 40)
+        context.insert(dive)
+        context.insert(snorkel)
+        try context.save()
+
+        #expect(OwnerDiveActivityLookup.dive(id: dive.id, modelContext: context)?.id == dive.id)
+        #expect(OwnerDiveActivityLookup.snorkel(id: snorkel.id, modelContext: context)?.id == snorkel.id)
+        #expect(OwnerDiveActivityLookup.dive(id: UUID(), modelContext: context) == nil)
+        #expect(OwnerDiveActivityLookup.snorkel(id: UUID(), modelContext: context) == nil)
+    }
+
     @Test func logbookRootAppearPresentation_defersCacheUntilLogbookTabSelected() {
         #expect(
             !LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
@@ -20751,12 +21100,21 @@ struct GoDiveMVPTests {
     }
 
     @Test func logbookRootAppearPresentation_rebuildsOnTabSelectOnlyWhenColdOrEmpty() {
+        // Cold with zero activities: do not latch an empty build.
+        #expect(
+            !LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: false,
+                hasDisplayRows: false,
+                hasVisibleActivities: false
+            )
+        )
         #expect(
             LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
                 isLogbookTabSelected: true,
                 hasPerformedInitialCacheBuild: false,
                 hasDisplayRows: false,
-                hasVisibleActivities: false
+                hasVisibleActivities: true
             )
         )
         #expect(
@@ -20791,6 +21149,18 @@ struct GoDiveMVPTests {
                 hasVisibleActivities: true
             )
         )
+        #expect(
+            !LogbookRootAppearPresentation.shouldApplyDisplayCacheResult(
+                incomingItemCount: 0,
+                visibleActivityCount: 4
+            )
+        )
+        #expect(
+            LogbookRootAppearPresentation.shouldApplyDisplayCacheResult(
+                incomingItemCount: 0,
+                visibleActivityCount: 0
+            )
+        )
     }
 
     @Test func exploreScopeCacheAppearPresentation_skipsWarmUnchangedToken() {
@@ -20820,6 +21190,128 @@ struct GoDiveMVPTests {
                 isCacheEmpty: false,
                 appliedSyncToken: "a",
                 currentSyncToken: "b"
+            )
+        )
+    }
+
+    @Test @MainActor func exploreScopeCacheRebuildPresentation_allowsRebuildBeforeLiveDiveSnapshot() {
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldScheduleScopeCacheRebuild(
+                isExploreTabSelected: true
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldScheduleScopeCacheRebuild(
+                isExploreTabSelected: false
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldApplyDefaultSiteScope(
+                hasAppliedDefaultSiteScope: false,
+                hasReceivedLiveDiveSnapshot: false
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldApplyDefaultSiteScope(
+                hasAppliedDefaultSiteScope: false,
+                hasReceivedLiveDiveSnapshot: true
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldDeferDefaultLogbookScope(
+                desiredScope: .logbook,
+                logbookPlottableCount: 0
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldDeferDefaultLogbookScope(
+                desiredScope: .logbook,
+                logbookPlottableCount: 2
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldDeferDefaultLogbookScope(
+                desiredScope: .allSites,
+                logbookPlottableCount: 0
+            )
+        )
+        // Latch wins over a transient empty live snapshot (do not flash All Sites).
+        #expect(
+            ExploreScopeCacheRebuildPresentation.hasLoggedActivities(
+                shouldMountLiveDiveQuery: true,
+                hasReceivedLiveDiveSnapshot: false,
+                liveActivityCount: 0,
+                latchedHasLoggedActivities: true
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.hasLoggedActivities(
+                shouldMountLiveDiveQuery: true,
+                hasReceivedLiveDiveSnapshot: true,
+                liveActivityCount: 0,
+                latchedHasLoggedActivities: true
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldPaintAllSitesSessionSeed(
+                prefersLogbookDefault: true
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldPaintAllSitesSessionSeed(
+                prefersLogbookDefault: false
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+                siteScope: .logbook,
+                scopedSitesCount: 0,
+                allSitesCount: 10,
+                currentlyDisplayingSites: false,
+                prefersLogbookDefault: true
+            ) == .keepWaitingForLogbook
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldApplyScopePresentation(isCacheEmpty: true)
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+                siteScope: .logbook,
+                scopedSitesCount: 0,
+                allSitesCount: 10,
+                currentlyDisplayingSites: false
+            ) == .useAllSitesFallback
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+                siteScope: .logbook,
+                scopedSitesCount: 0,
+                allSitesCount: 10,
+                currentlyDisplayingSites: true
+            ) == .keepCurrentDisplay
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+                siteScope: .logbook,
+                scopedSitesCount: 3,
+                allSitesCount: 10,
+                currentlyDisplayingSites: false
+            ) == .useScopedSites
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldReplaceDisplayedPlottableSites(
+                incomingSitesEmpty: true,
+                currentlyDisplayingSites: true,
+                appliedSyncToken: "old",
+                currentSyncToken: "new"
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldReplaceDisplayedPlottableSites(
+                incomingSitesEmpty: true,
+                currentlyDisplayingSites: true,
+                appliedSyncToken: "same",
+                currentSyncToken: "same"
             )
         )
     }
@@ -25648,6 +26140,19 @@ struct GoDiveMVPTests {
         contact.givenName = "Pat"
         contact.familyName = "Lee"
         #expect(DiveBuddyContactImport.displayName(from: contact) == "Pat Lee")
+    }
+
+    @Test func diveBuddyEditContactPresentation_titlesForLinkState() {
+        #expect(
+            DiveBuddyEditContactPresentation.linkButtonTitle(isLinked: false)
+                == "Connect to Contact"
+        )
+        #expect(
+            DiveBuddyEditContactPresentation.linkButtonTitle(isLinked: true)
+                == "Change contact"
+        )
+        #expect(DiveBuddyEditContactPresentation.disconnectButtonTitle == "Disconnect contact")
+        #expect(DiveBuddyEditContactPresentation.sectionTitle == "Contact")
     }
 
     @Test func diveBuddyContactLinking_applyLinksContactToRosterBuddy() throws {

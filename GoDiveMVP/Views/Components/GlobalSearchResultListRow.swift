@@ -178,14 +178,11 @@ struct GlobalSearchResultPhotoArtwork: View {
     let placeholderSystemName: String
 
     var body: some View {
-        Group {
-            if let photoData, let image = UIImage(data: photoData) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                GlobalSearchResultSymbolArtwork(systemName: placeholderSystemName)
-            }
+        GoDiveCachedBlobImageView(
+            data: photoData,
+            maxPixelEdge: GlobalSearchResultListRowLayout.artworkSize * 2
+        ) {
+            GlobalSearchResultSymbolArtwork(systemName: placeholderSystemName)
         }
         .frame(
             width: GlobalSearchResultListRowLayout.artworkSize,

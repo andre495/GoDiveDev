@@ -11,6 +11,11 @@ enum AppLaunchMaintenance: Sendable {
         Task.detached(priority: .utility) {
             await performEssentialTier(container: container)
         }
+        // Warm ~3k-row dive_sites JSON + All Sites pin snapshot before Explore needs them.
+        Task.detached(priority: .utility) {
+            DiveSiteReferenceCatalog.prewarmBundledReference()
+            ExploreSiteScopeSessionCache.prewarmReferenceSnapshot()
+        }
         Task.detached(priority: .utility) {
             let delay = AppLaunchPostOverlayPresentation.deferredMaintenanceDelaySeconds
             try? await Task.sleep(for: .seconds(delay))

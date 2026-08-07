@@ -33,8 +33,9 @@ enum SnorkelActivityOwnership {
                 return 0
             }
         }
-        let orphans = try modelContext.fetch(FetchDescriptor<SnorkelActivity>())
-            .filter { $0.ownerProfileID == nil }
+        let orphans = try modelContext.fetch(
+            FetchDescriptor<SnorkelActivity>(predicate: #Predicate { $0.ownerProfileID == nil })
+        )
         guard !orphans.isEmpty else { return 0 }
         for activity in orphans {
             assignOwner(owner, to: activity)

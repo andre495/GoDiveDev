@@ -2,6 +2,9 @@ import CoreGraphics
 import Foundation
 import SwiftData
 import MapKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Map hero layout inputs for framing planned + completed pins above the overlapping trip sheet.
 struct TripDetailMapFitLayout: Equatable, Sendable {
@@ -32,6 +35,22 @@ struct TripDetailMapFitLayout: Equatable, Sendable {
 enum TripDetailMapPinKind: String, Sendable, Equatable {
     case planned
     case completed
+    /// Friend profile — shared dive site (blue).
+    case friendShared
+    /// Friend profile — activity together with the viewer (red); wins over **`friendShared`** at the same coordinate.
+    case friendTogether
+
+#if canImport(UIKit)
+    /// Marker tint — trip planned / friend-shared = blue; trip completed / friend-together = red.
+    nonisolated var markerTintColor: UIColor {
+        switch self {
+        case .planned, .friendShared:
+            return .systemBlue
+        case .completed, .friendTogether:
+            return .systemRed
+        }
+    }
+#endif
 }
 
 struct TripDetailMapPin: Identifiable, Equatable, Sendable {

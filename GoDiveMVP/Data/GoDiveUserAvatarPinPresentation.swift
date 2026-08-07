@@ -9,9 +9,13 @@ enum GoDiveUserAvatarPinPresentation: Sendable {
 
     nonisolated static let accessibilityLabel = BuddiesListPresentation.friendBadgeAccessibilityLabel
 
-    /// Pin side length as a fraction of avatar diameter — ~2× prior badge scale.
+    /// Pin side as a fraction of avatar diameter — same ratio on list chips, notifications, and profile (120 pt).
+    nonisolated static let pinSideLengthFraction: CGFloat = 0.76
+    /// Floor for very small avatars so the pin stays legible.
+    nonisolated static let pinSideLengthMinimum: CGFloat = 28
+
     nonisolated static func pinSideLength(forAvatarDiameter diameter: CGFloat) -> CGFloat {
-        max(28, min(56, diameter * 0.76))
+        max(pinSideLengthMinimum, diameter * pinSideLengthFraction)
     }
 
     /// Fraction of pin side length pushed past the bottom-trailing rim (smaller = more avatar overlap).

@@ -83,7 +83,8 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
         .top
     }
 
-    nonisolated static let showsPinnedPageHeaders = false
+    /// Content-area titles are pinned above the scroll/static body via **`BlueSheetDetailPager`**.
+    nonisolated static let showsPinnedPageHeaders = true
 
     /// Same 2-column mosaic as Field Guide subcategory browse / trip marine life.
     nonisolated static let similarSpeciesGridColumnCount = 2

@@ -6,12 +6,17 @@ import SwiftUI
 struct GlobalSearchView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.dismissSearch) private var dismissSearch
+    @Environment(RootTabSelectionStore.self) private var rootTabSelection
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = false
 
     @Binding var query: String
     @Binding var activeContextTokens: [GlobalSearchPresentation.ContextToken]
 
     let ownerProfileID: UUID?
+
+    private var isSearchTabSelected: Bool {
+        RootTabSelectionPresentation.isSelected(.search, selected: rootTabSelection.selected)
+    }
 
     @State private var path: [GlobalSearchPresentation.Destination] = []
     @State private var displayedResults = GlobalSearchPresentation.Results(query: "", sections: [])
@@ -110,8 +115,25 @@ struct GlobalSearchView: View {
         }
         .onAppear {
             syncResultsPanelVisibility(isActive: isSearchActive)
-            scheduleDeferredSearchIndexMount()
+            if RootTabOwnerDiveQueryPresentation.shouldScheduleSearchIndexMount(
+                isSearchTabSelected: isSearchTabSelected,
+                isSearchIndexMounted: isSearchIndexMounted
+            ) {
+                scheduleDeferredSearchIndexMount()
+            }
             scheduleIdleBubbleResume()
+        }
+        .onChange(of: isSearchTabSelected) { _, selected in
+            if selected {
+                if RootTabOwnerDiveQueryPresentation.shouldScheduleSearchIndexMount(
+                    isSearchTabSelected: true,
+                    isSearchIndexMounted: isSearchIndexMounted
+                ) {
+                    scheduleDeferredSearchIndexMount()
+                }
+            } else {
+                cancelDeferredSearchIndexMount()
+            }
         }
         .onChange(of: isSearchActive) { _, isActive in
             if isActive {

@@ -17,10 +17,19 @@ struct ExploreCatalogMapView: View {
     }
 
     var body: some View {
-        Group {
+        let engine = GoDiveMapEngine.active
+        let hasGoogleKey = GoogleMapsBootstrap.loadAPIKey() != nil
+        let _ = Self.logBodyIfNeeded(
+            sitesCount: sites.count,
+            siteScope: siteScope,
+            engine: engine,
+            hasGoogleKey: hasGoogleKey,
+            signature: sitesChangeSignature
+        )
+        return Group {
             if GoDiveUITestConfiguration.isActive {
                 uiTestPlaceholder
-            } else if GoDiveMapEngine.active == .googleMaps, GoogleMapsBootstrap.loadAPIKey() != nil {
+            } else if engine == .googleMaps, hasGoogleKey {
                 #if canImport(UIKit)
                 ExploreCatalogGoogleMapRepresentable(
                     sites: sites,
@@ -60,5 +69,38 @@ struct ExploreCatalogMapView: View {
                     .font(.largeTitle)
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
             }
+    }
+
+    nonisolated private static let bodyLogLock = NSLock()
+    nonisolated(unsafe) private static var lastLoggedSignature: String?
+
+    nonisolated private static func logBodyIfNeeded(
+        sitesCount: Int,
+        siteScope: ExploreSiteScope,
+        engine: GoDiveMapEngine,
+        hasGoogleKey: Bool,
+        signature: String
+    ) {
+        bodyLogLock.lock()
+        let shouldLog = lastLoggedSignature != signature
+        if shouldLog { lastLoggedSignature = signature }
+        bodyLogLock.unlock()
+        guard shouldLog else { return }
+        ExplorePinsDiagnostics.note(
+            "mapView body sites=\(sitesCount) scope=\(siteScope) engine=\(engine.rawValue) googleKey=\(hasGoogleKey) signature=\(signature)"
+        )
+    }
+}
+
+/// Brief stand-in while All Sites pins seed — avoids mounting an empty map that then recenters.
+struct ExploreCatalogMapLoadingPlaceholder: View {
+    var body: some View {
+        AppTheme.Colors.screenBackgroundGradient
+            .overlay {
+                ProgressView()
+                    .tint(AppTheme.Colors.tabUnselected)
+            }
+            .accessibilityLabel("Loading dive sites map")
+            .accessibilityIdentifier("Explore.CatalogMap.Loading")
     }
 }

@@ -18,7 +18,6 @@ enum DiveBuddyDetailPresentation: Sendable {
     nonisolated static let minimumPanelContentHeight: CGFloat = heroLayoutStatsPanelContentHeight
 
     nonisolated static let profileAvatarDiameter: CGFloat = 120
-    nonisolated static let contactBadgeDiameter: CGFloat = 34
 
     /// Same hero height as Home tab stats overlap seam (**`LogOverviewView.homeOverviewLayoutMetrics`**).
     nonisolated static func heroHeight(

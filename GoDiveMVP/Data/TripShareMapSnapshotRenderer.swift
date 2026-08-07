@@ -110,12 +110,7 @@ enum TripShareMapSnapshotRenderer {
     }
 
     private static func pinTint(for kind: TripDetailMapPinKind) -> Color {
-        switch kind {
-        case .planned:
-            return Color(uiColor: .systemBlue)
-        case .completed:
-            return Color(uiColor: .systemRed)
-        }
+        Color(uiColor: kind.markerTintColor)
     }
 }
 #endif

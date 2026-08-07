@@ -14,6 +14,10 @@ enum HomeNotificationsPresentation: Sendable {
     /// Age cutoff paired with unread for the **New** section.
     nonisolated static let newSectionRecency: TimeInterval = 14 * 24 * 60 * 60
     nonisolated static let bellAccessibilityIdentifier = "Home.NotificationsBell"
+    /// Primary message — wrap at most two lines, then truncate.
+    nonisolated static let titleLineLimit = 2
+    /// Detail (site / preview / liker copy) + relative time share one truncated line.
+    nonisolated static let detailAndTimeLineLimit = 1
 
     /// **New** vs **Older** buckets for the Notifications list (newest-first within each).
     struct Sections: Equatable, Sendable {
@@ -165,10 +169,13 @@ enum HomeNotificationsPresentation: Sendable {
                 friendDisplayName: event.actorDisplayName,
                 friendPhotoURL: photoURL,
                 message: activityLikedMessage(
+                    activityKind: event.activityKind,
+                    siteName: event.siteName
+                ),
+                detail: activityLikedDetail(
                     displayName: event.actorDisplayName,
                     activityKind: event.activityKind
-                ),
-                detail: trimmedNonEmpty(event.siteName)
+                )
             )
         case .comment:
             return Item(
@@ -186,13 +193,10 @@ enum HomeNotificationsPresentation: Sendable {
                 message: activityCommentedMessage(
                     displayName: event.actorDisplayName,
                     activityKind: event.activityKind,
-                    commentText: event.commentText
-                ),
-                /// Prefer the comment snippet in the secondary line (site name only as fallback).
-                detail: commentedNotificationDetail(
-                    commentText: event.commentText,
                     siteName: event.siteName
-                )
+                ),
+                /// Secondary line is the comment preview only (activity name is in the title).
+                detail: commentNotificationPreviewDetail(commentText: event.commentText)
             )
         case .mention:
             return Item(
@@ -240,17 +244,31 @@ enum HomeNotificationsPresentation: Sendable {
         )
     }
 
-    /// Secondary line for comment rows — comment preview when present, else site name.
+    /// Secondary line for mention rows — comment preview when present, else site name.
     nonisolated static func commentedNotificationDetail(
         commentText: String?,
         siteName: String?
     ) -> String? {
-        if let preview = GoDiveBuddyActivityCommentedPushPresentation.commentNotificationPreview(
-            commentText
-        ) {
+        if let preview = commentNotificationPreviewDetail(commentText: commentText) {
             return preview
         }
         return trimmedNonEmpty(siteName)
+    }
+
+    /// Secondary line for comment rows — 50-character comment preview only.
+    nonisolated static func commentNotificationPreviewDetail(commentText: String?) -> String? {
+        GoDiveBuddyActivityCommentedPushPresentation.commentNotificationPreview(commentText)
+    }
+
+    /// Activity label in like/comment titles — site name when shared, else “your dive/snorkel”.
+    nonisolated static func commentedActivityLabel(
+        activityKind: FriendSharedActivityKind,
+        siteName: String?
+    ) -> String {
+        if let site = trimmedNonEmpty(siteName) {
+            return site
+        }
+        return activityKind == .snorkel ? "your snorkel" : "your dive"
     }
 
     nonisolated static func friendPhotoURLByUID(
@@ -297,29 +315,32 @@ enum HomeNotificationsPresentation: Sendable {
         return "\(nonEmptyName(displayName)) tagged you in a new \(kind)"
     }
 
+    /// Title: “{activity name} has new likes” (site when known; else your dive/snorkel).
     nonisolated static func activityLikedMessage(
+        activityKind: FriendSharedActivityKind,
+        siteName: String? = nil
+    ) -> String {
+        let activity = commentedActivityLabel(activityKind: activityKind, siteName: siteName)
+        return "\(activity) has new likes"
+    }
+
+    /// Detail: “{Name} liked your dive/snorkel”.
+    nonisolated static func activityLikedDetail(
         displayName: String,
         activityKind: FriendSharedActivityKind
     ) -> String {
-        GoDiveBuddyActivityLikedPushPresentation.notificationBody(
-            likerDisplayName: displayName,
-            activityKind: activityKind
-        )
+        let kind = activityKind == .snorkel ? "snorkel" : "dive"
+        return "\(nonEmptyName(displayName)) liked your \(kind)"
     }
 
+    /// Title: “{Name} commented on {activity name}” (site when known; else your dive/snorkel).
     nonisolated static func activityCommentedMessage(
         displayName: String,
         activityKind: FriendSharedActivityKind,
-        commentText: String? = nil
+        siteName: String? = nil
     ) -> String {
-        let kind = activityKind == .snorkel ? "snorkel" : "dive"
-        let base = "\(nonEmptyName(displayName)) commented on your \(kind)"
-        if let preview = GoDiveBuddyActivityCommentedPushPresentation.commentNotificationPreview(
-            commentText
-        ) {
-            return "\(base): \(preview)"
-        }
-        return base
+        let activity = commentedActivityLabel(activityKind: activityKind, siteName: siteName)
+        return "\(nonEmptyName(displayName)) commented on \(activity)"
     }
 
     nonisolated static func activityMentionedMessage(displayName: String) -> String {

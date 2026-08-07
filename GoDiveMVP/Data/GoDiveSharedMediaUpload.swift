@@ -10,7 +10,7 @@ import os
 /// stopped instead of re-uploading. Content jobs carry only a Photos identifier; the queue exports
 /// (4096 px JPEG / 1080p MP4) lazily and patches Firestore when each object lands.
 enum GoDiveSharedMediaUpload: Sendable {
-    private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FriendShareMediaUpload")
+    nonisolated private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FriendShareMediaUpload")
     nonisolated private static let maxConcurrentContentUploads = 2
 
     struct ContentUploadJob: Sendable {
@@ -253,8 +253,7 @@ enum GoDiveSharedMediaUpload: Sendable {
         return jobs
     }
 
-    @MainActor
-    static func allowsContentUpload(userDefaults: UserDefaults = .standard) -> Bool {
+    nonisolated static func allowsContentUpload(userDefaults: UserDefaults = .standard) -> Bool {
         AppNetworkConnectivityPresentation.allowsFriendShareContentUpload(
             isConnected: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch,
             usesWiFi: AppNetworkConnectivitySnapshot.shared.usesWiFiInterface,
@@ -262,8 +261,8 @@ enum GoDiveSharedMediaUpload: Sendable {
         )
     }
 
-    @MainActor
-    static func performContentPhase(
+    /// Content-tier export + SHA-256 + Storage upload — intentionally **not** `@MainActor`.
+    nonisolated static func performContentPhase(
         ownerUID: String,
         activityID: UUID,
         jobs: [ContentUploadJob],
@@ -287,7 +286,7 @@ enum GoDiveSharedMediaUpload: Sendable {
                       let job = iterator.next()
                 else { return }
                 inFlight += 1
-                group.addTask { @MainActor in
+                group.addTask {
                     await uploadContentJob(job, ownerUID: ownerUID, activityID: activityID)
                 }
             }
@@ -301,13 +300,13 @@ enum GoDiveSharedMediaUpload: Sendable {
                 // Checkpoint each completed object immediately — a killed app or cancelled phase
                 // never loses finished uploads.
                 if let record {
-                    var state = GoDiveSharedMediaPublishState.loadActivity(
+                    var state = GoDiveSharedMediaPublishState.loadActivityRecord(
                         ownerUID: ownerUID,
                         activityID: activityID
                     )
                     if let index = state.items.firstIndex(where: { $0.mediaID == record.mediaID }) {
                         state.items[index] = record
-                        GoDiveSharedMediaPublishState.saveActivity(
+                        GoDiveSharedMediaPublishState.saveActivityRecord(
                             ownerUID: ownerUID,
                             activityID: activityID,
                             record: state
@@ -328,7 +327,7 @@ enum GoDiveSharedMediaUpload: Sendable {
             )
             return
         }
-        let finalState = GoDiveSharedMediaPublishState.loadActivity(
+        let finalState = GoDiveSharedMediaPublishState.loadActivityRecord(
             ownerUID: ownerUID,
             activityID: activityID
         )
@@ -345,8 +344,7 @@ enum GoDiveSharedMediaUpload: Sendable {
         )
     }
 
-  @MainActor
-    private static func scheduleContentRetryIfNeeded(
+    nonisolated private static func scheduleContentRetryIfNeeded(
         ownerUID: String,
         activityID: UUID,
         userDefaults: UserDefaults,
@@ -362,7 +360,7 @@ enum GoDiveSharedMediaUpload: Sendable {
               !Task.isCancelled
         else { return }
 
-        Task { @MainActor in
+        Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled else { return }
             await performContentPhase(
@@ -375,8 +373,7 @@ enum GoDiveSharedMediaUpload: Sendable {
         }
     }
 
-    @MainActor
-    static func uploadContentJob(
+    nonisolated static func uploadContentJob(
         _ job: ContentUploadJob,
         ownerUID: String,
         activityID: UUID
@@ -425,7 +422,10 @@ enum GoDiveSharedMediaUpload: Sendable {
 
         guard let contentURL else { return nil }
 
-        let activity = GoDiveSharedMediaPublishState.loadActivity(ownerUID: ownerUID, activityID: activityID)
+        let activity = GoDiveSharedMediaPublishState.loadActivityRecord(
+            ownerUID: ownerUID,
+            activityID: activityID
+        )
         guard var existing = GoDiveSharedMediaPublishState.record(for: job.mediaID, in: activity) else {
             return nil
         }
@@ -438,8 +438,7 @@ enum GoDiveSharedMediaUpload: Sendable {
         return existing
     }
 
-    @MainActor
-    static func patchFirestoreMediaItems(
+    nonisolated static func patchFirestoreMediaItems(
         ownerUID: String,
         activityID: UUID,
         records: [GoDiveSharedMediaPublishState.PublishedMediaRecord]
@@ -470,12 +469,11 @@ enum GoDiveSharedMediaUpload: Sendable {
 
     /// After the projection doc exists, merge any content-tier URLs that landed
     /// while phase-one thumbs were still publishing.
-    @MainActor
-    static func syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
+    nonisolated static func syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
         ownerUID: String,
         activityID: UUID
     ) async {
-        let state = GoDiveSharedMediaPublishState.loadActivity(
+        let state = GoDiveSharedMediaPublishState.loadActivityRecord(
             ownerUID: ownerUID,
             activityID: activityID
         )

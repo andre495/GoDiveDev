@@ -38,7 +38,9 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             sitesChangeSignature: sitesChangeSignature
         )
         context.coordinator.applyRegion(on: mapView, sites: sites, animated: false)
-        context.coordinator.refreshMapPresentation(on: mapView, force: true)
+        // Projection/viewport is often invalid synchronously in makeUIView — defer density
+        // refresh so All Sites pins are not culled to zero before the camera settles.
+        context.coordinator.schedulePinnedRefresh(on: mapView, reason: "makeUIView")
         return mapView
     }
 
@@ -54,13 +56,18 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             sitesChangeSignature: sitesChangeSignature
         )
         let focusPending = context.coordinator.isFocusRequestPending(focusRequest)
-        if sitesChanged, !focusPending {
+        if sitesChanged, !focusPending,
+           context.coordinator.shouldRefitCamera(for: sites) {
             context.coordinator.applyRegion(on: mapView, sites: sites, animated: true)
         }
         if sitesChanged || interactionChanged, !focusPending {
             mapView.selectedMarker = nil
         }
-        context.coordinator.refreshMapPresentation(on: mapView, force: sitesChanged || interactionChanged)
+        if sitesChanged || interactionChanged {
+            context.coordinator.schedulePinnedRefresh(on: mapView, reason: "updateUIView")
+        } else {
+            context.coordinator.refreshMapPresentation(on: mapView, force: false)
+        }
         context.coordinator.applyFocusRequestIfNeeded(
             on: mapView,
             focusRequest: focusRequest,
@@ -83,6 +90,31 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
         private var stickyPinVisibility = ExploreCatalogMapStickyPinVisibility.State()
         private var lastPresentationRefreshTimestamp: CFAbsoluteTime = 0
         private let presentationRefreshMinimumInterval: CFAbsoluteTime = 0.08
+        private var lastFittedSiteIDs: Set<UUID> = []
+
+        var markerCountOnMap: Int {
+            markersBySiteID.values.reduce(0) { partial, marker in
+                partial + (marker.map != nil ? 1 : 0)
+            }
+        }
+
+        private var deferredRefreshWorkItem: DispatchWorkItem?
+
+        func schedulePinnedRefresh(on mapView: GMSMapView, reason: String) {
+            deferredRefreshWorkItem?.cancel()
+            let refresh: () -> Void = { [weak self, weak mapView] in
+                guard let self, let mapView else { return }
+                self.refreshMapPresentation(on: mapView, force: true)
+                ExplorePinsDiagnostics.note(
+                    "googleMap refresh(\(reason)) sites=\(self.sites.count) dynamic=\(self.pinLabelPolicy.usesDynamicPinDensity) markersOnMap=\(self.markerCountOnMap) span=\(Self.viewport(from: mapView, sites: self.sites).latitudeSpan)"
+                )
+            }
+            // Immediate next turn + short delay — projection is often invalid in makeUIView.
+            DispatchQueue.main.async(execute: refresh)
+            let delayed = DispatchWorkItem(block: refresh)
+            deferredRefreshWorkItem = delayed
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: delayed)
+        }
 
         init(
             pinLabelPolicy: ExploreCatalogMapPinLabelPolicy,
@@ -175,12 +207,25 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             return created
         }
 
+        func shouldRefitCamera(for sites: [ExploreCatalogMapPresentation.PlottedSite]) -> Bool {
+            let nextIDs = Set(sites.map(\.id))
+            guard ExploreCatalogMapCameraFitPresentation.shouldRefitCamera(
+                previousSiteIDs: lastFittedSiteIDs,
+                nextSiteIDs: nextIDs
+            ) else {
+                return false
+            }
+            lastFittedSiteIDs = nextIDs
+            return true
+        }
+
         func applyRegion(
             on mapView: GMSMapView,
             sites: [ExploreCatalogMapPresentation.PlottedSite],
             animated: Bool
         ) {
             guard let region = ExploreCatalogMapPresentation.boundingRegion(for: sites) else { return }
+            lastFittedSiteIDs = Set(sites.map(\.id))
             let update = GMSCameraUpdate.fit(
                 region.gmsCoordinateBounds,
                 with: UIEdgeInsets(top: 48, left: 32, bottom: 48, right: 32)
@@ -239,7 +284,7 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             }
             lastPresentationRefreshTimestamp = now
 
-            let viewport = Self.viewport(from: mapView)
+            let viewport = Self.viewport(from: mapView, sites: sites)
             let freshEligible = pinLabelPolicy.visibleSiteIDs(
                 sites: sites,
                 viewport: viewport
@@ -380,7 +425,10 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             selectedSiteID = nil
         }
 
-        private static func viewport(from mapView: GMSMapView) -> ExploreCatalogMapViewport {
+        private static func viewport(
+            from mapView: GMSMapView,
+            sites: [ExploreCatalogMapPresentation.PlottedSite]
+        ) -> ExploreCatalogMapViewport {
             let region = mapView.projection.visibleRegion()
             let latitudes = [
                 region.farLeft.latitude,
@@ -398,13 +446,38 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             let maxLatitude = latitudes.max() ?? mapView.camera.target.latitude
             let minLongitude = longitudes.min() ?? mapView.camera.target.longitude
             let maxLongitude = longitudes.max() ?? mapView.camera.target.longitude
-            return ExploreCatalogMapViewport(
+            let projected = ExploreCatalogMapViewport(
                 center: DiveCoordinate(
                     latitude: mapView.camera.target.latitude,
                     longitude: mapView.camera.target.longitude
                 ),
                 latitudeSpan: max(0, maxLatitude - minLatitude),
                 longitudeSpan: max(0, maxLongitude - minLongitude)
+            )
+            // Google's projection is often degenerate before layout — density then
+            // culls every pin (sitesInViewport empty). Fall back to site bounds.
+            if projected.latitudeSpan > 1e-6, projected.longitudeSpan > 1e-6 {
+                return projected
+            }
+            if let covering = viewportCovering(sites: sites) {
+                return covering
+            }
+            return projected
+        }
+
+        private static func viewportCovering(
+            sites: [ExploreCatalogMapPresentation.PlottedSite]
+        ) -> ExploreCatalogMapViewport? {
+            guard let region = ExploreCatalogMapPresentation.boundingRegion(for: sites) else {
+                return nil
+            }
+            return ExploreCatalogMapViewport(
+                center: DiveCoordinate(
+                    latitude: region.centerLatitude,
+                    longitude: region.centerLongitude
+                ),
+                latitudeSpan: region.latitudeDelta,
+                longitudeSpan: region.longitudeDelta
             )
         }
     }

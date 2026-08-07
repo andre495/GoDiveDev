@@ -4,7 +4,11 @@ import SwiftUI
 struct ExploreView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
-    @Query private var ownerDiveActivities: [DiveActivity]
+
+    /// Snapshot from **`OwnerDiveActivitiesQueryBridge`** — only live while Explore is selected.
+    @State private var ownerDiveActivities: [DiveActivity] = []
+    @State private var latchedHasLoggedActivities = false
+    @State private var hasReceivedLiveDiveSnapshot = false
 
     @State private var diveSites: [DiveSite] = []
     @State private var userDiveSites: [UserDiveSite] = []
@@ -42,19 +46,15 @@ struct ExploreView: View {
         RootTabSelectionPresentation.isSelected(.explore, selected: rootTabSelection.selected)
     }
 
-    init(ownerProfileID: UUID?) {
-        self.ownerProfileID = ownerProfileID
-        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
-        _ownerDiveActivities = Query(
-            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
-            sort: [
-                SortDescriptor(\DiveActivity.startTime, order: .reverse),
-                SortDescriptor(\DiveActivity.id, order: .forward),
-            ]
+    private var shouldMountLiveDiveQuery: Bool {
+        RootTabOwnerDiveQueryPresentation.shouldMountLiveOwnerDiveQuery(
+            isTabSelected: isExploreTabSelected
         )
     }
 
-    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    init(ownerProfileID: UUID?) {
+        self.ownerProfileID = ownerProfileID
+    }
 
     private var referenceCatalog: [DiveSiteReferenceSnapshot] {
         DiveSiteReferenceCatalog.bundledReference()
@@ -69,7 +69,12 @@ struct ExploreView: View {
     }
 
     private var hasLoggedActivities: Bool {
-        !ownerDiveActivitiesForScope.isEmpty
+        ExploreScopeCacheRebuildPresentation.hasLoggedActivities(
+            shouldMountLiveDiveQuery: shouldMountLiveDiveQuery,
+            hasReceivedLiveDiveSnapshot: hasReceivedLiveDiveSnapshot,
+            liveActivityCount: ownerDiveActivitiesForScope.count,
+            latchedHasLoggedActivities: latchedHasLoggedActivities
+        )
     }
 
     private var scopeCacheSyncToken: String {
@@ -169,20 +174,41 @@ struct ExploreView: View {
             }
         }
         .onChange(of: scopeCacheSyncToken) { _, _ in
+            guard isExploreTabSelected else { return }
             scheduleScopeCacheRebuild()
         }
         .onChange(of: hasLoggedActivities) { _, hasActivities in
-            siteScope = ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: hasActivities)
+            guard isExploreTabSelected else { return }
+            applyPreferredSiteScope(hasLoggedActivities: hasActivities)
         }
         .onAppear {
-            applyDefaultSiteScopeIfNeeded()
-            rebuildScopeCacheOnAppearIfNeeded()
+            // Do not build the ~3k-site scope cache on main while Home is launching —
+            // that path caused launch hangs. Seed only when Explore is selected.
+            if isExploreTabSelected {
+                primeLoggedActivityLatchFromKnownStateIfNeeded()
+                applyDefaultSiteScopeIfNeeded()
+                seedPinsFromSessionCacheIfNeeded()
+                rebuildScopeCacheOnAppearIfNeeded()
+            }
             Task { await loadDiveSiteCatalogIfNeeded() }
             warmMapsIfExploreSelected()
         }
-        .onChange(of: isExploreTabSelected) { _, selected in
-            guard selected else { return }
+        .onChange(of: rootTabSelection.selected) { _, tab in
+            guard tab == .explore else { return }
+            primeLoggedActivityLatchFromKnownStateIfNeeded()
+            applyDefaultSiteScopeIfNeeded()
             warmMapsIfExploreSelected()
+            // Sync seed from launch prewarm so the map mounts with pins (no empty flash).
+            // Skipped when My Sites is the preferred default (avoids All Sites → My Sites jump).
+            seedPinsFromSessionCacheIfNeeded()
+            rebuildScopeCacheOnAppearIfNeeded()
+        }
+        .background {
+            if shouldMountLiveDiveQuery {
+                OwnerDiveActivitiesQueryBridge(ownerProfileID: ownerProfileID) { activities in
+                    applyOwnerDiveActivitiesFromBridge(activities)
+                }
+            }
         }
         .task(id: ownerProfileID) {
             async let loadedMarineLife = loadMarineLifeCatalogIfNeeded()
@@ -190,8 +216,9 @@ struct ExploreView: View {
             _ = await (loadedMarineLife, loadedDiveSites)
         }
         .onDisappear {
-            scopeCacheRebuildTask?.cancel()
-            scopeCacheRebuildTask = nil
+            // Do **not** cancel `scopeCacheRebuildTask` here — TabView / NavigationStack can
+            // fire a spurious disappear while Explore is still selected, which previously
+            // aborted the detached ODM pin rebuild and left the map blank.
             listRowsRefreshTask?.cancel()
             listRowsRefreshTask = nil
         }
@@ -216,17 +243,22 @@ struct ExploreView: View {
                 Group {
                     switch viewMode {
                     case .map:
-                        // Always mount in map mode (same as pre-deferral). Tab-selected gates /
-                        // `@State` latches left a solid surface placeholder on device.
-                        ExploreCatalogMapView(
-                            sites: mapPlottableSites,
-                            sitesChangeSignature: mapPlottableSignature,
-                            siteScope: siteScope,
-                            focusRequest: mapFocusRequest
-                        ) { selection in
-                            openExploreSiteSelection(selection)
+                        // Mount the map engine only once pins exist so makeUIView gets a real
+                        // site set + camera fit — avoids empty world map then recenter.
+                        if displayedPlottableSites.isEmpty {
+                            ExploreCatalogMapLoadingPlaceholder()
+                                .ignoresSafeArea()
+                        } else {
+                            ExploreCatalogMapView(
+                                sites: mapPlottableSites,
+                                sitesChangeSignature: mapPlottableSignature,
+                                siteScope: siteScope,
+                                focusRequest: mapFocusRequest
+                            ) { selection in
+                                openExploreSiteSelection(selection)
+                            }
+                            .ignoresSafeArea()
                         }
-                        .ignoresSafeArea()
                     case .list:
                         exploreSiteList(topInset: topInset, bottomInset: bottomInset)
                     }
@@ -316,15 +348,11 @@ struct ExploreView: View {
                     .padding()
             }
         case .diveDetail(let id):
-            if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
-                ViewSingleActivity(activity: activity)
-            } else {
-                ActivityMissingDestinationPopView {
-                    path = ActivityDeleteSuccessPresentation.explorePathByRemovingActivity(
-                        path,
-                        activityID: id
-                    )
-                }
+            OwnerDiveActivityDestinationView(activityID: id) {
+                path = ActivityDeleteSuccessPresentation.explorePathByRemovingActivity(
+                    path,
+                    activityID: id
+                )
             }
         }
     }
@@ -414,59 +442,212 @@ struct ExploreView: View {
         }
     }
 
+    private var prefersLogbookDefault: Bool {
+        ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: hasLoggedActivities) == .logbook
+    }
+
+    /// Home (or a one-row fetch) often knows about activities before the Explore dive bridge mounts.
+    private func primeLoggedActivityLatchFromKnownStateIfNeeded() {
+        guard !latchedHasLoggedActivities else {
+            if !hasAppliedDefaultSiteScope, prefersLogbookDefault, siteScope != .logbook {
+                siteScope = .logbook
+            }
+            return
+        }
+        let profileID = accountSession.currentProfile?.id ?? ownerProfileID
+        if let profileID,
+           let index = OwnerDiveIndexSessionCache.resolve(ownerProfileID: profileID),
+           !index.numberingRows.isEmpty {
+            latchedHasLoggedActivities = true
+            if !hasAppliedDefaultSiteScope {
+                siteScope = .logbook
+            }
+            ExplorePinsDiagnostics.note("primed My Sites from OwnerDiveIndexSessionCache")
+            return
+        }
+        guard let profileID else { return }
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate<DiveActivity> { $0.ownerProfileID == profileID }
+        )
+        descriptor.fetchLimit = 1
+        if let rows = try? modelContext.fetch(descriptor), !rows.isEmpty {
+            latchedHasLoggedActivities = true
+            if !hasAppliedDefaultSiteScope {
+                siteScope = .logbook
+            }
+            ExplorePinsDiagnostics.note("primed My Sites from DiveActivity fetchLimit=1")
+        }
+    }
+
     private func applyDefaultSiteScopeIfNeeded() {
-        guard !hasAppliedDefaultSiteScope else { return }
+        // Prefer My Sites as soon as we know activities exist (latch / Home index) — do not
+        // wait for the live bridge if that would flash All Sites first.
+        if !hasAppliedDefaultSiteScope, prefersLogbookDefault, siteScope != .logbook {
+            siteScope = .logbook
+        }
+        guard ExploreScopeCacheRebuildPresentation.shouldApplyDefaultSiteScope(
+            hasAppliedDefaultSiteScope: hasAppliedDefaultSiteScope,
+            hasReceivedLiveDiveSnapshot: hasReceivedLiveDiveSnapshot || latchedHasLoggedActivities
+        ) else { return }
+        applyPreferredSiteScope(hasLoggedActivities: hasLoggedActivities)
+    }
+
+    /// Applies All Sites / My Sites preference without blanking the map when My Sites pins
+    /// are not ready yet (defers the toggle until the activity-aware cache has logbook sites).
+    private func applyPreferredSiteScope(hasLoggedActivities: Bool) {
+        let desired = ExploreSiteScopePresentation.defaultScope(
+            hasLoggedActivities: hasLoggedActivities
+        )
+        if ExploreScopeCacheRebuildPresentation.shouldDeferDefaultLogbookScope(
+            desiredScope: desired,
+            logbookPlottableCount: scopeCache.plottableSites(for: .logbook).count
+        ) {
+            // Still show My Sites on the toggle while pins catch up.
+            if desired == .logbook, siteScope != .logbook {
+                siteScope = .logbook
+            }
+            return
+        }
         hasAppliedDefaultSiteScope = true
-        siteScope = ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: hasLoggedActivities)
+        guard siteScope != desired else { return }
+        siteScope = desired
+        applyScopePresentation()
+    }
+
+    /// Instant All Sites paint from launch prewarm — only when All Sites is the preferred default.
+    @discardableResult
+    private func seedPinsFromSessionCacheIfNeeded() -> Bool {
+        guard displayedPlottableSites.isEmpty else { return true }
+        if scopeCache != .empty {
+            applyScopePresentation()
+            if !displayedPlottableSites.isEmpty { return true }
+        }
+        guard let warm = ExploreSiteScopeSessionCache.cachedReferenceSnapshot() else {
+            return false
+        }
+        scopeCache = warm
+        guard ExploreScopeCacheRebuildPresentation.shouldPaintAllSitesSessionSeed(
+            prefersLogbookDefault: prefersLogbookDefault
+        ) else {
+            ExplorePinsDiagnostics.note(
+                "session cache held for My Sites default allSites=\(warm.allSitesPlottableSites.count)"
+            )
+            return false
+        }
+        applyScopePresentation()
+        ExplorePinsDiagnostics.note(
+            "seed from session cache allSites=\(warm.allSitesPlottableSites.count) display=\(displayedPlottableSites.count)"
+        )
+        return !displayedPlottableSites.isEmpty
     }
 
     private func rebuildScopeCacheOnAppearIfNeeded() {
+        // Blank map is always a rebuild — do not trust a stale applied sync token while
+        // `displayedPlottableSites` is empty (idle-tab regressions left the map at sites=0).
+        if displayedPlottableSites.isEmpty {
+            if seedPinsFromSessionCacheIfNeeded() {
+                // Still refresh logbook/visited tint in the background.
+                scheduleScopeCacheRebuild()
+                return
+            }
+            scheduleScopeCacheRebuild()
+            return
+        }
         let token = scopeCacheSyncToken
         guard ExploreScopeCacheAppearPresentation.shouldRebuildScopeCacheOnAppear(
             isCacheEmpty: scopeCache == .empty,
             appliedSyncToken: appliedScopeCacheSyncToken,
             currentSyncToken: token
         ) else {
+            ExplorePinsDiagnostics.note(
+                "appear rebuild skipped cacheEmpty=\(scopeCache == .empty) display=\(displayedPlottableSites.count)"
+            )
             return
         }
         scheduleScopeCacheRebuild()
     }
 
+    private func applyOwnerDiveActivitiesFromBridge(_ activities: [DiveActivity]) {
+        ownerDiveActivities = activities
+        // Never clear the latch on a transient empty delivery — that re-defaults to All Sites.
+        if !activities.isEmpty {
+            latchedHasLoggedActivities = true
+        }
+        let wasFirstSnapshot = !hasReceivedLiveDiveSnapshot
+        hasReceivedLiveDiveSnapshot = true
+        if RootTabOwnerDiveQueryPresentation.shouldPublishOwnerDiveIndex(
+            isTabSelected: isExploreTabSelected,
+            activityCount: activities.count
+        ), let profileID = accountSession.currentProfile?.id ?? ownerProfileID {
+            OwnerDiveIndexSessionCache.publish(
+                activities: activities,
+                ownerProfileID: profileID
+            )
+        }
+        if wasFirstSnapshot {
+            scheduleScopeCacheRebuild()
+            applyDefaultSiteScopeIfNeeded()
+        } else {
+            applyPreferredSiteScope(hasLoggedActivities: !activities.isEmpty)
+        }
+    }
+
+    /// Always builds off the main actor — synchronous `make()` of ~3k ODM sites on main
+    /// can watchdog-kill launch when Explore mounts early.
     private func scheduleScopeCacheRebuild() {
+        guard isExploreTabSelected else {
+            ExplorePinsDiagnostics.note("rebuild skipped — Explore not selected")
+            return
+        }
         let profileID = accountSession.currentProfile?.id
         let catalog = diveSites
         let userSites = userDiveSites
         let activities = ownerDiveActivitiesForScope
+        let logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
+            ownerActivities: activities,
+            ownerProfileID: profileID
+        )
         let syncToken = scopeCacheSyncToken
         scopeCacheRebuildTask?.cancel()
 
         if scopeCache == .empty {
-            scopeCache = ExploreSiteScopeCache.make(
-                ownerProfileID: profileID,
-                catalog: catalog,
-                userSites: userSites,
-                ownerActivities: activities
-            )
-            appliedScopeCacheSyncToken = syncToken
-            if let profileID {
-                OwnerDiveIndexSessionCache.publish(
-                    activities: activities,
-                    ownerProfileID: profileID
-                )
-            }
-            applyScopePresentation()
-            return
+            ExplorePinsDiagnostics.resetSession()
         }
+        ExplorePinsDiagnostics.note(
+            "rebuild start cacheEmpty=\(scopeCache == .empty) catalog=\(catalog.count) userSites=\(userSites.count) logbookIDs=\(logbookSiteIDs.count)"
+        )
 
         scopeCacheRebuildTask = Task(priority: .userInitiated) {
-            let snapshot = ExploreSiteScopeCache.make(
-                ownerProfileID: profileID,
+            // Reference-only off-main (Sendable). SwiftData catalog/user sites stay on main.
+            let referenceSnapshot = await Task.detached(priority: .userInitiated) {
+                ExploreSiteScopeCache.make(
+                    catalog: [],
+                    userSites: [],
+                    logbookSiteIDs: logbookSiteIDs
+                )
+            }.value
+            guard !Task.isCancelled else {
+                ExplorePinsDiagnostics.note("rebuild cancelled after reference")
+                return
+            }
+            scopeCache = referenceSnapshot
+            ExploreSiteScopeSessionCache.storeReferenceSnapshot(referenceSnapshot)
+            applyScopePresentation()
+            ExplorePinsDiagnostics.note(
+                "rebuild reference allSites=\(referenceSnapshot.allSitesPlottableSites.count) display=\(displayedPlottableSites.count)"
+            )
+
+            let fullSnapshot = ExploreSiteScopeCache.make(
                 catalog: catalog,
                 userSites: userSites,
-                ownerActivities: activities
+                logbookSiteIDs: logbookSiteIDs
             )
-            guard !Task.isCancelled else { return }
-            scopeCache = snapshot
+            guard !Task.isCancelled else {
+                ExplorePinsDiagnostics.note("rebuild cancelled before full apply")
+                return
+            }
+            scopeCache = fullSnapshot
+            ExploreSiteScopeSessionCache.storeReferenceSnapshot(fullSnapshot)
             appliedScopeCacheSyncToken = syncToken
             if let profileID {
                 OwnerDiveIndexSessionCache.publish(
@@ -475,12 +656,69 @@ struct ExploreView: View {
                 )
             }
             applyScopePresentation()
+            applyDefaultSiteScopeIfNeeded()
+            ExplorePinsDiagnostics.note(
+                "rebuild done allSites=\(fullSnapshot.allSitesPlottableSites.count) logbook=\(fullSnapshot.logbookPlottableSites.count) display=\(displayedPlottableSites.count) scope=\(siteScope)"
+            )
         }
     }
 
     private func applyScopePresentation() {
-        displayedPlottableSites = scopeCache.plottableSites(for: siteScope)
+        // Never publish pins from an uninitialized cache (map wipe).
+        guard ExploreScopeCacheRebuildPresentation.shouldApplyScopePresentation(
+            isCacheEmpty: scopeCache == .empty
+        ) else {
+            ExplorePinsDiagnostics.note("apply skipped — cache empty")
+            return
+        }
+        let scopedSites = scopeCache.plottableSites(for: siteScope)
+        let decision = ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+            siteScope: siteScope,
+            scopedSitesCount: scopedSites.count,
+            allSitesCount: scopeCache.allSitesPlottableSites.count,
+            currentlyDisplayingSites: !displayedPlottableSites.isEmpty,
+            prefersLogbookDefault: prefersLogbookDefault
+        )
+        switch decision {
+        case .keepWaitingForLogbook:
+            ExplorePinsDiagnostics.note("apply waiting for My Sites pins")
+            scheduleDisplayedListRowsRefresh(immediate: true)
+            return
+        case .keepCurrentDisplay:
+            ExplorePinsDiagnostics.note(
+                "apply keepCurrent scoped=0 all=\(scopeCache.allSitesPlottableSites.count)"
+            )
+            scheduleDisplayedListRowsRefresh(immediate: true)
+            return
+        case .useAllSitesFallback:
+            guard ExploreScopeCacheRebuildPresentation.shouldFallbackToAllSitesWhileLogbookEmpty(
+                prefersLogbookDefault: prefersLogbookDefault
+            ) else {
+                ExplorePinsDiagnostics.note("apply skip All Sites fallback — prefer My Sites")
+                scheduleDisplayedListRowsRefresh(immediate: true)
+                return
+            }
+            displayedPlottableSites = scopeCache.allSitesPlottableSites
+            displayedPlottableSignature = scopeCache.allSitesPlottableSignature
+            if siteScope != .allSites {
+                siteScope = .allSites
+            }
+            ExplorePinsDiagnostics.note(
+                "apply fallback allSites=\(displayedPlottableSites.count)"
+            )
+            scheduleDisplayedListRowsRefresh(immediate: true)
+            return
+        case .useScopedSites:
+            break
+        }
+        displayedPlottableSites = scopedSites
         displayedPlottableSignature = scopeCache.plottableSignature(for: siteScope)
+        if siteScope == .logbook, !scopedSites.isEmpty {
+            hasAppliedDefaultSiteScope = true
+        }
+        ExplorePinsDiagnostics.note(
+            "apply display=\(scopedSites.count) scope=\(siteScope)"
+        )
         scheduleDisplayedListRowsRefresh(immediate: true)
     }
 

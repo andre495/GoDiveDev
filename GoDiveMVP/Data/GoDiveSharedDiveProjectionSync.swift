@@ -114,7 +114,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
 
         for dive in dives {
-            ensureProfileTrackBlob(for: dive, modelContext: modelContext)
+            await ensureProfileTrackBlob(for: dive, modelContext: modelContext)
         }
 
         for dive in dives {
@@ -134,7 +134,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         let snorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
         for snorkel in snorkels {
-            ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
+            await ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
         }
         for snorkel in snorkels {
             if ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel, userDefaults: userDefaults) {
@@ -190,7 +190,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             await GoDiveSharedMediaUpload.clearActivityMedia(ownerUID: uid, activityID: dive.id)
         }
 
-        let snapshot = makeSnapshot(
+        let snapshot = await makeSnapshot(
             from: dive,
             mediaItems: mediaItems,
             modelContext: modelContext
@@ -293,7 +293,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             await GoDiveSharedMediaUpload.clearActivityMedia(ownerUID: uid, activityID: snorkel.id)
         }
 
-        let snapshot = makeSnorkelSnapshot(
+        let snapshot = await makeSnorkelSnapshot(
             from: snorkel,
             mediaItems: mediaItems,
             modelContext: modelContext
@@ -409,7 +409,9 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     }
 
     @MainActor
-    static func fetchBuddyFeedSnapshot() async -> (
+    static func fetchBuddyFeedSnapshot(
+        modelContext: ModelContext? = nil
+    ) async -> (
         friends: [GoDiveFriendGraphService.FriendEdge],
         rows: [LogbookBuddyFeedPresentation.Row]
     ) {
@@ -431,6 +433,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             for friend in friends {
                 let friendUID = friend.friendUID
                 group.addTask {
+                    // Catalog resolve happens once below after merge (not per-friend).
                     let dives = await fetchFriendSharedDives(friendUID: friendUID)
                     return (friendUID, dives)
                 }
@@ -444,13 +447,24 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             divesByFriendUID: divesByFriendUID
         )
         let likedRowIDs = await GoDiveSharedActivityLikeSync.likedRowIDsForCurrentUser(among: baseRows)
-        let rows = LogbookBuddyFeedPresentation.enrichingRows(baseRows, likedRowIDs: likedRowIDs)
+        let likedRows = LogbookBuddyFeedPresentation.enrichingRows(baseRows, likedRowIDs: likedRowIDs)
+        let commonNameByUUID = modelContext.map {
+            MarineLifeSpeciesResolver.commonNameByUUID(modelContext: $0)
+        } ?? [:]
+        let scientificNameByUUID = modelContext.map {
+            MarineLifeSpeciesResolver.scientificNameByUUID(modelContext: $0)
+        } ?? [:]
+        let rows = LogbookBuddyFeedPresentation.resolvingSightingDisplayNames(
+            rows: likedRows,
+            commonNameByUUID: commonNameByUUID,
+            scientificNameByUUID: scientificNameByUUID
+        )
         return (friends, rows)
     }
 
     @MainActor
-    static func fetchBuddyFeedRows() async -> [LogbookBuddyFeedPresentation.Row] {
-        await fetchBuddyFeedSnapshot().rows
+    static func fetchBuddyFeedRows(modelContext: ModelContext? = nil) async -> [LogbookBuddyFeedPresentation.Row] {
+        await fetchBuddyFeedSnapshot(modelContext: modelContext).rows
     }
 
     nonisolated static func fetchFriendSharedDive(
@@ -506,12 +520,37 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         }
     }
 
+    /// Resolves slug sighting names using the viewer’s local Field Guide catalog.
+    @MainActor
+    static func resolvingSightingDisplayNames(
+        _ dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        modelContext: ModelContext
+    ) -> GoDiveSharedDiveProjectionMapping.FriendVisibleDive {
+        GoDiveSharedDiveProjectionMapping.withResolvedSightingNames(
+            dive,
+            commonNameByUUID: MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext),
+            scientificNameByUUID: MarineLifeSpeciesResolver.scientificNameByUUID(modelContext: modelContext)
+        )
+    }
+
+    @MainActor
+    static func resolvingSightingDisplayNames(
+        _ dives: [GoDiveSharedDiveProjectionMapping.FriendVisibleDive],
+        modelContext: ModelContext
+    ) -> [GoDiveSharedDiveProjectionMapping.FriendVisibleDive] {
+        GoDiveSharedDiveProjectionMapping.withResolvedSightingNames(
+            dives,
+            commonNameByUUID: MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext),
+            scientificNameByUUID: MarineLifeSpeciesResolver.scientificNameByUUID(modelContext: modelContext)
+        )
+    }
+
     @MainActor
     private static func makeSnapshot(
         from dive: DiveActivity,
         mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot],
         modelContext: ModelContext
-    ) -> GoDiveSharedDiveProjectionMapping.DiveSnapshot {
+    ) async -> GoDiveSharedDiveProjectionMapping.DiveSnapshot {
         let tagNames = dive.activityTags.map(\.name).filter { !$0.isEmpty }
         let buddies: [GoDiveSharedDiveProjectionMapping.TaggedBuddySnapshot] = dive.buddies.compactMap { tag in
             guard let buddy = tag.buddy else { return nil }
@@ -519,14 +558,13 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             guard !name.isEmpty else { return nil }
             return .init(displayName: name, firebaseUID: buddy.linkedFirebaseUID)
         }
-        let sightings: [GoDiveSharedDiveProjectionMapping.SightingSnapshot] = dive.marineLifeSightings.map { sighting in
-            let catalogID = sighting.marineLifeUUID.trimmingCharacters(in: .whitespacesAndNewlines)
-            return .init(
-                commonName: catalogID.isEmpty ? "Species" : catalogID,
-                scientificName: nil,
-                catalogUUID: catalogID.isEmpty ? nil : catalogID
-            )
-        }
+        let commonNameByUUID = MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext)
+        let scientificNameByUUID = MarineLifeSpeciesResolver.scientificNameByUUID(modelContext: modelContext)
+        let sightings = GoDiveSharedDiveProjectionMapping.sightingSnapshotsForShare(
+            marineLifeUUIDs: dive.marineLifeSightings.map(\.marineLifeUUID),
+            commonNameByUUID: commonNameByUUID,
+            scientificNameByUUID: scientificNameByUUID
+        )
         let equipment = dive.equipmentList?.entries.compactMap { entry -> String? in
             guard let item = entry.equipment else { return nil }
             let manufacturer = item.manufacturer.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -586,7 +624,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             sightings: sightings,
             taggedBuddies: buddies,
             equipmentSummary: equipment,
-            profileTrackData: resolvedProfileTrackData(for: dive, modelContext: modelContext),
+            profileTrackData: await resolvedProfileTrackData(for: dive, modelContext: modelContext),
             swimTrackData: nil,
             mediaItems: mediaItems,
             mediaBuddyTags: mediaBuddyTags,
@@ -600,7 +638,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         from snorkel: SnorkelActivity,
         mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot],
         modelContext: ModelContext
-    ) -> GoDiveSharedDiveProjectionMapping.DiveSnapshot {
+    ) async -> GoDiveSharedDiveProjectionMapping.DiveSnapshot {
         let place = regionCountryFields(
             linkedSite: snorkel.resolvedLinkedSite,
             locationName: snorkel.locationName
@@ -609,6 +647,13 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         let mediaBuddyTags = projectionMediaBuddyTags(
             from: snorkel.mediaBuddyTags,
             sharedMediaIDs: sharedMediaIDs
+        )
+        let commonNameByUUID = MarineLifeSpeciesResolver.commonNameByUUID(modelContext: modelContext)
+        let scientificNameByUUID = MarineLifeSpeciesResolver.scientificNameByUUID(modelContext: modelContext)
+        let sightings = GoDiveSharedDiveProjectionMapping.sightingSnapshotsForShare(
+            marineLifeUUIDs: snorkel.marineLifeSightings.map(\.marineLifeUUID),
+            commonNameByUUID: commonNameByUUID,
+            scientificNameByUUID: scientificNameByUUID
         )
 
         return GoDiveSharedDiveProjectionMapping.DiveSnapshot(
@@ -649,11 +694,11 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             avgSAC: nil,
             avgRMV: nil,
             activityTagNames: [],
-            sightings: [],
+            sightings: sightings,
             taggedBuddies: [],
             equipmentSummary: [],
             profileTrackData: nil,
-            swimTrackData: resolvedSwimTrackData(for: snorkel, modelContext: modelContext),
+            swimTrackData: await resolvedSwimTrackData(for: snorkel, modelContext: modelContext),
             mediaItems: mediaItems,
             mediaBuddyTags: mediaBuddyTags,
             mediaPreviews: [],
@@ -661,51 +706,83 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         )
     }
 
+    /// Loads SwiftData samples on the main actor, then LZFSE-encodes off-main.
     @MainActor
     private static func ensureProfileTrackBlob(
         for dive: DiveActivity,
         modelContext: ModelContext
-    ) {
-        let hadTrack = !(dive.profileTrackData?.isEmpty ?? true)
-        guard let encoded = try? DiveProfilePointStore.profileTrackDataForSharing(
-            activity: dive,
-            modelContext: modelContext
-        ), !encoded.isEmpty else { return }
-        if !hadTrack {
-            try? modelContext.save()
+    ) async {
+        if let existing = dive.profileTrackData, !existing.isEmpty {
+            return
         }
+        do {
+            try DiveProfilePointStore.ensurePointsLoaded(for: dive, modelContext: modelContext)
+            if dive.profilePoints.isEmpty {
+                dive.profilePoints = try DiveProfilePointStore.fetchPoints(
+                    for: dive.id,
+                    modelContext: modelContext
+                )
+            }
+        } catch {
+            return
+        }
+        guard !dive.profilePoints.isEmpty else { return }
+        let samples = dive.profilePoints.map(DiveProfileTrackSample.init)
+        let startTime = dive.startTime
+        let encoded = await Task.detached(priority: .utility) {
+            try? DiveProfileTrackCodec.encode(samples: samples, diveStartTime: startTime)
+        }.value
+        guard let encoded, !encoded.isEmpty else { return }
+        dive.profileTrackData = encoded
+        try? modelContext.save()
     }
 
     @MainActor
     private static func resolvedProfileTrackData(
         for dive: DiveActivity,
         modelContext: ModelContext
-    ) -> Data? {
-        ensureProfileTrackBlob(for: dive, modelContext: modelContext)
+    ) async -> Data? {
+        await ensureProfileTrackBlob(for: dive, modelContext: modelContext)
         return dive.profileTrackData
     }
 
+    /// Loads SwiftData samples on the main actor, then LZFSE-encodes off-main.
     @MainActor
     private static func ensureSwimTrackBlob(
         for snorkel: SnorkelActivity,
         modelContext: ModelContext
-    ) {
-        let hadTrack = !(snorkel.swimTrackData?.isEmpty ?? true)
-        guard let encoded = try? SnorkelProfilePointStore.swimTrackDataForSharing(
-            activity: snorkel,
-            modelContext: modelContext
-        ), !encoded.isEmpty else { return }
-        if !hadTrack {
-            try? modelContext.save()
+    ) async {
+        if let existing = snorkel.swimTrackData, !existing.isEmpty {
+            return
         }
+        do {
+            try SnorkelProfilePointStore.ensurePointsLoaded(for: snorkel, modelContext: modelContext)
+            if snorkel.profilePoints.isEmpty {
+                snorkel.profilePoints = try SnorkelProfilePointStore.fetchPoints(
+                    for: snorkel.id,
+                    modelContext: modelContext
+                )
+            }
+        } catch {
+            return
+        }
+        guard !snorkel.profilePoints.isEmpty else { return }
+        let samples = snorkel.profilePoints.map(SnorkelSwimTrackSample.init)
+        let startTime = snorkel.startTime
+        let encoded = await Task.detached(priority: .utility) {
+            try? SnorkelSwimTrackCodec.encode(samples: samples, activityStartTime: startTime)
+        }.value
+        guard let encoded, !encoded.isEmpty else { return }
+        snorkel.swimTrackData = encoded
+        try? modelContext.save()
     }
 
     @MainActor
     private static func resolvedSwimTrackData(
         for snorkel: SnorkelActivity,
         modelContext: ModelContext
-    ) -> Data? {
-        ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
+    ) async -> Data? {
+        await ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
         return snorkel.swimTrackData
     }
 

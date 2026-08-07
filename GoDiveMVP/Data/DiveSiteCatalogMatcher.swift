@@ -26,6 +26,23 @@ enum DiveSiteReferenceCatalog: Sendable {
     private nonisolated(unsafe) static var cachedSnapshotsByID: [String: DiveSiteReferenceSnapshot]?
     private nonisolated static let cacheLock = NSLock()
 
+    /// Warms the in-memory dive-site reference cache (disk / bundle decode) off the caller's actor.
+    nonisolated static func prewarmBundledReference(
+        bundle: Bundle = .main,
+        resourceExtension: String = "json",
+        fileManager: FileManager = .default
+    ) {
+        _ = bundledReference(
+            bundle: bundle,
+            resourceExtension: resourceExtension,
+            fileManager: fileManager
+        )
+        _ = bundledReferenceByID(
+            bundle: bundle,
+            resourceExtension: resourceExtension
+        )
+    }
+
     nonisolated static func bundledReference(
         bundle: Bundle = .main,
         resourceExtension: String = "json",

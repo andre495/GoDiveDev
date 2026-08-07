@@ -46,6 +46,48 @@ enum MarineLifeSpeciesResolver {
         let name = catalogByUUID[uuid]?.commonName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return name.isEmpty ? nil : name
     }
+
+    /// Catalog + user-created common names keyed by species UUID (for friend-share resolve).
+    @MainActor
+    static func commonNameByUUID(modelContext: ModelContext) -> [String: String] {
+        var map: [String: String] = [:]
+        if let catalog = try? modelContext.fetch(FetchDescriptor<MarineLife>()) {
+            for species in catalog {
+                let name = species.commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !species.uuid.isEmpty, !name.isEmpty else { continue }
+                map[species.uuid] = name
+            }
+        }
+        if let user = try? modelContext.fetch(FetchDescriptor<UserMarineLife>()) {
+            for species in user {
+                let name = species.commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !species.uuid.isEmpty, !name.isEmpty else { continue }
+                map[species.uuid] = name
+            }
+        }
+        return map
+    }
+
+    /// Catalog + user-created scientific names keyed by species UUID.
+    @MainActor
+    static func scientificNameByUUID(modelContext: ModelContext) -> [String: String] {
+        var map: [String: String] = [:]
+        if let catalog = try? modelContext.fetch(FetchDescriptor<MarineLife>()) {
+            for species in catalog {
+                let name = species.scientificName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !species.uuid.isEmpty, !name.isEmpty else { continue }
+                map[species.uuid] = name
+            }
+        }
+        if let user = try? modelContext.fetch(FetchDescriptor<UserMarineLife>()) {
+            for species in user {
+                let name = species.scientificName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !species.uuid.isEmpty, !name.isEmpty else { continue }
+                map[species.uuid] = name
+            }
+        }
+        return map
+    }
 }
 
 /// ID-only resolution for catalog **`DiveSite`** and user **`UserDiveSite`** rows.

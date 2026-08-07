@@ -72,10 +72,11 @@ enum DiveBuddyDetailContentPagerPresentation: Sendable {
     }
 
     /// Pinned page titles sit above scrollable body content on every pager page.
-    nonisolated static let pinnedPageHeaderBottomSpacing: CGFloat = AppTheme.Spacing.md
+    nonisolated static let pinnedPageHeaderBottomSpacing: CGFloat =
+        BlueSheetDetailPagerPresentation.pinnedPageHeaderBottomSpacing
 
-    /// Buddy pager omits visible page headers; titles remain for accessibility labels.
-    nonisolated static let showsPinnedPageHeaders = false
+    /// Content-area titles are pinned above the scroll/static body via **`BlueSheetDetailPager`**.
+    nonisolated static let showsPinnedPageHeaders = true
 
     /// In-page title above each page’s body (pager dots keep shorter **`pageTitle`** labels).
     nonisolated static func pageSubtitle(for page: DiveBuddyDetailContentPage) -> String {

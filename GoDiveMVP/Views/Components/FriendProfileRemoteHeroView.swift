@@ -23,25 +23,35 @@ struct FriendProfileRemoteHeroView: View {
                 emptyPlaceholder
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+        // `scaledToFill` / `AVPlayerLayer` paint past the proposed frame — match Buddy Feed /
+        // equipment heroes so remote profile media cannot blow out the blue-sheet seam.
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+        .compositingGroup()
+        .modifier(
+            FriendProfileHeroClipModifier(enabled: FriendProfilePresentation.clipsOverflowingHeroMedia)
+        )
     }
 
     @ViewBuilder
     private func remoteImage(url: URL) -> some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFill()
-            case .failure:
-                emptyPlaceholder
-            default:
-                GoDiveRotateLoadingIndicator()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.Colors.surfaceMuted.opacity(0.35))
+        GeometryReader { proxy in
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                case .failure:
+                    emptyPlaceholder
+                default:
+                    GoDiveRotateLoadingIndicator()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(AppTheme.Colors.surfaceMuted.opacity(0.35))
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 
@@ -51,6 +61,18 @@ struct FriendProfileRemoteHeroView: View {
             Image(systemName: "person.crop.circle.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(AppTheme.Colors.secondaryText.opacity(0.55))
+        }
+    }
+}
+
+private struct FriendProfileHeroClipModifier: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.clipped()
+        } else {
+            content
         }
     }
 }
@@ -121,6 +143,17 @@ private final class FriendProfileRemoteVideoUIView: UIView {
     override static var layerClass: AnyClass { AVPlayerLayer.self }
 
     private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        clipsToBounds = true
+        playerLayer.videoGravity = .resizeAspectFill
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
 
     var player: AVPlayer? {
         didSet {

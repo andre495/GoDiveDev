@@ -34,10 +34,10 @@ enum TripShareGoogleStaticMapPresentation: Sendable {
             .joined(separator: "|")
         queryItems.append(URLQueryItem(name: "visible", value: visible))
 
-        for kind in [TripDetailMapPinKind.planned, .completed] {
-            let group = pins.filter { $0.kind == kind }
+        let bluePins = pins.filter { $0.kind == .planned || $0.kind == .friendShared }
+        let redPins = pins.filter { $0.kind == .completed || $0.kind == .friendTogether }
+        for (color, group) in [("blue", bluePins), ("red", redPins)] {
             guard !group.isEmpty else { continue }
-            let color = kind == .planned ? "blue" : "red"
             let coordinates = group.map { formattedCoordinate($0.coordinate) }.joined(separator: "|")
             queryItems.append(URLQueryItem(name: "markers", value: "color:\(color)|\(coordinates)"))
         }

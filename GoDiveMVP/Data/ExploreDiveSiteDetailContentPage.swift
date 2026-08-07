@@ -92,7 +92,8 @@ enum ExploreDiveSiteDetailContentPagerPresentation: Sendable {
         .top
     }
 
-    nonisolated static let showsPinnedPageHeaders = false
+    /// Content-area titles are pinned above the scroll/static body via **`BlueSheetDetailPager`**.
+    nonisolated static let showsPinnedPageHeaders = true
 
     /// In-page title above each page’s body (pager dots keep shorter **`pageTitle`** labels).
     nonisolated static func pageSubtitle(for page: ExploreDiveSiteDetailContentPage) -> String {

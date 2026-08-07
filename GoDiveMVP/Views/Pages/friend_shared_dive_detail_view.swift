@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Read-only friend activity detail — same map / tank (or heart rate) / media shell as owned dives & snorkels.
@@ -10,7 +11,10 @@ struct FriendSharedDiveDetailView: View {
     var opensCommentsOnAppear: Bool = false
     /// Buddy Feed “with” avatar tap: expand Map and scroll to tagged buddies.
     var scrollToTaggedBuddiesOnAppear: Bool = false
+    /// Buddy avatar/name in overview chrome → friend profile (Logbook / Home stacks).
+    var onOpenFriendProfile: (() -> Void)? = nil
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @State private var mediaDive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     @State private var selectedDiveTab: DiveActivityTab = .map
@@ -57,7 +61,8 @@ struct FriendSharedDiveDetailView: View {
         friendPhotoURL: String? = nil,
         friendUID: String? = nil,
         opensCommentsOnAppear: Bool = false,
-        scrollToTaggedBuddiesOnAppear: Bool = false
+        scrollToTaggedBuddiesOnAppear: Bool = false,
+        onOpenFriendProfile: (() -> Void)? = nil
     ) {
         self.dive = dive
         self.friendName = friendName
@@ -65,6 +70,7 @@ struct FriendSharedDiveDetailView: View {
         self.friendUID = friendUID
         self.opensCommentsOnAppear = opensCommentsOnAppear
         self.scrollToTaggedBuddiesOnAppear = scrollToTaggedBuddiesOnAppear
+        self.onOpenFriendProfile = onOpenFriendProfile
         _mediaDive = State(initialValue: dive)
     }
 
@@ -77,13 +83,25 @@ struct FriendSharedDiveDetailView: View {
                 snorkelDetailPage
             }
         }
+        .task(id: dive.id) {
+            mediaDive = GoDiveSharedDiveProjectionSync.resolvingSightingDisplayNames(
+                mediaDive,
+                modelContext: modelContext
+            )
+        }
         .environment(\.diveOverviewPanelScrollRequest, panelScrollRequest)
         .hidesBottomTabBarWhenPushed()
         .accessibilityIdentifier("FriendSharedDiveDetail.Root")
         .fullScreenCover(isPresented: $isFriendSharedMediaFullscreenPresented) {
             FriendSharedMediaFullscreenView(
                 items: friendSharedMediaDisplayItems,
-                selectedMediaID: $selectedMediaPreviewID
+                diveByMediaID: FriendProfileSharedMediaListPresentation.diveByMediaID(
+                    from: [mediaDive]
+                ),
+                selectedMediaID: $selectedMediaPreviewID,
+                onOpenActivity: { _ in
+                    isFriendSharedMediaFullscreenPresented = false
+                }
             )
         }
         .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
@@ -149,7 +167,10 @@ struct FriendSharedDiveDetailView: View {
             friendUID: friendUID,
             diveDocumentID: dive.id
         ) else { return }
-        mediaDive = fresh
+        mediaDive = GoDiveSharedDiveProjectionSync.resolvingSightingDisplayNames(
+            fresh,
+            modelContext: modelContext
+        )
     }
 
     private var friendTankChartRefreshToken: String {
@@ -362,6 +383,7 @@ struct FriendSharedDiveDetailView: View {
                                     onOpenCommentsOnAppearConsumed: {
                                         didConsumeOpenCommentsOnAppear = true
                                     },
+                                    onOpenFriendProfile: onOpenFriendProfile,
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
@@ -370,6 +392,7 @@ struct FriendSharedDiveDetailView: View {
                                     dive: mediaDive,
                                     friendName: friendName,
                                     friendPhotoURL: friendPhotoURL,
+                                    onOpenFriendProfile: onOpenFriendProfile,
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
@@ -536,7 +559,8 @@ struct FriendSharedDiveDetailView: View {
             FriendSharedActivityIdentityHeader(
                 dive: dive,
                 friendName: friendName,
-                friendPhotoURL: friendPhotoURL
+                friendPhotoURL: friendPhotoURL,
+                onOpenFriendProfile: onOpenFriendProfile
             )
 
             HStack(spacing: AppTheme.Spacing.sm) {
@@ -858,6 +882,7 @@ struct FriendSharedDiveDetailView: View {
                                     onOpenCommentsOnAppearConsumed: {
                                         didConsumeOpenCommentsOnAppear = true
                                     },
+                                    onOpenFriendProfile: onOpenFriendProfile,
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
@@ -865,6 +890,7 @@ struct FriendSharedDiveDetailView: View {
                                 FriendSharedActivityHeartRatePanelContent(
                                     dive: mediaDive,
                                     friendName: friendName,
+                                    onOpenFriendProfile: onOpenFriendProfile,
                                     showsTaggedYou: showsTaggedYou,
                                     snorkelSnapshot: snorkelSnapshot,
                                     overviewSheetDetent: $overviewSheetDetent
@@ -1361,9 +1387,8 @@ private struct FriendSharedActivityMediaHeroPageView: View {
                         if item.kind == .video {
                             FriendSharedRemoteVideoPlayerView(
                                 item: item,
-                                isPlaybackActive: isVideoPlaybackActive
-                                    && !isPausedByUserHold
-                                    && !isPausedByUserHoldFromParent,
+                                isPlaybackActive: isVideoPlaybackActive,
+                                isPausedByUserHold: isPausedByUserHold || isPausedByUserHoldFromParent,
                                 onDisplayedImageAspectChange: { aspect in
                                     resolvedMediaAspect = aspect
                                 }

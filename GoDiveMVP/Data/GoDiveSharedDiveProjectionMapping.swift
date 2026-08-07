@@ -44,6 +44,102 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var catalogUUID: String?
     }
 
+    /// True when a stored “name” is actually a catalog / user species UUID slug.
+    nonisolated static func looksLikeMarineLifeCatalogUUID(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("marine-life-")
+            || trimmed.hasPrefix("user-marine-life-")
+    }
+
+    /// Prefer local catalog common name for `catalogUUID` (or UUID-shaped stored name).
+    nonisolated static func resolvedSightingCommonName(
+        storedCommonName: String,
+        catalogUUID: String?,
+        commonNameByUUID: [String: String]
+    ) -> String {
+        let stored = storedCommonName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let uuid = catalogUUID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        for key in [uuid, stored] where !key.isEmpty {
+            if let name = commonNameByUUID[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !name.isEmpty {
+                return name
+            }
+        }
+        if !stored.isEmpty, !looksLikeMarineLifeCatalogUUID(stored) {
+            return stored
+        }
+        return "Species"
+    }
+
+    /// Build share/projection sighting rows from local sighting UUIDs + catalog maps.
+    nonisolated static func sightingSnapshotsForShare(
+        marineLifeUUIDs: [String],
+        commonNameByUUID: [String: String],
+        scientificNameByUUID: [String: String] = [:]
+    ) -> [SightingSnapshot] {
+        marineLifeUUIDs.compactMap { rawID in
+            let catalogID = rawID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !catalogID.isEmpty else { return nil }
+            let common = resolvedSightingCommonName(
+                storedCommonName: catalogID,
+                catalogUUID: catalogID,
+                commonNameByUUID: commonNameByUUID
+            )
+            let scientific = scientificNameByUUID[catalogID]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return SightingSnapshot(
+                commonName: common,
+                scientificName: (scientific?.isEmpty == false) ? scientific : nil,
+                catalogUUID: catalogID
+            )
+        }
+    }
+
+    /// Rewrites sighting display names (and scientific names when known) using the local catalog.
+    nonisolated static func withResolvedSightingNames(
+        _ dive: FriendVisibleDive,
+        commonNameByUUID: [String: String],
+        scientificNameByUUID: [String: String] = [:]
+    ) -> FriendVisibleDive {
+        guard !dive.sightings.isEmpty else { return dive }
+        var next = dive
+        next.sightings = dive.sightings.map { sighting in
+            let uuid = sighting.catalogUUID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let scientific: String? = {
+                if !uuid.isEmpty,
+                   let name = scientificNameByUUID[uuid]?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !name.isEmpty {
+                    return name
+                }
+                return sighting.scientificName
+            }()
+            return SightingSnapshot(
+                commonName: resolvedSightingCommonName(
+                    storedCommonName: sighting.commonName,
+                    catalogUUID: sighting.catalogUUID,
+                    commonNameByUUID: commonNameByUUID
+                ),
+                scientificName: scientific,
+                catalogUUID: sighting.catalogUUID
+            )
+        }
+        return next
+    }
+
+    nonisolated static func withResolvedSightingNames(
+        _ dives: [FriendVisibleDive],
+        commonNameByUUID: [String: String],
+        scientificNameByUUID: [String: String] = [:]
+    ) -> [FriendVisibleDive] {
+        dives.map {
+            withResolvedSightingNames(
+                $0,
+                commonNameByUUID: commonNameByUUID,
+                scientificNameByUUID: scientificNameByUUID
+            )
+        }
+    }
+
     struct MediaBuddyTagSnapshot: Equatable, Hashable, Sendable {
         var mediaID: String
         var displayName: String

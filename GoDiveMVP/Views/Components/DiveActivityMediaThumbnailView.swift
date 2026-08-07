@@ -48,8 +48,9 @@ struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
         .onAppear {
             GalleryMediaPhotoKit.seedSessionCacheIfNeeded(for: media)
             #if canImport(UIKit)
-            if thumbnailImage == nil, let stored = storedThumbnailImage {
-                thumbnailImage = stored
+            // Cache hit only — never JPEG-decode during scroll body evaluation.
+            if thumbnailImage == nil, let cached = GalleryMediaPhotoKit.cachedStoredPreviewImage(for: media) {
+                thumbnailImage = cached
             }
             #endif
         }
@@ -68,12 +69,12 @@ struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
     @ViewBuilder
     private var thumbnailContent: some View {
         #if canImport(UIKit)
-        if let displayedThumbnailImage {
-            Image(uiImage: displayedThumbnailImage)
+        if let thumbnailImage {
+            Image(uiImage: thumbnailImage)
                 .resizable()
                 .scaledToFill()
         } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
-            hasDisplayedImage: displayedThumbnailImage != nil,
+            hasDisplayedImage: thumbnailImage != nil,
             loadFinished: thumbnailLoadFinished
         ) {
             missingThumbnail
@@ -84,16 +85,6 @@ struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
         missingThumbnail
         #endif
     }
-
-    #if canImport(UIKit)
-    private var storedThumbnailImage: UIImage? {
-        GalleryMediaPhotoKit.storedPreviewImage(for: media)
-    }
-
-    private var displayedThumbnailImage: UIImage? {
-        thumbnailImage ?? storedThumbnailImage
-    }
-    #endif
 
     private var loadingThumbnail: some View {
         AppTheme.Colors.surfaceMuted.opacity(0.35)
@@ -111,7 +102,7 @@ struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
     private func loadThumbnailIfNeeded() async {
         #if canImport(Photos)
         GalleryMediaPhotoKit.seedSessionCacheIfNeeded(for: media)
-        if let stored = storedThumbnailImage {
+        if let stored = await GalleryMediaPhotoKit.loadStoredPreviewImage(for: media) {
             thumbnailImage = stored
             thumbnailLoadFinished = true
             if prefersStoredPreviewOnly {
@@ -134,7 +125,7 @@ struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
             }
             return
         }
-        if storedThumbnailImage == nil {
+        if thumbnailImage == nil {
             thumbnailLoadFinished = false
         }
         let requestSize = size > 0 ? size : LinkedMediaGridPresentation.gridThumbnailPointSize
@@ -151,7 +142,7 @@ struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
             GalleryMediaPhotoKit.persistPreview(from: image, on: media, modelContext: modelContext)
             _ = GalleryMediaPhotoKit.captureCloudIdentifierIfNeeded(for: media)
             try? modelContext.save()
-        } else if thumbnailImage == nil, storedThumbnailImage == nil {
+        } else if thumbnailImage == nil {
             GalleryMediaPhotoKit.pruneIfAssetMissing(media, modelContext: modelContext)
         }
         thumbnailLoadFinished = true

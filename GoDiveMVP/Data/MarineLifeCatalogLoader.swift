@@ -30,6 +30,40 @@ enum MarineLifeCatalogLoader: Sendable {
         }.value
     }
 
+    /// Thin name map for a small owner-tagged UUID set (Home launch Top Species — not the full catalog).
+    nonisolated static func fetchCommonNameByUUID(
+        uuids: Set<String>,
+        container: ModelContainer
+    ) async -> [String: String] {
+        guard !uuids.isEmpty else { return [:] }
+        let uuidList = Array(uuids)
+        return await Task.detached(priority: .userInitiated) {
+            let context = ModelContext(container)
+            var map: [String: String] = [:]
+            map.reserveCapacity(uuidList.count)
+            let catalogDescriptor = FetchDescriptor<MarineLife>(
+                predicate: #Predicate<MarineLife> { uuidList.contains($0.uuid) }
+            )
+            for row in (try? context.fetch(catalogDescriptor)) ?? [] {
+                let name = row.commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !row.uuid.isEmpty, !name.isEmpty else { continue }
+                map[row.uuid] = name
+            }
+            let missing = uuidList.filter { map[$0] == nil }
+            if !missing.isEmpty {
+                let userDescriptor = FetchDescriptor<UserMarineLife>(
+                    predicate: #Predicate<UserMarineLife> { missing.contains($0.uuid) }
+                )
+                for row in (try? context.fetch(userDescriptor)) ?? [] {
+                    let name = row.commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !row.uuid.isEmpty, !name.isEmpty else { continue }
+                    map[row.uuid] = name
+                }
+            }
+            return map
+        }.value
+    }
+
     @MainActor
     static func bindModels(
         persistentIDs: [PersistentIdentifier],
@@ -50,6 +84,35 @@ enum MarineLifeCatalogLoader: Sendable {
             predicate: #Predicate<MarineLife> { uuidList.contains($0.uuid) }
         )
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    /// Sync thin name map for owner-tagged UUIDs (catalog + user species) — Home launch first paint.
+    @MainActor
+    static func commonNameByUUID(
+        uuids: Set<String>,
+        modelContext: ModelContext
+    ) -> [String: String] {
+        guard !uuids.isEmpty else { return [:] }
+        var map: [String: String] = [:]
+        map.reserveCapacity(uuids.count)
+        for row in bindModels(uuids: uuids, modelContext: modelContext) {
+            let name = row.commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !row.uuid.isEmpty, !name.isEmpty else { continue }
+            map[row.uuid] = name
+        }
+        let missing = uuids.filter { map[$0] == nil }
+        if !missing.isEmpty {
+            let uuidList = Array(missing)
+            let descriptor = FetchDescriptor<UserMarineLife>(
+                predicate: #Predicate<UserMarineLife> { uuidList.contains($0.uuid) }
+            )
+            for row in (try? modelContext.fetch(descriptor)) ?? [] {
+                let name = row.commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !row.uuid.isEmpty, !name.isEmpty else { continue }
+                map[row.uuid] = name
+            }
+        }
+        return map
     }
 
     @MainActor

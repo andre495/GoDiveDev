@@ -36,14 +36,16 @@ struct LogbookRowMediaPreviewView: View {
                     media: diveMedia,
                     size: resolvedExtent,
                     cornerRadius: DiveActivityMediaPresentation.logbookRowMediaPreviewCornerRadius,
-                    showsPlayBadge: true
+                    showsPlayBadge: true,
+                    prefersStoredPreviewOnly: true
                 )
             } else if let snorkelMedia {
                 SnorkelActivityMediaThumbnailView(
                     media: snorkelMedia,
                     size: resolvedExtent,
                     cornerRadius: DiveActivityMediaPresentation.logbookRowMediaPreviewCornerRadius,
-                    showsPlayBadge: true
+                    showsPlayBadge: true,
+                    prefersStoredPreviewOnly: true
                 )
             } else {
                 logbookRowMediaPlaceholder
