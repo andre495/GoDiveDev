@@ -4306,6 +4306,12 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`docs/privacy-and-data.md`** — Buddies path; likes/comments/@mentions; community sightings (default on); Last updated Aug 7, 2026.
 - **`docs/acknowledgments.md`** — Firebase row matches live friends + optional community contributions.
 
-## 136 - Next batch
+## 136 - Acknowledgments trim **(pushed)**
+
+**Summary:** Docs — drop Unsplash and Wix credits from Acknowledgments Pages.
+
+- **`docs/acknowledgments.md`** — remove Unsplash onboarding photo row; remove Marketing website / Wix section.
+
+## 137 - Next batch
 
 

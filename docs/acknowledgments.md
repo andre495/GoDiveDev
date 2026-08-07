@@ -35,7 +35,6 @@ Sites you create manually or from import-only names are stored locally on your d
 |--------|----------|
 | **[Garmin FIT SDK](https://github.com/garmin/fit-swift-sdk)** (Garmin) | Reading **`.fit`** files from supported Garmin dive computers |
 | **Garmin product photography** ([Garmin](https://www.garmin.com/)) | Onboarding **Monitor equipment** micro-demo hero and list thumbnail (**Descent™ Mk3i** product image, bundled under **`Resources/OnboardingPhotos/`**) |
-| **[Unsplash](https://unsplash.com/)** | Onboarding **Share experiences** micro-demo trip hero — tropical beach photograph ([license](https://unsplash.com/license)) |
 | **[UDDF 3.2](https://www.standardsproject.org/)** (Universal Dive Data Format) | Reading **`.uddf`** exports (e.g. MacDive, Subsurface, and other UDDF-compatible apps) |
 
 GoDive maps imported fields into its own dive model; vendor-specific field names are not stored as-is.
@@ -58,14 +57,6 @@ These require network access and (for some) developer configuration in the app b
 | **Apple CloudKit** | Syncs your **dive log** across your Apple devices (private iCloud database). Optional **Share crash reports** / **Share diagnostic events** uploads technical diagnostics to the developer via CloudKit’s public database. |
 | **[Firebase](https://firebase.google.com/)** (Auth, Firestore, Storage; optional Hosting) | **Social directory** and **Friends** (display name, activity interests, optional profile photo; invite/friendship records; friend-visible dive/snorkel projections with opt-in notes/media; likes, comments, and `@mentions` on shared activities). Optional **anonymized community sightings** / SiteReports when Contribute sightings is on. Optional **catalog CDN** refresh for Marine Life and dive-site reference data. **Does not store your private dive log.** |
 | **[Fishial.AI](https://fishial.ai/)** | Optional **Identify fish** on dive media — one cropped JPEG per request, plus optional dive coordinates in a header ([API terms](https://docs.fishial.ai/api)) |
-
-## Marketing website
-
-| Source | Used for |
-|--------|----------|
-| **[Wix](https://www.wix.com/)** (Premium) | Public product landing page for GoDive (site project **GoDive** / GoDive iOS), served at **[godiveios.com](https://godiveios.com)** with the domain registered at GoDaddy and connected to Wix |
-
-The iPhone app does not embed or require Wix. The user guide remains on [GitHub Pages](https://andre495.github.io/GoDiveDev/), including a public [marine life ontology](ontology/) section (vocabulary docs + static graph visualizer).
 
 ## Apple platform services
 
