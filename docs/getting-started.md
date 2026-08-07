@@ -57,7 +57,7 @@ When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDi
 - If Apple provides your name once, GoDive uses it for your display name.
 - Otherwise your name starts as **Diver** — you can change it anytime from **Profile** by tapping the blue **⋯** beside your name.
 - On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**) over Wi‑Fi or cellular, including in the background when iOS allows.
-- GoDive may also create a lightweight **Firebase** social profile (display name) for future friends features — that is separate from your dive log. See the [Privacy Policy](privacy-and-data.md).
+- GoDive may also create a lightweight **Firebase** social profile (display name, optional photo) used for [Friends](friends.md) — QR invites, Buddy Feed, and what you choose to share. That is separate from your private dive log. See the [Privacy Policy](privacy-and-data.md).
 
 ### First-time welcome
 
@@ -77,11 +77,11 @@ After a successful import, GoDive usually opens the new dive so you can review m
 
 ### Home
 
-Your dashboard shows rotating highlights from dive photos and four lifetime stat tiles (deepest, longest, top site, top species). Tap a tile to see a top-five list.
+Your dashboard shows rotating highlights from dive photos, four lifetime stat tiles (deepest, longest, top site, top species), and **Top buddies**. Tap a tile to see a top-ten list. The **bell** (top left) opens **Notifications** for buddy connections, shared activities, likes, comments, and mentions. See [Home](home.md).
 
 ### Logbook
 
-All dives and snorkels appear here, newest first. Use **+** to import or add an activity. To delete, open the activity → **⋯** → **Activity Settings** → **Delete dive** / **Delete snorkel**.
+Switch **Me** (your log) and **Buddies** (Buddy Feed of friends’ shared posts — likes, comments, and tagged “with” rows). On **Me**, all dives and snorkels appear newest first; use the filter for all / dives / snorkels. Use **+** to import or add an activity. To delete, open the activity → **⋯** → **Activity Settings** → **Delete dive** / **Delete snorkel**. See [Logbook](logbook.md) and [Friends](friends.md).
 
 ### Open a dive
 
@@ -91,7 +91,7 @@ Tap any dive to open **dive detail** with three tabs across the top:
 - **Tank** — gas, cylinder, depth profile  
 - **Media** — photos and videos from your library  
 
-Drag the bottom sheet up or down to change how much detail you see.
+Drag the bottom sheet up or down to change how much detail you see. When you have friends, a **Share with Buddies?** banner on Map lets you publish when you’re ready. See [Dive detail](dive-detail.md).
 
 ### Field Guide
 
@@ -103,7 +103,7 @@ Switch between **map** and **list** to browse dive sites. Toggle **My Sites** vs
 
 ### Search
 
-Tap the **Search** tab (magnifying glass). Pick a category tile or type to search dives, buddies, sites, species, tags, trips, gear, and certifications. **Sites** results match what you see under **Explore → All Sites**. See [Search](search.md).
+Tap the **Search** tab (magnifying glass). Pick a category tile or type to search dives, snorkels, buddies, sites, species, tags, trips, gear, and certifications. **Sites** results match what you see under **Explore → All Sites**. See [Search](search.md).
 
 ### Profile
 
@@ -113,7 +113,7 @@ From **Home**, tap your avatar (top of the screen) to open **Profile**:
 - Name and dive count beside your avatar  
 - Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies** or the dive-count / bottom-time summary line)  
 - Sheet **Details** page: DAN insurance number and featured certification (tap the cert to open it; **View all certifications** when you have more than one)  
-- Tap the blue **⋯** beside your name to **Edit Profile**. Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, and **Settings**. **Sign Out** is under **Settings → Advanced**.  
+- Tap the blue **⋯** beside your name to **Edit Profile**. Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, and **Settings**. **Buddies** is your local roster plus GoDive friends — use the **QR** button to invite. **Sign Out** is under **Settings → Advanced**.  
 - Change your photo by tapping the avatar on Profile
 
 ## Permissions GoDive may ask for

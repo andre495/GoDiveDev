@@ -64,6 +64,17 @@ On **Tag buddy**, **×** (upper left) or swipe the sheet down closes without sav
 
 If **Fishial** is configured in the app build, a **sparkles** control can suggest species from a cropped still (network required). Identify opens a full-height blue sheet (**Cancel**; **Continue** / **Identify** / **Done** as you move through scrub, crop, and confirm).
 
+## Sharing with buddies
+
+New activities stay **local only** until you publish them. If you have GoDive friends:
+
+- A bright blue **Share with Buddies?** banner sits just above the details sheet on **Map** (when the sheet is expanded). **Share** publishes to Buddy Feed; **Dismiss (×)** keeps the activity private. You can still share later from **Activity Settings**.
+- Tap **⋯** (top right) for **Activity Settings** — per-activity share, media, and private notes toggles, upload status, and **Delete dive** / **Delete snorkel** at the bottom.
+- After an activity is shared, the **Map** large detent shows the same **like** and **comment** row friends see (you can read and reply; you cannot like your own activity).
+- When editing **notes**, type **`@`** to mention a GoDive friend (autocomplete). Saving notes tags them on the activity if they are not already tagged.
+
+See [Friends](friends.md) for publishing details, Buddy Feed posts, and friend profiles.
+
 ## Tags (map tab)
 
 **Tags** are free-form labels on a dive (separate from marine life species tags). Tap a tag chip to open its detail page — a blue sheet with the same five pages as an active trip (**Overall stats**, **Dive activities**, **Marine life**, **Buddies**, **Media**) and a media/map toggle in the hero when tagged dives have site coordinates. Use **+** on the Tags section or the overview sheet to add, pick, or remove tags.

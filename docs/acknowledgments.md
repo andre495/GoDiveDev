@@ -56,7 +56,7 @@ These require network access and (for some) developer configuration in the app b
 | Source | Used for |
 |--------|----------|
 | **Apple CloudKit** | Syncs your **dive log** across your Apple devices (private iCloud database). Optional **Share crash reports** / **Share diagnostic events** uploads technical diagnostics to the developer via CloudKit’s public database. |
-| **[Firebase](https://firebase.google.com/)** (Auth, Firestore, Storage; optional Hosting) | **Social directory** for future friends features (display name, activity interests, optional profile photo after Sign in with Apple). Optional **catalog CDN** refresh for Marine Life and dive-site reference data. **Does not store your dive log.** |
+| **[Firebase](https://firebase.google.com/)** (Auth, Firestore, Storage; optional Hosting) | **Social directory** and **Friends** (display name, activity interests, optional profile photo; invite/friendship records; friend-visible dive/snorkel projections with opt-in notes/media; likes, comments, and `@mentions` on shared activities). Optional **anonymized community sightings** / SiteReports when Contribute sightings is on. Optional **catalog CDN** refresh for Marine Life and dive-site reference data. **Does not store your private dive log.** |
 | **[Fishial.AI](https://fishial.ai/)** | Optional **Identify fish** on dive media — one cropped JPEG per request, plus optional dive coordinates in a header ([API terms](https://docs.fishial.ai/api)) |
 
 ## Marketing website

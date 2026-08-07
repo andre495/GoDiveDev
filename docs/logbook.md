@@ -12,15 +12,23 @@ The top bar shows **Activity Log** in large white type centered on the same row 
 
 Use the **filter** next to the segment control to show **all** activities, **dives only**, or **snorkels only**.
 
-| **Buddies** | A merged list of dives and snorkels your friends share with you (newest first) |
+| **Buddies** | Buddy Feed — social-style posts for dives and snorkels your friends share with you (newest first) |
 
-The **Buddies** feed loads when you select it. Each activity appears as a **card tile** with a hero header. When your friend shared a photo **and** depth/swim data exists, the hero shows their **featured photo** first and you can swipe to the depth chart (dives) or GPS swim track (snorkels). With only media or only chart/map data, the hero shows that single view. With neither, a placeholder appears. Below the hero: site name, region/country when available, key stats, and your friend’s name. Tap the stats area to open the same style of detail screen as your own dives and snorkels.
+The **Buddies** feed loads when you select it. Each shared activity appears as a **social post**:
+
+- **Header** — friend’s avatar and name (tap either to open their [friend profile](friends.md#friend-profile)), activity verb, and a compact time stamp  
+- **Hero** — featured photo or video when shared, and/or the dive depth profile (or snorkel swim map); swipe when both are available  
+- **Caption** — site, place, and key stats (tap to open the full shared activity)  
+- **with** — tagged divers on that activity; tap to open Map scrolled to **Buddies**  
+- **👌 like** and **comments** — at the bottom of the post  
+
+Full Buddy Feed behavior (likes, comments, `@mentions`, media playback) is in [Friends](friends.md#buddy-feed-posts).
 
 **Share activities with buddies** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a buddy-visible projection with the correct activity type and GPS track when available. New activities stay **local only** until you publish them: open the activity and use the **Share with Buddies?** banner (or ⋯ → **Activity Settings**) after you've tagged marine life, added notes, and picked photos.
 
 Pull down on **Buddies** to refresh. The feed also refreshes when you switch to **Buddies**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on **Buddies** in Logbook. The list loads **20 activities** at a time; scroll to the bottom to load the next **20**.
 
-If you have no friends yet, **Buddies** explains that and offers **Add friends** to open the Friends list (invite via QR or link). If friends have not shared activities yet, you’ll see **No buddy activities yet** with **View friends**.
+If you have no friends yet, **Buddies** explains that and offers **Add friends** to open **Profile → menu (☰) → Buddies** (invite via QR or link). If friends have not shared activities yet, you’ll see **No buddy activities yet** with **View friends**.
 
 ## Activity rows
 

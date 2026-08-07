@@ -1,29 +1,32 @@
 # GoDive user guide
 
-GoDive is a dive log for iPhone. It helps you import dives from your dive computer or MacDive, browse a marine life field guide, explore dive sites on a map, and keep trips and buddies organized — all on your device.
+GoDive is a dive log for iPhone. It helps you import dives and snorkels from your dive computer or MacDive, browse a marine life field guide, explore dive sites on a map, keep trips and buddies organized, and connect with friends via QR or invite link — all on your device, with optional friend sharing you control per activity.
 
 ## What you can do
 
 | Area | What it’s for |
 |------|----------------|
-| **Home** | Featured photos from your dives, lifetime stats, and quick links to your best sites, species, and buddies |
-| **Logbook** | Your full dive list, import, and trip grouping |
+| **Home** | Featured photos from your dives, lifetime stats, top buddies, and a **Notifications** bell for buddy events, likes, comments, and mentions |
+| **Logbook** | Your full dive and snorkel list (**Me**), **Buddy Feed** of friends’ shared activities (**Buddies**), import, and trip grouping |
 | **Field Guide** | Browse a marine life catalog; tag species on dive photos |
 | **Explore** | Map or list of dive sites; add your own sites |
-| **Search** | App-wide search across dives, sites, species, buddies, trips, gear, and more |
+| **Search** | App-wide search across dives, snorkels, sites, species, buddies, trips, gear, and more |
+| **Friends** | Connect via QR code or shareable link (no public people search); browse friend profiles and shared media; likes, comments, and `@mentions` on shared activities |
 | **Profile** | Avatar on Home; buddy-style blue sheet (tagged media hero); blue **⋯** beside your name edits profile; side menu for trips, certifications, gear, buddies, Settings |
 
 ## The main tabs
 
 GoDive opens to tabs at the bottom of the screen:
 
-1. **Home** — dashboard and highlights  
-2. **Logbook** — every dive, newest first  
+1. **Home** — dashboard, highlights, and Notifications  
+2. **Logbook** — your activities (**Me**) and Buddy Feed (**Buddies**), newest first  
 3. **Field Guide** — species catalog  
 4. **Explore** — dive sites  
 5. **Search** — unified search (magnifying glass; morphs into the search field when selected)  
 
 Tap a tab again while you’re at the top of a list to scroll back to the top.
+
+New activities stay **local only** until you choose to share them. Friends connect from **Profile → menu (☰) → Buddies** (QR or link) — see [Friends](friends.md).
 
 ## Data on your device (and iCloud)
 

@@ -4296,6 +4296,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tests:** adjacent browse + **`1 of N`** position label (replaces zoom / `1 / N` chrome helpers).
 - **Docs:** **`docs/friends.md`**.
 
-## 135 - Next batch
+## 135 - GitHub Pages docs sync **(pushed)**
+
+**Summary:** Docs — sync GitHub Pages user guide with shipped Friends / Buddy Feed / social features.
+
+- **`docs/index.md`**, **`docs/getting-started.md`** — snorkels, Friends / Buddy Feed, Notifications, top-ten Home tiles; live Firebase friends wording (not “future”).
+- **`docs/logbook.md`** — Buddy Feed social-post summary + Buddies path; cross-link Friends.
+- **`docs/dive-detail.md`** — Sharing with buddies (banner, Activity Settings, like/comment on owned shared Map, `@` in notes).
+- **`docs/privacy-and-data.md`** — Buddies path; likes/comments/@mentions; community sightings (default on); Last updated Aug 7, 2026.
+- **`docs/acknowledgments.md`** — Firebase row matches live friends + optional community contributions.
+
+## 136 - Next batch
 
 

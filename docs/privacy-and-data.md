@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** July 18, 2026  
+**Last updated:** August 7, 2026  
 **Applies to:** the GoDive website ([godiveios.com](https://godiveios.com)) and the GoDive iOS app  
 **Operator:** Primo Software (“we,” “us,” or “our”)
 
@@ -56,8 +56,9 @@ GoDive stores your dive log primarily **on your device**. In the current product
 - There is **no** GoDive-operated cloud account that stores your full dive log on our servers  
 - When you are signed into **iCloud**, your dive log and related structured data can sync across **your** Apple devices using Apple’s **private CloudKit** database (your iCloud account — not a GoDive public feed)  
 - There is **no** public dive feed for the whole internet  
-- You can **connect with friends** via QR code or invite link (Profile → menu → Friends). When you share dives with friends (on by default once you have friends), a **friend-visible copy** of dive details is stored in **Firebase** so they can read them. **Notes** and **media** stay private unless you turn those Settings on. When media sharing is on, friends see thumbnails quickly and can load full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) — not your original RAW/HEIC masters. Your private CloudKit log remains the source of truth on your devices  
+- You can **connect with friends** via QR code or invite link (**Profile → menu → Buddies**). When you share dives or snorkels with friends, a **friend-visible copy** of activity details is stored in **Firebase** so they can read them. New activities stay local until you publish them; **Notes** and **media** stay private unless you turn those Settings on. When media sharing is on, friends see thumbnails quickly and can load full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) — not your original RAW/HEIC masters. Friends may **like**, **comment**, and **@mention** each other on shared activities; those interactions are stored with the friend-visible projection. Your private CloudKit log remains the source of truth on your devices  
 - A lightweight **social directory** profile (display name, optional photo, activity interests) is stored in **Firebase** for friends features  
+- With **Contribute sightings to community** on in Settings (**on** by default), GoDive may upload **anonymized** marine-life sightings and per-activity site reports (species, dive-site id, depth, time of day, date, and conditions — **not** your name, photos, notes, or exact GPS) so the community similarity graph can improve Field Guide **Similar species**  
 - We do **not** sell your dive log or share it with third parties for advertising  
 
 Most of the app works **offline** after install. Some optional features use the network (described below).
@@ -96,11 +97,15 @@ Signing out ends the active session. Local dive data for that profile remains on
 
 When Sign in with Apple succeeds (and Firebase is configured in the build), GoDive may create or update a **social directory** profile: display name, activity interests (scuba / free diving / snorkeling), and an optional profile photo. For new accounts, GoDive typically waits until you finish the profile photo step (upload or skip) before writing that directory entry.
 
-**Friends:** you connect via QR code or invite link (not a public browseable directory). When **Share activities with buddies** is on, GoDive mirrors **buddy-visible dive details** to Firebase so accepted buddies can read them, and updates those copies when you edit shared dive fields. **Notes** and **media** are included only if you enable those Settings. Shared media uploads use compressed JPEGs (location metadata stripped) and 1080p MP4 clips (capped per activity); originals stay in your Photos library. Buddies may cache thumbnails and full-quality media on their device for faster viewing. Your private CloudKit / on-device log remains the source of truth. Deleting your account removes friendships, invites, and shared projections.
+**Friends:** you connect via QR code or invite link from **Profile → menu → Buddies** (not a public browseable directory). When **Share activities with buddies** is on, GoDive mirrors **buddy-visible dive and snorkel details** to Firebase so accepted buddies can read them, and updates those copies when you edit shared fields. **Notes** and **media** are included only if you enable those Settings. Shared media uploads use compressed JPEGs (location metadata stripped) and 1080p MP4 clips (capped per activity); originals stay in your Photos library. Buddies may cache thumbnails and full-quality media on their device for faster viewing. On shared activities, friends may write **likes**, **comments** (with optional `@mention` of other friends), and related tallies under that projection; comment text is limited and pushes use a short preview. Your private CloudKit / on-device log remains the source of truth. Deleting your account removes friendships, invites, shared projections, and related social interactions.
 
-If you allow notifications, GoDive may store an **FCM device token** under your Firebase user (owner-only) so we can alert you when someone accepts your friend invite or when a buddy shares new activities. Your **Buddy activity notifications** preference is stored under your Firebase user (owner-only) so alerts respect it on the server. Notifications mention your buddy's display name and how many activities were shared — never dive details. Tokens are removed on sign-out from this device.
+If you allow notifications, GoDive may store an **FCM device token** under your Firebase user (owner-only) so we can alert you when someone accepts your friend invite, when a buddy shares new activities, or when someone likes, comments on, or `@mentions` you on a shared activity. Your **Buddy activity notifications** preference is stored under your Firebase user (owner-only) so share alerts respect it on the server. Notifications use display names and short comment previews — never full dive notes or private log fields. Tokens are removed on sign-out from this device.
 
 Your **featured Profile header media** (tagged photo or video) may be uploaded to Firebase so friends can see it on your friend profile page.
+
+### Community sightings (optional)
+
+**Contribute sightings to community** is **on by default**. When on (and you have a GoDive social sign-in), GoDive may contribute **anonymized** sightings and per-activity site reports to a community graph used for Field Guide **Similar species**. Contributions include species, dive-site identifiers, depth, time of day, date, and conditions — **not** your user id, photos, notes, or exact GPS. Turning the setting **off** stops new contributions and removes your contributions from the community mirror; turning it **on** can backfill existing activities.
 
 ### Delete account
 
@@ -162,7 +167,11 @@ When a Field Guide species uses a remote image fallback, the app may fetch that 
 
 ### Firebase social directory and friends
 
-Display name, activity interests, and optional profile photo may be sent to Firebase as described in §5. When you use Friends, invite/friendship records and **friend-visible dive projections** (notes and media only if you opt in) may also be stored so friends can read what you share. Friends’ devices may keep a local cache of shared thumbnails and full-quality media for faster viewing; that cache stays on the friend’s phone and is not a second copy in your private CloudKit log. This is not a public dive feed.
+Display name, activity interests, and optional profile photo may be sent to Firebase as described in §5. When you use Friends, invite/friendship records and **friend-visible activity projections** (notes and media only if you opt in), plus **likes**, **comments**, and **@mentions** on those shared activities, may also be stored so friends can interact with what you share. Friends’ devices may keep a local cache of shared thumbnails and full-quality media for faster viewing; that cache stays on the friend’s phone and is not a second copy in your private CloudKit log. This is not a public dive feed.
+
+### Community similarity contributions
+
+When **Contribute sightings to community** is on, anonymized SiteReports and sightings may be uploaded to Firebase (and used to refresh catalog similarity data) as described in §5. These contributions are not your dive log and do not include your identity or media.
 
 ### iCloud dive-log sync (CloudKit)
 
@@ -244,6 +253,7 @@ You can also:
 
 - Decline Photos or Contacts permissions  
 - Leave **Share crash reports** and **Share diagnostic events** off  
+- Turn off **Contribute sightings to community** if you do not want anonymized sightings contributed  
 - Avoid using optional Identify / map / catalog-refresh features that require network access  
 - Sign out of the app session  
 - Delete your account from Settings  
