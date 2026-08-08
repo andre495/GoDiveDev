@@ -9,8 +9,9 @@ struct LogbookView: View {
     @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
-    /// Always-live owner queries — Logbook is the activity list surface; idle-tab bridging
-    /// left My Activities blank when the bridge snapshot raced the cache latch.
+    /// Always-live owner queries — Logbook is the activity list surface. Cache *build*
+    /// stays gated on tab selection (`LogbookRootAppearPresentation`); do not hide the
+    /// whole tab behind a lazy `Color.clear` wrapper (iOS 26 TabView black-screen bug).
     @Query private var activities: [DiveActivity]
     @Query private var snorkelActivities: [SnorkelActivity]
     @Query private var ownerTrips: [DiveTrip]
@@ -590,10 +591,11 @@ struct LogbookView: View {
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
-            // Always run while mounted — tab-selection pause was stale under iOS 18 TabView
-            // (Field Guide froze; Logbook never paused off-tab). ScenePhase pause is in
-            // WaterBubbleBackground.
-            bubbleAnimationPaused: false,
+            // UIKit `didSelect` keeps RootTabSelectionStore current — pause off-tab display links.
+            bubbleAnimationPaused: RootTabSelectionPresentation.shouldPauseBubbles(
+                for: .logbook,
+                selected: rootTabSelection.selected
+            ),
             scrollToTopNonce: listScrollToTopNonce,
             buddyFeedAvatarLookup: buddyFeedAvatarLookup,
             onSelectMediaPreview: openActivityMediaPreview,

@@ -1,10 +1,22 @@
 import CoreGraphics
 import Foundation
 
+/// Home hero rules for the brief window before launch carousel picks resolve.
+enum HomeLaunchCarouselHeroPresentation: Sendable {
+    /// Quiet gradient only — no spinner and no false “Add Media…” CTA.
+    nonisolated static func showsQuietUnresolvedHero(
+        hasResolvedLaunchCarousel: Bool,
+        hasLoggedActivities: Bool,
+        hasCarouselHighlights: Bool
+    ) -> Bool {
+        !hasResolvedLaunchCarousel && hasLoggedActivities && !hasCarouselHighlights
+    }
+}
+
 /// Copy and layout rules for the Home hero when the carousel has no media to show.
 enum HomeMediaCarouselEmptyPresentation: Sendable {
 
-    enum Context: Sendable {
+    enum Context: Equatable, Sendable {
         /// Owner has no logged dives / activities yet.
         case noLoggedActivities
         /// Owner has dives but no Photos media for the daily carousel yet.

@@ -177,7 +177,8 @@ nonisolated enum CrashSessionMarker {
     }
 }
 
-/// MetricKit subscriber — converts delivered `MXCrashDiagnostic`s into stored `CrashReportRecord`s.
+/// MetricKit subscriber — crash diagnostics → `CrashReportRecord`s; launch metrics → local
+/// **`[MetricKit.Launch]`** + Application Support summary (Organizer TTFF source).
 /// `nonisolated` because MetricKit delivers on a background queue; the only mutable state is the
 /// lock-protected container slot, so `@unchecked Sendable` is safe.
 nonisolated final class CrashDiagnosticsCollector: NSObject, MXMetricManagerSubscriber, @unchecked Sendable {
@@ -208,6 +209,17 @@ nonisolated final class CrashDiagnosticsCollector: NSObject, MXMetricManagerSubs
         guard savedAny else { return }
         Task.detached(priority: .utility) {
             await CrashReportingService.uploadPendingIfSharingEnabled(store: store)
+        }
+    }
+
+    /// Daily / batched launch + hang metrics (same TTFF family as Xcode Organizer Launch Time).
+    /// Local log + Application Support only — not uploaded.
+    func didReceive(_ payloads: [MXMetricPayload]) {
+        for payload in payloads {
+            guard let summary = MetricKitLaunchMetricsPresentation.summaryText(from: payload) else {
+                continue
+            }
+            MetricKitLaunchMetricsStore.record(summary: summary)
         }
     }
 

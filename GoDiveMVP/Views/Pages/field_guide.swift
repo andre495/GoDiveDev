@@ -18,6 +18,7 @@ struct FieldGuideView: View {
     @State private var userMarineLifeCatalog: [UserMarineLife] = []
     @State private var diveSiteCatalog: [DiveSite] = []
     @State private var hasLoadedCatalogs = false
+    @State private var didScheduleEmptyCatalogRetry = false
 
     @State private var path: [FieldGuideRoute] = []
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
@@ -28,10 +29,16 @@ struct FieldGuideView: View {
     @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
     @State private var showsAddSpeciesSheet = false
 
+    @Environment(RootTabSelectionStore.self) private var rootTabSelection
+
     private let ownerProfileID: UUID?
 
     init(ownerProfileID: UUID?) {
         self.ownerProfileID = ownerProfileID
+    }
+
+    private var isFieldGuideTabSelected: Bool {
+        RootTabSelectionPresentation.isSelected(.fieldGuide, selected: rootTabSelection.selected)
     }
 
     private var showsFieldGuideRootTabBar: Bool {
@@ -96,7 +103,13 @@ struct FieldGuideView: View {
         // One tab-level bubble layer — avoids stacked frozen TimelineViews on push.
         ZStack {
             if showsFieldGuideBubbleBackground, !GoDiveUITestConfiguration.isActive {
-                WaterBubbleBackground(diagnosticsLabel: "FieldGuide")
+                WaterBubbleBackground(
+                    animationPaused: RootTabSelectionPresentation.shouldPauseBubbles(
+                        for: .fieldGuide,
+                        selected: rootTabSelection.selected
+                    ),
+                    diagnosticsLabel: "FieldGuide"
+                )
             }
 
             NavigationStack(path: $path) {
@@ -243,7 +256,19 @@ struct FieldGuideView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fieldGuideTabReselected)) { _ in
             handleFieldGuideTabReselect()
         }
-        .task(id: ownerProfileID) {
+        // Idle bind waits for Home chrome + quiet window; opening Field Guide binds now.
+        .task {
+            CatalogTabLoadDiagnostics.note(
+                "fieldGuide.task wait selected=\(isFieldGuideTabSelected) chrome=\(accountSession.isHomeLaunchChromeReady) hasLoaded=\(hasLoadedCatalogs)"
+            )
+            await LazyRootTabPresentation.waitUntilCatalogBindAllowed(
+                isTabSelected: { isFieldGuideTabSelected },
+                isHomeLaunchChromeReady: { accountSession.isHomeLaunchChromeReady }
+            )
+            guard !Task.isCancelled else { return }
+            CatalogTabLoadDiagnostics.note(
+                "fieldGuide.task bind selected=\(isFieldGuideTabSelected) chrome=\(accountSession.isHomeLaunchChromeReady)"
+            )
             await reloadFieldGuideCatalogsIfNeeded()
         }
         .onChange(of: marineLifeCatalog.count) { _, _ in
@@ -264,24 +289,64 @@ struct FieldGuideView: View {
     }
 
     private func reloadFieldGuideCatalogsIfNeeded(force: Bool = false) async {
-        guard force || !hasLoadedCatalogs || marineLifeCatalog.isEmpty else { return }
+        let shouldFetch = LazyRootTabPresentation.shouldFetchCatalog(
+            hasLoadedCatalog: hasLoadedCatalogs,
+            force: force
+        )
+        CatalogTabLoadDiagnostics.note(
+            "fieldGuide.reload gate shouldFetch=\(shouldFetch) force=\(force) hasLoaded=\(hasLoadedCatalogs) marine=\(marineLifeCatalog.count)"
+        )
+        guard shouldFetch else { return }
+        CatalogTabLoadDiagnostics.note("fieldGuide.reload.start")
         let container = modelContext.container
         async let marineLifeIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
         async let diveSiteIDs = DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+        let loadedMarineLifeIDs = await marineLifeIDs
+        let loadedDiveSiteIDs = await diveSiteIDs
+        CatalogTabLoadDiagnostics.note(
+            "fieldGuide.reload.ids marineIDs=\(loadedMarineLifeIDs.count) diveSiteIDs=\(loadedDiveSiteIDs.count) cancelled=\(Task.isCancelled)"
+        )
+        // Do not wipe a good catalog if this bind was cancelled mid-flight.
+        guard !Task.isCancelled else {
+            CatalogTabLoadDiagnostics.note("fieldGuide.reload.cancelled after ids")
+            return
+        }
         marineLifeCatalog = MarineLifeCatalogLoader.bindModels(
-            persistentIDs: await marineLifeIDs,
+            persistentIDs: loadedMarineLifeIDs,
             modelContext: modelContext
         )
         userMarineLifeCatalog = (try? modelContext.fetch(
             FetchDescriptor<UserMarineLife>(sortBy: [SortDescriptor(\.commonName)])
         )) ?? []
         diveSiteCatalog = DiveSiteCatalogLoader.bindModels(
-            persistentIDs: await diveSiteIDs,
+            persistentIDs: loadedDiveSiteIDs,
             modelContext: modelContext
         )
-        guard !Task.isCancelled else { return }
+        let storeMarineCount = (try? modelContext.fetchCount(FetchDescriptor<MarineLife>())) ?? -1
         hasLoadedCatalogs = true
+        CatalogTabLoadDiagnostics.note(
+            "fieldGuide.reload.done boundMarine=\(marineLifeCatalog.count) storeMarine=\(storeMarineCount) userMarine=\(userMarineLifeCatalog.count) diveSites=\(diveSiteCatalog.count) hasLoaded=true"
+        )
         syncCatalogCache()
+        scheduleEmptyCatalogRetryIfNeeded()
+    }
+
+    /// Launch marine-life seed may finish after the first empty bind — one catch-up only.
+    private func scheduleEmptyCatalogRetryIfNeeded() {
+        guard hasLoadedCatalogs, marineLifeCatalog.isEmpty, !didScheduleEmptyCatalogRetry else { return }
+        didScheduleEmptyCatalogRetry = true
+        CatalogTabLoadDiagnostics.note("fieldGuide.emptyRetry.scheduled")
+        Task {
+            try? await Task.sleep(
+                nanoseconds: LazyRootTabPresentation.emptyCatalogRetryNanoseconds
+            )
+            guard !Task.isCancelled else {
+                CatalogTabLoadDiagnostics.note("fieldGuide.emptyRetry.cancelled")
+                return
+            }
+            CatalogTabLoadDiagnostics.note("fieldGuide.emptyRetry.fire")
+            await reloadFieldGuideCatalogsIfNeeded(force: true)
+        }
     }
 
     private func syncCatalogCache() {
@@ -292,6 +357,9 @@ struct FieldGuideView: View {
         catalogSnapshots = nextSnapshots
         categorySummaries = FieldGuideCatalogIndex.summaries(for: nextSnapshots)
         subcategorySpeciesIndex = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: nextSnapshots)
+        CatalogTabLoadDiagnostics.note(
+            "fieldGuide.cache synced snapshots=\(nextSnapshots.count) categories=\(categorySummaries.count)"
+        )
     }
 
     @ViewBuilder
@@ -342,6 +410,11 @@ struct FieldGuideView: View {
         if !hasLoadedCatalogs, marineLifeCatalog.isEmpty {
             FieldGuideCatalogEmptyState()
                 .padding(.top, topInset)
+                .onAppear {
+                    CatalogTabLoadDiagnostics.note(
+                        "fieldGuide.ui LOADING hasLoaded=\(hasLoadedCatalogs) marine=\(marineLifeCatalog.count) categories=\(resolvedCategorySummaries.count)"
+                    )
+                }
         } else {
             FieldGuideCatalogHubView(
                 summaries: resolvedCategorySummaries,
@@ -354,6 +427,11 @@ struct FieldGuideView: View {
                 pushFieldGuide(.category(summary))
             }
             .equatable()
+            .onAppear {
+                CatalogTabLoadDiagnostics.note(
+                    "fieldGuide.ui HUB hasLoaded=\(hasLoadedCatalogs) marine=\(marineLifeCatalog.count) categories=\(resolvedCategorySummaries.count)"
+                )
+            }
         }
     }
 
@@ -384,5 +462,6 @@ private struct FieldGuideCatalogEmptyState: View {
 #Preview {
     FieldGuideView(ownerProfileID: nil)
         .environment(AccountSession.shared)
+        .environment(RootTabSelectionStore())
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

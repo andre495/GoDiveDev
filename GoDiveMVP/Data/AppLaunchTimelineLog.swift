@@ -5,14 +5,20 @@ import Foundation
 /// In Xcode’s debug console or `devicectl … --console`, search **`[LaunchTimeline]`**.
 /// DEBUG only — uses **`print`** so lines show even when OSLog levels are filtered.
 ///
-/// Example events: `splash.container_ready`, `splash.restore_end`, `splash.overlay_hidden`,
-/// `home.rebuild_applied`.
+/// Example events: `process_start`, `first_frame`, `splash.container_ready`,
+/// `splash.overlay_hidden`, `home.rebuild_applied`.
+///
+/// MetricKit Organizer TTFF is logged separately as **`[MetricKit.Launch]`** when the system
+/// delivers `MXAppLaunchMetric` payloads (often next day; not while a debugger is attached).
 enum AppLaunchTimelineLog: Sendable {
     #if DEBUG
     nonisolated(unsafe) static var isEnabled = true
     #else
     nonisolated(unsafe) static var isEnabled = false
     #endif
+
+    /// Process uptime in ms at `process_start` (for first_frame deltas).
+    nonisolated(unsafe) private static var processStartUptimeMilliseconds: Int?
 
     /// Process uptime in ms (compare deltas between lines for cold-launch relative timing).
     nonisolated static func elapsedMilliseconds() -> Int {
@@ -25,6 +31,24 @@ enum AppLaunchTimelineLog: Sendable {
         let line = detail.isEmpty ? "t=\(ms)ms \(name)" : "t=\(ms)ms \(name) \(detail)"
         // Event names + coarse counts only — no UIDs / site names.
         print("[LaunchTimeline] \(line)")
+    }
+
+    // MARK: - Process / first frame
+
+    /// Earliest app-entry mark (`GoDiveMVPApp.init`).
+    nonisolated static func processStart() {
+        processStartUptimeMilliseconds = elapsedMilliseconds()
+        event("process_start")
+    }
+
+    /// One-shot after the first display refresh (proxy for first screen drawn).
+    nonisolated static func firstFrame() {
+        let now = elapsedMilliseconds()
+        if let start = processStartUptimeMilliseconds {
+            event("first_frame", "sinceProcessStartMs=\(now - start)")
+        } else {
+            event("first_frame")
+        }
     }
 
     // MARK: - Splash

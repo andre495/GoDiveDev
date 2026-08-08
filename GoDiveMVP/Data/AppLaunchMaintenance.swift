@@ -11,8 +11,12 @@ enum AppLaunchMaintenance: Sendable {
         Task.detached(priority: .utility) {
             await performEssentialTier(container: container)
         }
-        // Warm ~3k-row dive_sites JSON + All Sites pin snapshot before Explore needs them.
+        // Dive-sites JSON + Explore pin snapshot: defer until after Home chrome quiet window
+        // so decode does not contend with Gate 2/3 SwiftData I/O. Explore still builds from
+        // bundledReference() on demand if the user opens the tab earlier.
         Task.detached(priority: .utility) {
+            let delay = AppLaunchPostOverlayPresentation.deferredDiveSitesPrewarmDelaySeconds
+            try? await Task.sleep(for: .seconds(delay))
             DiveSiteReferenceCatalog.prewarmBundledReference()
             ExploreSiteScopeSessionCache.prewarmReferenceSnapshot()
         }
@@ -21,6 +25,8 @@ enum AppLaunchMaintenance: Sendable {
             try? await Task.sleep(for: .seconds(delay))
             await performDeferredTier(container: container)
         }
+        // PhotoKit prune / cloud-id backfill — after chrome + long quiet window (not the 2 s tier).
+        DiveMediaPhotoKitLaunchMaintenance.schedule(container: container)
     }
 
     /// Fast, local correctness — dive numbers, migrations, bundled catalog seed.
@@ -60,10 +66,7 @@ enum AppLaunchMaintenance: Sendable {
             #if canImport(UIKit)
             await DiveMediaPreviewStorage.backfillMissingPreviews(modelContext: context)
             #endif
-            DiveMediaCloudIdentifierBackfill.backfillIfNeeded(modelContext: context)
-            #if canImport(Photos)
-            _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(modelContext: context)
-            #endif
+            // PhotoKit prune + cloud-id backfill: **`DiveMediaPhotoKitLaunchMaintenance`** (later).
             await AppSwiftDataDualStoreFactory.appendCloudKitAccountStatusDiagnostics()
             await syncFirebaseSocialProfileIfNeeded(modelContext: context)
         } catch {

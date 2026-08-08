@@ -23,6 +23,9 @@ enum ExplorePinsDiagnostics: Sendable {
 
     nonisolated static func note(_ message: String) {
         log.info("\(message, privacy: .public)")
+        #if DEBUG
+        print("[ExplorePins] \(message)")
+        #endif
         let stamped = "\(ISO8601DateFormatter().string(from: Date())) \(message)"
         lock.lock()
         lines.append(stamped)

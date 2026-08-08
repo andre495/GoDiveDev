@@ -68,6 +68,62 @@ enum HomeMediaCarouselLayout {
     }
 }
 
+/// Quiet hero fill while the launch media index resolves — no spinner and no false empty CTA.
+struct HomeMediaCarouselQuietHeroFill: View {
+    let containerWidth: CGFloat
+    let topSafeAreaInset: CGFloat
+    var headerOverlayHeight: CGFloat?
+    var heroBandHeight: CGFloat?
+
+    private var resolvedHeroBandHeight: CGFloat {
+        heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
+            width: containerWidth,
+            topSafeAreaInset: topSafeAreaInset
+        )
+    }
+
+    private var resolvedCarouselContentHeight: CGFloat {
+        HomeMediaCarouselLayout.carouselContentHeight(
+            heroBandHeight: resolvedHeroBandHeight,
+            topSafeAreaInset: topSafeAreaInset,
+            appliesOwnTopSafeAreaBleed: false
+        )
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            LinearGradient(
+                colors: [
+                    AppTheme.Colors.surfaceGradientTop.opacity(0.92),
+                    AppTheme.Colors.accent.opacity(0.14),
+                    AppTheme.Colors.surfaceGradientBottom.opacity(0.96),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            if let headerOverlayHeight {
+                HomeMediaCarouselHeaderGradient(
+                    height: HomeMediaCarouselLayout.headerGradientHeight(
+                        headerOverlayHeight: headerOverlayHeight,
+                        topSafeAreaInset: topSafeAreaInset,
+                        heroHeight: resolvedHeroBandHeight
+                    )
+                )
+                .allowsHitTesting(false)
+            }
+        }
+        .frame(width: containerWidth, height: resolvedCarouselContentHeight)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .modifier(HomeMediaCarouselTopSafeAreaBleedModifier(
+            topSafeAreaInset: topSafeAreaInset,
+            isEnabled: false
+        ))
+        .accessibilityHidden(true)
+    }
+}
+
 /// Animated hero stand-in when the Home carousel has no media to show.
 struct HomeMediaCarouselEmptyPlaceholder: View {
     let containerWidth: CGFloat
@@ -149,6 +205,7 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
             isEnabled: false
         ))
         .accessibilityIdentifier("Home.MediaCarousel.Empty")
+        .accessibilityLabel(accessibilityPrompt)
     }
 
     @ViewBuilder
@@ -1211,7 +1268,10 @@ private struct HomeMediaCarouselMediaView: View {
         .clipped()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
-            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            // Soft JPEG decode happens in `.task` (off-main); only pin if already cached.
+            if DiveMediaPreviewStorage.cachedStoredPreviewImage(for: media) != nil {
+                DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            }
             logVideoLayer(mounted: isVideo)
         }
         .onDisappear {
@@ -1386,7 +1446,8 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     private var storedPreviewImage: UIImage? {
-        DiveMediaPreviewStorage.storedPreviewImage(for: media)
+        // Cache-only in body — soft JPEG decode runs in `.task` so first taps stay responsive.
+        DiveMediaPreviewStorage.cachedStoredPreviewImage(for: media)
     }
     #endif
 
@@ -1412,6 +1473,11 @@ private struct HomeMediaCarouselMediaView: View {
 
     #if canImport(UIKit)
     private func loadHeroImageIfNeeded(forceStillUpgradeAfterFailedVideo: Bool = false) async {
+        // Soft preview first so the hero paints before PhotoKit hero upgrade.
+        if DiveMediaPreviewStorage.cachedStoredPreviewImage(for: media) == nil {
+            _ = await DiveMediaPreviewStorage.loadStoredPreviewImage(for: media)
+            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+        }
         _ = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
             for: media,
             modelContext: modelContext

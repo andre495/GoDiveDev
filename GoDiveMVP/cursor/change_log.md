@@ -4312,6 +4312,102 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **`docs/acknowledgments.md`** — remove Unsplash onboarding photo row; remove Marketing website / Wix section.
 
-## 137 - Next batch
+## 137 - Launch responsiveness + catalog tab fixes **(pushed)**
+
+**Summary:** Bug fix — Explore map no longer hangs forever on the loading spinner when **My Sites** has no plottable pins.
+
+- **`ExploreScopeCacheRebuildPresentation`** — wait for My Sites only while a scope-cache rebuild is in flight (anti-flash); after rebuild completes with empty logbook pins, fall back to **All Sites**. Spinner UI gated the same way (`shouldShowMapLoadingPlaceholder`).
+- **`ExploreView`** — track `isScopeCacheRebuildInFlight`; use `ownerProfileID` fallback when resolving logbook site IDs / sync token so a brief nil `currentProfile` cannot wipe logbook IDs to `[]`.
+- **Tests:** `exploreScopeCacheRebuildPresentation_allowsRebuildBeforeLiveDiveSnapshot` (in-flight wait vs completed fallback + placeholder gates).
+
+**Summary:** Launch perf — stop idle tabs / CK kick / dive_sites prewarm from racing Home chrome (verified against real call sites, not comments).
+
+- **`LazyRootTabContent`** / **`LazyRootTabPresentation`** — Logbook, Field Guide, Explore, Search stay unconstructed until first selection (Home stays eager).
+- **Explore / Field Guide** — catalog `.task` / `onAppear` loads gated on tab selection (Explore previously loaded dive sites even when unselected despite comments).
+- **Home** — Gate 3 marks chrome ready after lifetime stats; carousel JPEG seed no longer holds the splash.
+- **`GoDiveCloudKitDiveLogSyncKickstart.kick`** — deferred until `isHomeLaunchChromeReady`.
+- **`AppLaunchMaintenance`** — `dive_sites.json` + Explore session snapshot prewarm delayed **2.5 s** (was immediate utility Task).
+- **`GoDiveMVPApp.init`** — removed duplicate `FirebaseApp.configure` (App Delegate remains the configure site).
+- **Tests:** `lazyRootTabPresentation_mountsOnFirstSelectionAndKeepsMounted`.
+
+**Summary:** Bug fix — Logbook / Field Guide black screen after lazy tabs.
+
+- Root cause: iOS 26 `TabView` left one-shot `isSelected: selectedTab == .x` stale (already documented on **`RootTabSelectionStore`**).
+- **`LazyRootTabContent`** now observes **`RootTabSelectionStore`**; TabView selection binding updates the store synchronously.
+
+**Summary:** Bug fix — remove root-tab `LazyRootTabContent` wrappers (black screen after first tab change).
+
+- iOS 26 `TabView` can freeze unselected tab bodies so a `Color.clear` placeholder never swaps on later tab visits / pushes.
+- Tabs mount normally again; keep selection-gated Field Guide / Explore catalog loads, Home chrome-after-stats, deferred CK kick / dive_sites prewarm.
+
+**Summary:** Docs/rules — record that GoDive targets **iOS 26** (not iOS 18).
+
+- **`.cursor/rules/ios-26-deployment-target.mdc`** (always apply) — deployment target, do not assume training-data “latest is iOS 18.”
+- **`app_summary.md`** + recent TabView comments clarify runtime OS is iOS 26.
+
+**Summary:** Bug fix — Field Guide / Explore no longer endlessly re-bind local catalogs.
+
+- Root cause: selection was in `.task(id:)`, cancel wiped arrays before `hasLoaded`, and empty catalogs were treated as “not loaded” so every visit re-scanned SwiftData.
+- **`LazyRootTabPresentation`** — `shouldFetchCatalog` (empty still counts as loaded); one deferred empty-catalog retry.
+- **Field Guide / Explore** — bind once from local SwiftData (CDN remains deferred version/checksum via **`CatalogCDNRefresh`**); cancel-safe assign; stop duplicate onAppear catalog Tasks on Explore.
+- **Tests:** `lazyRootTabPresentation_gatesCatalogLoadsBySelection`.
+
+**Summary:** Bug fix — Field Guide / Explore endless loading (task never restarted + Explore inFlight stuck).
+
+- Root cause: `.task(id: ownerProfileID)` early-returned while Home was selected and **never re-ran** when those tabs were opened; Explore cancel paths left `isScopeCacheRebuildInFlight` true.
+- **Field Guide / Explore** — `.task(id: rootTabSelection.selected)` + `shouldBindCatalogForSelectedTab`.
+- **Explore** — rebuild generation clears inFlight only for the active task; My Sites anti-flash waits only when logbook site IDs exist; cancel re-applies All Sites fallback; map spinner only while rebuild is in flight (empty cache alone no longer spins forever).
+- **Tests:** selection bind + `expectsLogbookPins` / generation clear expectations.
+
+**Summary:** Diagnostics — DEBUG console logging to separate Field Guide / Explore UI vs data hangs.
+
+- **`CatalogTabLoadDiagnostics`** — `[CatalogTabLoad]` prints for task gates, fetch/bind counts, store vs bound, UI surface (LOADING / HUB / SPINNER / EMPTY / MAP).
+- **`ExplorePinsDiagnostics`** — also `print`s `[ExplorePins]` in DEBUG (rebuild / apply path).
+
+**Summary:** Bug fix — root tab selection sync + catalog bind when UIKit tab changes (iOS 26).
+
+- Device console: user tapped Field Guide / Explore but SwiftUI `selectedTab` / store stayed **`logbook`** → `shouldBind=false` forever, never `reload.start`.
+- **`RootTabBarSelectionSync`** + **`UITabBarController.didSelect`** posts **`rootTabBarDidSelect`**; ContentView applies store + `$selectedTab`.
+- Field Guide / Explore catalog binds on **mount** (not selection store); Explore scope rebuild no longer requires store-selected.
+- **Tests:** tab-bar index → `RootTab` mapping; `shouldBindCatalogOnMount`.
+
+**Summary:** Launch perf — free MainActor after Home chrome so first taps are not blocked.
+
+- Idle Field Guide / Explore catalog binds wait for chrome + **1 s** quiet window (immediate when that tab is selected).
+- Home launch carousel media-index + JPEG seed deferred **250 ms** off MainActor (background `ModelContext`).
+- WaterBubble off-tab pause restored via **`RootTabSelectionStore`** (UIKit-synced).
+- CloudKit dive-log kick deferred **500 ms** after chrome ready.
+- **Tests:** `catalogBindStart` + new defer constants + bubble pause expectations.
+
+**Summary:** Launch UX — Home hero no longer flashes empty “Add Media…” while carousel media seeds; soft posters appear sooner.
+
+- Media-index fetch starts under splash (overlaps chrome mark); post-chrome carousel defer is **0**.
+- **`HomeLaunchCarouselPresentation`** / **`.mediaLoading`** hero (`ProgressView`) while index + soft JPEG seed run.
+- Soft JPEGs decode off-main (`seedSessionCacheAsync`); carousel highlights reveal only after soft posters are pinned (avoids blank slides).
+- **Tests:** `homeLaunchCarouselPresentation_showsMediaLoadingWhilePending`; carousel defer **0**; mediaLoading copy.
+
+**Summary:** Launch UX — soft-first Home hero (no loading spinner); PhotoKit upgrades stay background.
+
+- Removed **`.mediaLoading`** / pending spinner; brief quiet gradient only until the media index resolves (avoids false “Add Media…”).
+- Launch carousel applies picks immediately so stored soft **`previewJPEGData`** paints in the header; soft session seed + PhotoKit warm run at **utility** priority after a quiet window.
+- App stays interactive while sharper stills / video streams replace soft previews in place.
+- **Tests:** `homeLaunchCarouselHeroPresentation_usesQuietHeroUntilResolved`.
+
+**Summary:** MetricKit launch timing visible from Cursor (Organizer TTFF source + local first-frame marks).
+
+- **`CrashDiagnosticsCollector.didReceive([MXMetricPayload])`** — logs **`[MetricKit.Launch]`** and writes Application Support **`metrickit-launch-summary.txt`** (timeToFirstDraw / optimized / resume / extended); local only, no upload.
+- **`MetricKitLaunchMetricsPresentation`** — histogram bucket → ms formatting.
+- **`AppLaunchTimelineLog`** — `process_start` (app init) + `first_frame` (one-shot **`CADisplayLink`** via **`AppLaunchFirstFrameProbe`**).
+- **Tests:** `metricKitLaunchMetricsPresentation_formatsHistogramBuckets`.
+
+**Summary:** Launch responsiveness — defer PhotoKit media prune/backfill off the first-tap window.
+
+- Time Profiler: multi-second Main Thread hangs from **`DiveMediaReferencePruning`** / **`PHAsset.fetchAssets`** during early post-launch.
+- **`DiveMediaPhotoKitLaunchMaintenance`** — coalesced schedule after Home chrome + **8 s** quiet window; background **`ModelContext`**.
+- Removed synchronous prune from **`AccountSessionCloudKitIdentityObserver.reconcileNow`** (MainActor); removed prune/backfill from the **2 s** deferred maintenance tier.
+- Batch existence via **`DiveMediaReferenceLoader.existingLocalIdentifiers`** (one PhotoKit fetch).
+- **Tests:** `deferredPhotoKitMaintenanceDelaySeconds == 8`; empty-ID batch helper.
+
+## 138 - Next batch
 
 

@@ -13,7 +13,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
 
-    /// Selection binding is required for iOS 18+ tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
+    /// Selection binding is required for tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
     @State private var selectedTab: RootTab = .home
     /// Live selection for tab content (bubbles / warm-up) — see **`RootTabSelectionStore`**.
     @State private var rootTabSelectionStore = RootTabSelectionStore()
@@ -26,7 +26,12 @@ struct ContentView: View {
     @State private var activityDeleteSuccessHideTask: Task<Void, Never>?
 
     var body: some View {
+        // Prefer `$selectedTab` over a custom Binding — iOS 26 TabView has failed to call
+        // custom setters while still changing the visible UIKit tab.
         TabView(selection: $selectedTab) {
+            // Do **not** wrap tabs in LazyRootTabContent: iOS 26 TabView can freeze unselected
+            // tab bodies, so Color.clear placeholders never swap after the first tab change.
+            // Idle-tab cost is cut via selection-gated catalog `.task`s / dive bridges instead.
             Tab("Home", systemImage: "house", value: RootTab.home) {
                 LogOverviewView(
                     ownerProfileID: accountSession.currentProfile?.id,
@@ -67,6 +72,7 @@ struct ContentView: View {
         .tint(AppTheme.Colors.tabSelected)
         .goDiveRootTabBarChrome()
         .modifier(TabBarMinimizeWhenNotUITesting())
+        .background { RootTabBarSelectionSyncInstaller() }
         .environment(rootTabSelectionStore)
         .environment(\.diveDisplayUnitSystem, useImperialDisplayUnits ? .imperial : .metric)
         .environment(\.openDiveImport) {
@@ -74,21 +80,24 @@ struct ContentView: View {
             pendingLogbookRoute = .addActivity
         }
         .onAppear {
-            rootTabSelectionStore.selected = selectedTab
-            CrashBreadcrumbTrail.noteRootTab(selectedTab)
+            applyRootTabSelection(selectedTab, source: "onAppear")
             startFriendShareSaveObserverIfNeeded()
             // Cold start: notification tap often sets pending stores before this view exists
             // (NC posts are lost). Flush here — do not rely only on onChange(shell).
             openAllPendingDeepLinksIfNeeded()
         }
         .onChange(of: selectedTab) { _, tab in
-            rootTabSelectionStore.selected = tab
-            CrashBreadcrumbTrail.noteRootTab(tab)
-            #if DEBUG
-            print("[WaterBubbles] root_tab_selected=\(tab)")
-            #endif
+            applyRootTabSelection(tab, source: "swiftUI")
             if tab == .logbook {
                 logbookTabSelectionGeneration += 1
+            }
+        }
+        // Authoritative when SwiftUI selection binding stalls (device console: only logbook).
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabBarDidSelect)) { notification in
+            guard let tab = RootTabBarSelectionSync.tab(from: notification) else { return }
+            applyRootTabSelection(tab, source: "uitabbar")
+            if selectedTab != tab {
+                selectedTab = tab
             }
         }
         .onChange(of: accountSession.currentProfile?.id) { _, _ in
@@ -161,6 +170,14 @@ struct ContentView: View {
                 ActivityDeleteSuccessCheckmarkOverlay()
             }
         }
+    }
+
+    private func applyRootTabSelection(_ tab: RootTab, source: String) {
+        rootTabSelectionStore.selected = tab
+        CrashBreadcrumbTrail.noteRootTab(tab)
+        #if DEBUG
+        print("[WaterBubbles] root_tab_selected=\(tab) source=\(source)")
+        #endif
     }
 
     private func handleActivityDeletedSuccessfully() {

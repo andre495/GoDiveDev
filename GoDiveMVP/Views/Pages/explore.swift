@@ -15,6 +15,7 @@ struct ExploreView: View {
     @State private var hasLoadedDiveSiteCatalog = false
     @State private var marineLifeCatalog: [MarineLife] = []
     @State private var hasLoadedMarineLifeCatalog = false
+    @State private var didScheduleEmptyDiveSiteCatalogRetry = false
 
     @State private var path: [ExploreRoute] = []
     @State private var viewMode: ExploreViewMode = .map
@@ -33,6 +34,8 @@ struct ExploreView: View {
         ExploreDiveSiteListPresentation.sections(from: displayedListRows)
     }
     @State private var scopeCacheRebuildTask: Task<Void, Never>?
+    @State private var scopeCacheRebuildGeneration: UInt64 = 0
+    @State private var isScopeCacheRebuildInFlight = false
     @State private var listRowsRefreshTask: Task<Void, Never>?
     @State private var showsAddDiveSiteSheet = false
     @State private var appliedScopeCacheSyncToken: String?
@@ -79,7 +82,7 @@ struct ExploreView: View {
 
     private var scopeCacheSyncToken: String {
         ExploreSiteScopeCache.syncToken(
-            ownerProfileID: accountSession.currentProfile?.id,
+            ownerProfileID: accountSession.currentProfile?.id ?? ownerProfileID,
             catalogSiteCount: diveSites.count,
             userSiteCount: userDiveSites.count,
             ownerActivitySiteLinkSignature: ExploreSiteScopeCache.ownerActivitySiteLinkSignature(
@@ -182,18 +185,19 @@ struct ExploreView: View {
             applyPreferredSiteScope(hasLoggedActivities: hasActivities)
         }
         .onAppear {
-            // Do not build the ~3k-site scope cache on main while Home is launching —
-            // that path caused launch hangs. Seed only when Explore is selected.
-            if isExploreTabSelected {
-                primeLoggedActivityLatchFromKnownStateIfNeeded()
-                applyDefaultSiteScopeIfNeeded()
-                seedPinsFromSessionCacheIfNeeded()
-                rebuildScopeCacheOnAppearIfNeeded()
-            }
-            Task { await loadDiveSiteCatalogIfNeeded() }
+            // Seed/rebuild even if RootTabSelectionStore lags UIKit (device: selected stuck
+            // on logbook while Explore is visible). Catalog bind is `.task` (once per mount).
+            CatalogTabLoadDiagnostics.note(
+                "explore.onAppear selected=\(isExploreTabSelected) display=\(displayedPlottableSites.count) inFlight=\(isScopeCacheRebuildInFlight)"
+            )
+            primeLoggedActivityLatchFromKnownStateIfNeeded()
+            applyDefaultSiteScopeIfNeeded()
+            seedPinsFromSessionCacheIfNeeded()
+            rebuildScopeCacheOnAppearIfNeeded()
             warmMapsIfExploreSelected()
         }
         .onChange(of: rootTabSelection.selected) { _, tab in
+            CatalogTabLoadDiagnostics.note("explore.onChange.selected tab=\(tab)")
             guard tab == .explore else { return }
             primeLoggedActivityLatchFromKnownStateIfNeeded()
             applyDefaultSiteScopeIfNeeded()
@@ -210,10 +214,28 @@ struct ExploreView: View {
                 }
             }
         }
-        .task(id: ownerProfileID) {
+        // Idle bind waits for Home chrome + quiet window; opening Explore binds now.
+        .task {
+            CatalogTabLoadDiagnostics.note(
+                "explore.task wait selected=\(isExploreTabSelected) chrome=\(accountSession.isHomeLaunchChromeReady) hasLoadedSites=\(hasLoadedDiveSiteCatalog)"
+            )
+            await LazyRootTabPresentation.waitUntilCatalogBindAllowed(
+                isTabSelected: { isExploreTabSelected },
+                isHomeLaunchChromeReady: { accountSession.isHomeLaunchChromeReady }
+            )
+            guard !Task.isCancelled else { return }
+            CatalogTabLoadDiagnostics.note(
+                "explore.task bind selected=\(isExploreTabSelected) chrome=\(accountSession.isHomeLaunchChromeReady)"
+            )
             async let loadedMarineLife = loadMarineLifeCatalogIfNeeded()
             async let loadedDiveSites = loadDiveSiteCatalogIfNeeded()
             _ = await (loadedMarineLife, loadedDiveSites)
+            CatalogTabLoadDiagnostics.note(
+                "explore.task.bindFinished diveSites=\(diveSites.count) marine=\(marineLifeCatalog.count) cancelled=\(Task.isCancelled)"
+            )
+            if isExploreTabSelected || displayedPlottableSites.isEmpty {
+                rebuildScopeCacheOnAppearIfNeeded()
+            }
         }
         .onDisappear {
             // Do **not** cancel `scopeCacheRebuildTask` here — TabView / NavigationStack can
@@ -237,7 +259,13 @@ struct ExploreView: View {
 
             ZStack(alignment: .top) {
                 if viewMode == .list, !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground(diagnosticsLabel: "Explore")
+                    WaterBubbleBackground(
+                        animationPaused: RootTabSelectionPresentation.shouldPauseBubbles(
+                            for: .explore,
+                            selected: rootTabSelection.selected
+                        ),
+                        diagnosticsLabel: "Explore"
+                    )
                 }
 
                 Group {
@@ -245,9 +273,29 @@ struct ExploreView: View {
                     case .map:
                         // Mount the map engine only once pins exist so makeUIView gets a real
                         // site set + camera fit — avoids empty world map then recenter.
-                        if displayedPlottableSites.isEmpty {
+                        // Spinner only while a rebuild is in flight (or cache cold) — never
+                        // forever when My Sites stays empty after a completed rebuild.
+                        if ExploreScopeCacheRebuildPresentation.shouldShowMapLoadingPlaceholder(
+                            displayedPlottableCount: displayedPlottableSites.count,
+                            isScopeCacheRebuildInFlight: isScopeCacheRebuildInFlight,
+                            isCacheEmpty: scopeCache == .empty
+                        ) {
                             ExploreCatalogMapLoadingPlaceholder()
                                 .ignoresSafeArea()
+                                .onAppear {
+                                    CatalogTabLoadDiagnostics.note(
+                                        "explore.ui SPINNER display=\(displayedPlottableSites.count) inFlight=\(isScopeCacheRebuildInFlight) cacheEmpty=\(scopeCache == .empty) scope=\(siteScope) allSites=\(scopeCache.allSitesPlottableSites.count) logbook=\(scopeCache.logbookPlottableSites.count) logbookIDs=\(scopeCache.logbookSiteIDs.count) diveSites=\(diveSites.count) hasLoadedSites=\(hasLoadedDiveSiteCatalog)"
+                                    )
+                                }
+                        } else if displayedPlottableSites.isEmpty {
+                            exploreSiteListEmptyState
+                                .padding(.horizontal, AppTheme.Spacing.lg)
+                                .padding(.top, topInset)
+                                .onAppear {
+                                    CatalogTabLoadDiagnostics.note(
+                                        "explore.ui EMPTY display=0 inFlight=\(isScopeCacheRebuildInFlight) cacheEmpty=\(scopeCache == .empty) scope=\(siteScope) allSites=\(scopeCache.allSitesPlottableSites.count) diveSites=\(diveSites.count)"
+                                    )
+                                }
                         } else {
                             ExploreCatalogMapView(
                                 sites: mapPlottableSites,
@@ -258,6 +306,11 @@ struct ExploreView: View {
                                 openExploreSiteSelection(selection)
                             }
                             .ignoresSafeArea()
+                            .onAppear {
+                                CatalogTabLoadDiagnostics.note(
+                                    "explore.ui MAP display=\(displayedPlottableSites.count) scope=\(siteScope) inFlight=\(isScopeCacheRebuildInFlight)"
+                                )
+                            }
                         }
                     case .list:
                         exploreSiteList(topInset: topInset, bottomInset: bottomInset)
@@ -595,11 +648,10 @@ struct ExploreView: View {
     /// Always builds off the main actor — synchronous `make()` of ~3k ODM sites on main
     /// can watchdog-kill launch when Explore mounts early.
     private func scheduleScopeCacheRebuild() {
-        guard isExploreTabSelected else {
-            ExplorePinsDiagnostics.note("rebuild skipped — Explore not selected")
-            return
-        }
-        let profileID = accountSession.currentProfile?.id
+        // Do not require RootTabSelectionStore — iOS 26 can show Explore while selected lags.
+        // Prefer live session profile; fall back to the tab's owner ID so logbook site IDs
+        // are not wiped to [] when `currentProfile` is briefly nil.
+        let profileID = accountSession.currentProfile?.id ?? ownerProfileID
         let catalog = diveSites
         let userSites = userDiveSites
         let activities = ownerDiveActivitiesForScope
@@ -609,15 +661,30 @@ struct ExploreView: View {
         )
         let syncToken = scopeCacheSyncToken
         scopeCacheRebuildTask?.cancel()
+        scopeCacheRebuildGeneration &+= 1
+        let generation = scopeCacheRebuildGeneration
+        isScopeCacheRebuildInFlight = true
 
         if scopeCache == .empty {
             ExplorePinsDiagnostics.resetSession()
         }
         ExplorePinsDiagnostics.note(
-            "rebuild start cacheEmpty=\(scopeCache == .empty) catalog=\(catalog.count) userSites=\(userSites.count) logbookIDs=\(logbookSiteIDs.count)"
+            "rebuild start gen=\(generation) cacheEmpty=\(scopeCache == .empty) catalog=\(catalog.count) userSites=\(userSites.count) logbookIDs=\(logbookSiteIDs.count)"
         )
 
         scopeCacheRebuildTask = Task(priority: .userInitiated) {
+            defer {
+                if ExploreScopeCacheRebuildPresentation.shouldClearRebuildInFlight(
+                    taskGeneration: generation,
+                    activeGeneration: scopeCacheRebuildGeneration
+                ) {
+                    isScopeCacheRebuildInFlight = false
+                    // Cancelled predecessors used to leave inFlight stuck true → endless spinner.
+                    if displayedPlottableSites.isEmpty, scopeCache != .empty {
+                        applyScopePresentation()
+                    }
+                }
+            }
             // Reference-only off-main (Sendable). SwiftData catalog/user sites stay on main.
             let referenceSnapshot = await Task.detached(priority: .userInitiated) {
                 ExploreSiteScopeCache.make(
@@ -627,14 +694,14 @@ struct ExploreView: View {
                 )
             }.value
             guard !Task.isCancelled else {
-                ExplorePinsDiagnostics.note("rebuild cancelled after reference")
+                ExplorePinsDiagnostics.note("rebuild cancelled after reference gen=\(generation)")
                 return
             }
             scopeCache = referenceSnapshot
             ExploreSiteScopeSessionCache.storeReferenceSnapshot(referenceSnapshot)
             applyScopePresentation()
             ExplorePinsDiagnostics.note(
-                "rebuild reference allSites=\(referenceSnapshot.allSitesPlottableSites.count) display=\(displayedPlottableSites.count)"
+                "rebuild reference gen=\(generation) allSites=\(referenceSnapshot.allSitesPlottableSites.count) display=\(displayedPlottableSites.count)"
             )
 
             let fullSnapshot = ExploreSiteScopeCache.make(
@@ -643,7 +710,7 @@ struct ExploreView: View {
                 logbookSiteIDs: logbookSiteIDs
             )
             guard !Task.isCancelled else {
-                ExplorePinsDiagnostics.note("rebuild cancelled before full apply")
+                ExplorePinsDiagnostics.note("rebuild cancelled before full apply gen=\(generation)")
                 return
             }
             scopeCache = fullSnapshot
@@ -658,7 +725,7 @@ struct ExploreView: View {
             applyScopePresentation()
             applyDefaultSiteScopeIfNeeded()
             ExplorePinsDiagnostics.note(
-                "rebuild done allSites=\(fullSnapshot.allSitesPlottableSites.count) logbook=\(fullSnapshot.logbookPlottableSites.count) display=\(displayedPlottableSites.count) scope=\(siteScope)"
+                "rebuild done gen=\(generation) allSites=\(fullSnapshot.allSitesPlottableSites.count) logbook=\(fullSnapshot.logbookPlottableSites.count) display=\(displayedPlottableSites.count) scope=\(siteScope)"
             )
         }
     }
@@ -671,17 +738,20 @@ struct ExploreView: View {
             ExplorePinsDiagnostics.note("apply skipped — cache empty")
             return
         }
+        let expectsLogbookPins = !scopeCache.logbookSiteIDs.isEmpty
         let scopedSites = scopeCache.plottableSites(for: siteScope)
         let decision = ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
             siteScope: siteScope,
             scopedSitesCount: scopedSites.count,
             allSitesCount: scopeCache.allSitesPlottableSites.count,
             currentlyDisplayingSites: !displayedPlottableSites.isEmpty,
-            prefersLogbookDefault: prefersLogbookDefault
+            prefersLogbookDefault: prefersLogbookDefault,
+            isScopeCacheRebuildInFlight: isScopeCacheRebuildInFlight,
+            expectsLogbookPins: expectsLogbookPins
         )
         switch decision {
         case .keepWaitingForLogbook:
-            ExplorePinsDiagnostics.note("apply waiting for My Sites pins")
+            ExplorePinsDiagnostics.note("apply waiting for My Sites pins (rebuild in flight)")
             scheduleDisplayedListRowsRefresh(immediate: true)
             return
         case .keepCurrentDisplay:
@@ -692,9 +762,11 @@ struct ExploreView: View {
             return
         case .useAllSitesFallback:
             guard ExploreScopeCacheRebuildPresentation.shouldFallbackToAllSitesWhileLogbookEmpty(
-                prefersLogbookDefault: prefersLogbookDefault
+                prefersLogbookDefault: prefersLogbookDefault,
+                isScopeCacheRebuildInFlight: isScopeCacheRebuildInFlight,
+                expectsLogbookPins: expectsLogbookPins
             ) else {
-                ExplorePinsDiagnostics.note("apply skip All Sites fallback — prefer My Sites")
+                ExplorePinsDiagnostics.note("apply skip All Sites fallback — rebuild in flight")
                 scheduleDisplayedListRowsRefresh(immediate: true)
                 return
             }
@@ -787,24 +859,69 @@ struct ExploreView: View {
         #endif
     }
 
-    private func loadMarineLifeCatalogIfNeeded() async {
-        guard !hasLoadedMarineLifeCatalog || marineLifeCatalog.isEmpty else { return }
-        marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+    private func loadMarineLifeCatalogIfNeeded(force: Bool = false) async {
+        let shouldFetch = LazyRootTabPresentation.shouldFetchCatalog(
+            hasLoadedCatalog: hasLoadedMarineLifeCatalog,
+            force: force
+        )
+        CatalogTabLoadDiagnostics.note(
+            "explore.marine gate shouldFetch=\(shouldFetch) force=\(force) hasLoaded=\(hasLoadedMarineLifeCatalog)"
+        )
+        guard shouldFetch else { return }
+        CatalogTabLoadDiagnostics.note("explore.marine.start")
+        let loaded = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        CatalogTabLoadDiagnostics.note(
+            "explore.marine.fetched count=\(loaded.count) cancelled=\(Task.isCancelled)"
+        )
         guard !Task.isCancelled else { return }
+        marineLifeCatalog = loaded
         hasLoadedMarineLifeCatalog = true
     }
 
-    private func loadDiveSiteCatalogIfNeeded() async {
-        let shouldLoadCatalog = !hasLoadedDiveSiteCatalog || diveSites.isEmpty
-        if shouldLoadCatalog {
-            diveSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
-        }
-        // Always refresh user sites — launch hydrate / CloudKit import can insert after first paint.
-        userDiveSites = (try? modelContext.fetch(
+    private func loadDiveSiteCatalogIfNeeded(force: Bool = false) async {
+        let shouldFetch = LazyRootTabPresentation.shouldFetchCatalog(
+            hasLoadedCatalog: hasLoadedDiveSiteCatalog,
+            force: force
+        )
+        CatalogTabLoadDiagnostics.note(
+            "explore.sites gate shouldFetch=\(shouldFetch) force=\(force) hasLoaded=\(hasLoadedDiveSiteCatalog)"
+        )
+        guard shouldFetch else { return }
+        CatalogTabLoadDiagnostics.note("explore.sites.start")
+        let loadedSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        let loadedUserSites = (try? modelContext.fetch(
             FetchDescriptor<UserDiveSite>(sortBy: [SortDescriptor(\.siteName)])
         )) ?? []
+        let storeSiteCount = (try? modelContext.fetchCount(FetchDescriptor<DiveSite>())) ?? -1
+        let referenceCount = DiveSiteReferenceCatalog.bundledReference().count
+        CatalogTabLoadDiagnostics.note(
+            "explore.sites.fetched bound=\(loadedSites.count) store=\(storeSiteCount) user=\(loadedUserSites.count) reference=\(referenceCount) cancelled=\(Task.isCancelled)"
+        )
         guard !Task.isCancelled else { return }
+        diveSites = loadedSites
+        userDiveSites = loadedUserSites
         hasLoadedDiveSiteCatalog = true
+        scheduleEmptyDiveSiteCatalogRetryIfNeeded()
+    }
+
+    /// Catalog store / hydrate may finish after the first empty bind — one catch-up only.
+    private func scheduleEmptyDiveSiteCatalogRetryIfNeeded() {
+        guard hasLoadedDiveSiteCatalog, diveSites.isEmpty, !didScheduleEmptyDiveSiteCatalogRetry else {
+            return
+        }
+        didScheduleEmptyDiveSiteCatalogRetry = true
+        CatalogTabLoadDiagnostics.note("explore.sites.emptyRetry.scheduled")
+        Task {
+            try? await Task.sleep(
+                nanoseconds: LazyRootTabPresentation.emptyCatalogRetryNanoseconds
+            )
+            guard !Task.isCancelled else {
+                CatalogTabLoadDiagnostics.note("explore.sites.emptyRetry.cancelled")
+                return
+            }
+            CatalogTabLoadDiagnostics.note("explore.sites.emptyRetry.fire")
+            await loadDiveSiteCatalogIfNeeded(force: true)
+        }
     }
 
     private func pushExplore(_ route: ExploreRoute) {

@@ -44,6 +44,21 @@ enum DiveMediaReferenceLoader {
         asset(localIdentifier: localIdentifier) != nil
     }
 
+    /// Batch existence check — one PhotoKit fetch instead of N serial `fetchAssets` calls (launch prune).
+    nonisolated static func existingLocalIdentifiers(in identifiers: [String]) -> Set<String> {
+        let trimmed = identifiers
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !trimmed.isEmpty else { return [] }
+        let result = PHAsset.fetchAssets(withLocalIdentifiers: trimmed, options: nil)
+        var existing = Set<String>()
+        existing.reserveCapacity(result.count)
+        result.enumerateObjects { asset, _, _ in
+            existing.insert(asset.localIdentifier)
+        }
+        return existing
+    }
+
     /// **`PHAsset.duration`** for a library video, or **`nil`** when not a video / missing.
     nonisolated static func videoDurationSeconds(localIdentifier: String) -> Double? {
         guard let phAsset = asset(localIdentifier: localIdentifier),

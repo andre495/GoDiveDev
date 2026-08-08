@@ -97,8 +97,8 @@ enum WaterBubbleAnimationIntensity: Sendable {
 struct WaterBubbleBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    /// Caller pause (e.g. Search idle defer, chart scrub). Off-tab pause is **not** used —
-    /// iOS 18 `TabView` left selection flags stale; inactive tabs simply keep a cheap link.
+    /// Caller pause (Search idle defer, chart scrub, off-tab via **`RootTabSelectionStore`**).
+    /// Selection is synced from UIKit `didSelect` so idle tabs can stop their display links.
     var animationPaused: Bool = false
     var intensity: WaterBubbleAnimationIntensity = .standard
     /// When set, overrides `intensity.bubbleCount`.

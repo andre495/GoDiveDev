@@ -2,10 +2,12 @@ import Foundation
 
 /// When idle root tabs should (not) hold a live full-owner dive/snorkel `@Query`.
 ///
-/// iOS `TabView` keeps every tab mounted. Live owner-wide dive queries on Logbook /
-/// Field Guide / Explore / Search multiply SwiftData invalidation cost. Home stays the
-/// always-live publisher; other tabs mount observation only while selected (Search:
-/// first visit).
+/// iOS 26 `TabView` keeps tab destinations mounted — do not hide them behind a
+/// `Color.clear` lazy wrapper (that blacks out after the first tab change). Cut idle
+/// cost with selection gates instead: Explore dive bridge via
+/// **`shouldMountLiveOwnerDiveQuery`**; Search index via **`shouldScheduleSearchIndexMount`**;
+/// Field Guide / Explore catalog binds via **`LazyRootTabPresentation.catalogBindStart`**
+/// / **`waitUntilCatalogBindAllowed`** (idle after Home chrome quiet window; immediate when selected).
 enum RootTabOwnerDiveQueryPresentation: Sendable {
 
     /// Mount a live owner dive `@Query` while the tab is selected, or while a dive

@@ -20,10 +20,12 @@ enum RootTabIndex {
 
 /// Shared live root-tab selection.
 ///
-/// iOS 18 `TabView` can leave one-shot `let` booleans and even plain `EnvironmentValues`
-/// copies stale inside tab content after first mount (console: Field Guide stuck
-/// `paused=true`, Logbook never paused off-tab). An **`@Observable`** store invalidates
-/// every tab that reads **`selected`**.
+/// iOS 26 `TabView` can leave one-shot `let` booleans and even the SwiftUI `selection`
+/// binding stale while **`UITabBarController`** still changes the visible tab. Keep this
+/// store in sync from **`Notification.Name.rootTabBarDidSelect`** (UIKit `didSelect`) as
+/// well as ContentView’s `selectedTab` — tabs that only read SwiftUI selection will miss
+/// Field Guide / Explore opens. An **`@Observable`** store invalidates every tab that
+/// reads **`selected`**.
 @Observable
 @MainActor
 final class RootTabSelectionStore {

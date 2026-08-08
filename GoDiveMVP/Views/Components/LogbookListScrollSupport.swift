@@ -15,12 +15,23 @@ extension Notification.Name {
 #if canImport(UIKit)
 
 /// Forwards **`UITabBarControllerDelegate`** so iOS 18+ built-in re-tap scroll/pop still runs, while posting tab-specific notifications for custom list scroll fallbacks.
+///
+/// Also posts **`rootTabBarDidSelect`** on every tab change — iOS 26 `TabView` can show a new
+/// tab without updating SwiftUI `selection` / **`RootTabSelectionStore`**.
 private final class RootTabBarReselectForwarder: NSObject, UITabBarControllerDelegate {
     static let shared = RootTabBarReselectForwarder()
 
     private weak var tabBarController: UITabBarController?
     private weak var forwardedDelegate: UITabBarControllerDelegate?
     private var tabIndexNotifications: [Int: Notification.Name] = [:]
+
+    /// Attach as tab-bar delegate from any view in the tab hierarchy (ContentView or a tab root).
+    func ensureInstalled(from view: UIView) {
+        guard let viewController = view.nearestViewController,
+              let tabBarController = viewController.tabBarController
+        else { return }
+        install(on: tabBarController)
+    }
 
     func registerReselectNotification(_ notification: Notification.Name, from view: UIView) {
         guard let viewController = view.nearestViewController,
@@ -30,17 +41,20 @@ private final class RootTabBarReselectForwarder: NSObject, UITabBarControllerDel
 
         guard let index = tabRoots.firstIndex(where: { isMember(viewController, ofTabRoot: $0) }) else { return }
 
+        install(on: tabBarController)
+        tabIndexNotifications[index] = notification
+    }
+
+    private func install(on tabBarController: UITabBarController) {
         if self.tabBarController !== tabBarController {
             self.tabBarController = tabBarController
-            if tabBarController.delegate !== self {
-                if let existing = tabBarController.delegate, existing !== self {
-                    forwardedDelegate = existing
-                }
-                tabBarController.delegate = self
-            }
         }
-
-        tabIndexNotifications[index] = notification
+        if tabBarController.delegate !== self {
+            if let existing = tabBarController.delegate, existing !== self {
+                forwardedDelegate = existing
+            }
+            tabBarController.delegate = self
+        }
     }
 
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
@@ -55,6 +69,20 @@ private final class RootTabBarReselectForwarder: NSObject, UITabBarControllerDel
             return forwardedDelegate.tabBarController!(tabBarController, shouldSelect: viewController)
         }
         return true
+    }
+
+    func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+        if let index = tabBarController.viewControllers?.firstIndex(of: viewController) {
+            RootTabBarSelectionSync.postDidSelect(index: index)
+            #if DEBUG
+            let tab = RootTabBarSelectionSync.rootTab(forTabBarIndex: index)
+            print("[RootTabBar] didSelect index=\(index) tab=\(String(describing: tab))")
+            #endif
+        }
+        if let forwardedDelegate,
+           forwardedDelegate.responds(to: #selector(UITabBarControllerDelegate.tabBarController(_:didSelect:))) {
+            forwardedDelegate.tabBarController!(tabBarController, didSelect: viewController)
+        }
     }
 
     private func isMember(_ member: UIViewController, ofTabRoot root: UIViewController) -> Bool {
@@ -96,6 +124,25 @@ private struct RootTabBarReselectInstaller: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         DispatchQueue.main.async {
             RootTabBarReselectForwarder.shared.registerReselectNotification(notification, from: uiView)
+        }
+    }
+}
+
+/// Ensures the shared tab-bar delegate is installed from **`ContentView`** (selection sync).
+struct RootTabBarSelectionSyncInstaller: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        DispatchQueue.main.async {
+            RootTabBarReselectForwarder.shared.ensureInstalled(from: view)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            RootTabBarReselectForwarder.shared.ensureInstalled(from: uiView)
         }
     }
 }

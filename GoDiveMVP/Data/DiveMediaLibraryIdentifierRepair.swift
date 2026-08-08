@@ -10,7 +10,7 @@ enum DiveMediaLibraryIdentifierRepair: Sendable {
     /// Ensures **`photosLocalIdentifier`** is usable on this device when a cloud ID is present.
     /// Returns the local identifier to load, or **`nil`** when unresolved.
     @discardableResult
-    static func resolveLocalIdentifierIfNeeded(
+    nonisolated static func resolveLocalIdentifierIfNeeded(
         for media: DiveMediaPhoto,
         modelContext: ModelContext
     ) -> String? {
@@ -54,7 +54,7 @@ enum DiveMediaLibraryIdentifierRepair: Sendable {
     /// Fills empty **`photosCloudIdentifier`** from the local Photos asset (best-effort).
     /// Does not save — caller batches **`modelContext.save()`**.
     @discardableResult
-    static func captureCloudIdentifierIfNeeded(for media: DiveMediaPhoto) -> Bool {
+    nonisolated static func captureCloudIdentifierIfNeeded(for media: DiveMediaPhoto) -> Bool {
         #if canImport(Photos)
         guard DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
             localIdentifier: media.photosLocalIdentifier,
@@ -77,9 +77,10 @@ enum DiveMediaLibraryIdentifierRepair: Sendable {
 
 /// Launch / idle backfill for Phase 3 cloud identifiers.
 enum DiveMediaCloudIdentifierBackfill: Sendable {
-    private static let completedCaptureKey = "goDiveMediaCloudIdentifierCaptureBackfillComplete"
+    nonisolated private static let completedCaptureKey = "goDiveMediaCloudIdentifierCaptureBackfillComplete"
 
-    static func backfillIfNeeded(modelContext: ModelContext, batchLimit: Int = 24) {
+    /// **`nonisolated`** so PhotoKit launch maintenance can run off the MainActor.
+    nonisolated static func backfillIfNeeded(modelContext: ModelContext, batchLimit: Int = 24) {
         #if canImport(Photos)
         captureMissingCloudIdentifiers(modelContext: modelContext, batchLimit: batchLimit)
         resolveStaleLocalIdentifiers(modelContext: modelContext, batchLimit: batchLimit)
@@ -87,7 +88,7 @@ enum DiveMediaCloudIdentifierBackfill: Sendable {
     }
 
     #if canImport(Photos)
-    private static func captureMissingCloudIdentifiers(modelContext: ModelContext, batchLimit: Int) {
+    nonisolated private static func captureMissingCloudIdentifiers(modelContext: ModelContext, batchLimit: Int) {
         let all = (try? modelContext.fetch(FetchDescriptor<DiveMediaPhoto>())) ?? []
         var updated = 0
         for media in all where updated < batchLimit {
@@ -103,14 +104,16 @@ enum DiveMediaCloudIdentifierBackfill: Sendable {
         }
     }
 
-    private static func resolveStaleLocalIdentifiers(modelContext: ModelContext, batchLimit: Int) {
+    nonisolated private static func resolveStaleLocalIdentifiers(modelContext: ModelContext, batchLimit: Int) {
         let all = (try? modelContext.fetch(FetchDescriptor<DiveMediaPhoto>())) ?? []
+        let localIDs = all.compactMap(\.libraryAssetLocalIdentifier)
+        let existingLocals = DiveMediaReferenceLoader.existingLocalIdentifiers(in: localIDs)
         var updated = 0
         for media in all where updated < batchLimit {
             guard DiveMediaCloudIdentifierStorage.isPresent(media.photosCloudIdentifier) else { continue }
             let localMissing: Bool = {
                 guard let local = media.libraryAssetLocalIdentifier else { return true }
-                return !DiveMediaReferenceLoader.assetExists(localIdentifier: local)
+                return !existingLocals.contains(local)
             }()
             guard localMissing else { continue }
             if DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(

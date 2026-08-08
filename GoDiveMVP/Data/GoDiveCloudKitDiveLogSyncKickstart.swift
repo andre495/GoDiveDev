@@ -1,10 +1,13 @@
 import Foundation
 import SwiftData
 
-/// Nudges SwiftData + CloudKit mirroring as soon as the production user store is attached.
+/// Nudges SwiftData + CloudKit mirroring after Home launch chrome is ready.
+///
+/// Call sites defer past Gate 2/3 so main-context `fetchCount`s do not contend with
+/// session restore and Home `@Query`. Still runs on CloudKit reconnect.
 enum GoDiveCloudKitDiveLogSyncKickstart: Sendable {
 
-    /// Lightweight main-context reads so the persistent store coordinator schedules import work early.
+    /// Lightweight main-context reads so the persistent store coordinator schedules import work.
     @MainActor
     static func kick(container: ModelContainer, defaults: UserDefaults = .standard) {
         guard GoDiveCloudKitDiveLogLocalStatus.readPrivateSyncState(defaults: defaults) == .enabled else {

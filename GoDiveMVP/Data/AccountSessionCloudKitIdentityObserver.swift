@@ -119,9 +119,9 @@ enum AccountSessionCloudKitIdentityObserver {
             if let owner = AccountSession.shared.currentProfile {
                 try? UserPreferencesSync.syncForSignedInOwner(owner, modelContext: context)
             }
-            #if canImport(Photos)
-            _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(modelContext: context)
-            #endif
+            // Do not prune PhotoKit pointers on MainActor here — Time Profiler showed multi-second
+            // hangs. Coalesced background maintenance runs after Home chrome + quiet window.
+            DiveMediaPhotoKitLaunchMaintenance.schedule(container: container)
         } catch {
             log.error(
                 "identity_merge_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .private)"

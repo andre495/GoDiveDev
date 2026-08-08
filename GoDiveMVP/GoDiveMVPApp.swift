@@ -19,8 +19,10 @@ struct GoDiveMVPApp: App {
     @State private var productionContainer: ModelContainer?
 
     init() {
-        // Backup if App Delegate has not run yet; primary configure is in GoDiveGoogleMapsAppDelegate.
-        GoDiveFirebaseBootstrap.configureIfNeeded()
+        // Firebase configure stays in GoDiveGoogleMapsAppDelegate (required before FCM
+        // delegate wiring). Avoid a second configureIfNeeded here — it is idempotent but
+        // still touches main-thread plist I/O when called before the delegate runs.
+        AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()
         guard GoDiveUITestConfiguration.isActive else {
             AppModelContainer.beginLoadingProductionIfNeeded()
@@ -31,18 +33,23 @@ struct GoDiveMVPApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if GoDiveUITestConfiguration.isActive {
-                GoDiveUITestRootView()
-            } else if let container = productionContainer {
-                ProductionAppRoot(
-                    container: container,
-                    onReplaceContainer: { productionContainer = $0 },
-                    accountSession: accountSession
-                )
-                .environment(AppNetworkConnectivityMonitor.shared)
-            } else {
-                AppLaunchOverlay()
-                    .task { productionContainer = await AppModelContainer.loadProduction() }
+            Group {
+                if GoDiveUITestConfiguration.isActive {
+                    GoDiveUITestRootView()
+                } else if let container = productionContainer {
+                    ProductionAppRoot(
+                        container: container,
+                        onReplaceContainer: { productionContainer = $0 },
+                        accountSession: accountSession
+                    )
+                    .environment(AppNetworkConnectivityMonitor.shared)
+                } else {
+                    AppLaunchOverlay()
+                        .task { productionContainer = await AppModelContainer.loadProduction() }
+                }
+            }
+            .onAppear {
+                AppLaunchFirstFrameProbe.armIfNeeded()
             }
         }
     }
@@ -70,9 +77,8 @@ private struct ProductionAppRoot: View {
                 clearStalePendingCloudKitReconnectIfAlreadyEnabled()
                 // Allow session restore immediately — CloudKit kickstart must not serialize Gate 2.
                 isSessionRestoreAllowed = true
-                Task { @MainActor in
-                    GoDiveCloudKitDiveLogSyncKickstart.kick(container: container)
-                }
+                // Kick after Home chrome is ready (see onChange below) so main-context
+                // fetchCounts do not contend with Gate 2 restore + Gate 3 @Query.
             }
             .onChange(of: scenePhase) { _, phase in
                 CrashReportingService.updateSessionPhase(phase)
@@ -127,6 +133,8 @@ private struct ProductionAppRoot: View {
             .task {
                 CrashReportingService.startAtLaunch(container: container)
                 GoDiveSecurityEventJournal.configure(container: container)
+                // Identity observer stays early — it only registers for CK import notifications
+                // (needed if restore/sign-in races an import). Heavy kick() is deferred.
                 AccountSessionCloudKitIdentityObserver.startIfNeeded(container: container)
                 AppLaunchMaintenance.runInBackground(container: container)
                 GoDiveCloudKitBackgroundSync.scheduleNextOpportunities()
@@ -148,6 +156,19 @@ private struct ProductionAppRoot: View {
                 guard !restoring else { return }
                 // After Gate 2 — APNs registration no longer contends with store open / restore.
                 GoDiveFirebaseCloudMessaging.registerForRemoteNotificationsIfNeeded()
+            }
+            .onChange(of: accountSession.isHomeLaunchChromeReady) { _, isReady in
+                guard isReady else { return }
+                // Quiet window so first Home taps are not sharing MainActor with fetchCount / CK.
+                Task { @MainActor in
+                    let deferNs =
+                        AppLaunchPostOverlayPresentation.postChromeCloudKitKickDeferNanoseconds
+                    if deferNs > 0 {
+                        try? await Task.sleep(nanoseconds: deferNs)
+                    }
+                    guard accountSession.isHomeLaunchChromeReady else { return }
+                    GoDiveCloudKitDiveLogSyncKickstart.kick(container: container)
+                }
             }
             .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
                 guard showsMain else { return }

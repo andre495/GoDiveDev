@@ -93,6 +93,32 @@ enum DiveMediaPreviewStorage {
         }
     }
 
+    /// Launch / warm path — decode stored JPEGs off-main, then pin under the soft session edge.
+    @MainActor
+    static func seedSessionCacheAsync(for mediaRows: [DiveMediaPhoto]) async {
+        for media in mediaRows {
+            await seedSessionCacheIfNeededAsync(for: media)
+        }
+    }
+
+    @MainActor
+    private static func seedSessionCacheIfNeededAsync(for media: DiveMediaPhoto) async {
+        guard let identifier = media.libraryAssetLocalIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !identifier.isEmpty else { return }
+        let softEdge = HomeMediaHighlightWarmupPresentation.storedPreviewSessionEdge
+        if HomeMediaHighlightSessionCache.shared.image(for: identifier, edge: softEdge) != nil {
+            return
+        }
+        guard let image = await loadStoredPreviewImage(for: media) else { return }
+        if HomeMediaHighlightSessionCache.shared.image(for: identifier, edge: softEdge) == nil {
+            HomeMediaHighlightSessionCache.shared.storeImage(
+                image,
+                localIdentifier: identifier,
+                edge: softEdge
+            )
+        }
+    }
+
     @MainActor
     static func persistPreview(
         from image: UIImage,

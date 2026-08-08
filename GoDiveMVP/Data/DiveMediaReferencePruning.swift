@@ -38,7 +38,11 @@ enum DiveMediaReferencePruning {
     @MainActor
     @discardableResult
     static func pruneIfAssetMissing(_ media: DiveMediaPhoto, modelContext: ModelContext) -> Bool {
-        let pruned = evaluateAndPruneIfNeeded(media, modelContext: modelContext)
+        let pruned = evaluateAndPruneIfNeeded(
+            media,
+            modelContext: modelContext,
+            knownExistingLocalIdentifiers: nil
+        )
         if pruned {
             try? modelContext.save()
             DiveActivityMediaStorage.postMediaDidChange()
@@ -47,17 +51,29 @@ enum DiveMediaReferencePruning {
     }
 
     /// Scans stored media pointers and removes rows whose Photos originals are gone.
-    /// Call after CloudKit import and on launch (full Photos authorization required).
+    /// Call after CloudKit import and on deferred launch maintenance (full Photos authorization required).
+    /// Existence is batched into one PhotoKit fetch so launch does not N× `fetchAssets`.
+    /// **`nonisolated`** so launch maintenance can run off the MainActor.
     @discardableResult
-    static func pruneMissingLibraryAssets(
+    nonisolated static func pruneMissingLibraryAssets(
         modelContext: ModelContext,
         batchLimit: Int = 64
     ) -> Int {
         guard PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized else { return 0 }
         let all = (try? modelContext.fetch(FetchDescriptor<DiveMediaPhoto>())) ?? []
+        let localIDs = all.compactMap(\.libraryAssetLocalIdentifier)
+        let existingLocals = DiveMediaReferenceLoader.existingLocalIdentifiers(in: localIDs)
         var pruned = 0
         for media in all where pruned < batchLimit {
-            if evaluateAndPruneIfNeeded(media, modelContext: modelContext) {
+            if let localID = media.libraryAssetLocalIdentifier,
+               existingLocals.contains(localID) {
+                continue
+            }
+            if evaluateAndPruneIfNeeded(
+                media,
+                modelContext: modelContext,
+                knownExistingLocalIdentifiers: existingLocals
+            ) {
                 pruned += 1
             }
         }
@@ -69,17 +85,26 @@ enum DiveMediaReferencePruning {
     }
 
     /// Core prune decision + delete (no save / notify). Returns **`true`** when the row was deleted.
-    private static func evaluateAndPruneIfNeeded(
+    ///
+    /// When **`knownExistingLocalIdentifiers`** is provided (batch launch prune), skip per-row PhotoKit
+    /// fetches for those IDs. Pass **`nil`** for on-demand single-row prune.
+    nonisolated private static func evaluateAndPruneIfNeeded(
         _ media: DiveMediaPhoto,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        knownExistingLocalIdentifiers: Set<String>?
     ) -> Bool {
         let hasFullAuthorization = PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized
         let hasLocal = media.libraryAssetLocalIdentifier != nil
         let hasCloud = DiveMediaCloudIdentifierStorage.isPresent(media.photosCloudIdentifier)
 
-        if let localID = media.libraryAssetLocalIdentifier,
-           DiveMediaReferenceLoader.assetExists(localIdentifier: localID) {
-            return false
+        if let localID = media.libraryAssetLocalIdentifier {
+            let exists: Bool
+            if let known = knownExistingLocalIdentifiers {
+                exists = known.contains(localID)
+            } else {
+                exists = DiveMediaReferenceLoader.assetExists(localIdentifier: localID)
+            }
+            if exists { return false }
         }
 
         var cloudResolve: DiveMediaCloudResolveOutcome?
@@ -93,15 +118,25 @@ enum DiveMediaReferencePruning {
                 if media.photosLocalIdentifier != localID {
                     media.photosLocalIdentifier = localID
                 }
-                if DiveMediaReferenceLoader.assetExists(localIdentifier: localID) {
-                    return false
+                let exists: Bool
+                if let known = knownExistingLocalIdentifiers {
+                    exists = known.contains(localID)
+                        || DiveMediaReferenceLoader.assetExists(localIdentifier: localID)
+                } else {
+                    exists = DiveMediaReferenceLoader.assetExists(localIdentifier: localID)
                 }
+                if exists { return false }
             case .ambiguous(let locals):
                 if let first = locals.first {
                     media.photosLocalIdentifier = first
-                    if DiveMediaReferenceLoader.assetExists(localIdentifier: first) {
-                        return false
+                    let exists: Bool
+                    if let known = knownExistingLocalIdentifiers {
+                        exists = known.contains(first)
+                            || DiveMediaReferenceLoader.assetExists(localIdentifier: first)
+                    } else {
+                        exists = DiveMediaReferenceLoader.assetExists(localIdentifier: first)
                     }
+                    if exists { return false }
                 }
             case .notFound, .unavailable, .emptyInput:
                 break

@@ -53,11 +53,29 @@ enum ExploreScopeCacheRebuildPresentation: Sendable {
         !prefersLogbookDefault
     }
 
-    /// All Sites fallback while My Sites is empty — skipped when we already prefer My Sites.
+    /// All Sites fallback while My Sites is empty.
+    ///
+    /// Wait only while a rebuild is in flight **and** logbook site IDs exist (My Sites pins
+    /// are expected). Otherwise fall back immediately so a cancel storm / empty logbook
+    /// links cannot leave the map on the loading placeholder forever.
     nonisolated static func shouldFallbackToAllSitesWhileLogbookEmpty(
-        prefersLogbookDefault: Bool
+        prefersLogbookDefault: Bool,
+        isScopeCacheRebuildInFlight: Bool = false,
+        expectsLogbookPins: Bool = false
     ) -> Bool {
-        !prefersLogbookDefault
+        if prefersLogbookDefault, isScopeCacheRebuildInFlight, expectsLogbookPins {
+            return false
+        }
+        return true
+    }
+
+    /// Clear the in-flight flag only for the rebuild generation that still owns the slot
+    /// (a newer `scheduleScopeCacheRebuild` must not be cleared by a cancelled predecessor).
+    nonisolated static func shouldClearRebuildInFlight(
+        taskGeneration: UInt64,
+        activeGeneration: UInt64
+    ) -> Bool {
+        taskGeneration == activeGeneration
     }
 
     /// Never publish an empty plottable set from an uninitialized cache (map wipe).
@@ -65,25 +83,38 @@ enum ExploreScopeCacheRebuildPresentation: Sendable {
         !isCacheEmpty
     }
 
-    /// When My Sites is empty but All Sites has pins, either keep the current display or
-    /// fall back to All Sites for first paint — never leave the map blank.
-    /// Prefer **`keepWaitingForLogbook`** when the default should be My Sites.
+    /// Whether the map loading placeholder should stay up — only while a rebuild is in flight.
+    /// An empty cache with **no** in-flight work must not spin forever (show empty state instead).
+    nonisolated static func shouldShowMapLoadingPlaceholder(
+        displayedPlottableCount: Int,
+        isScopeCacheRebuildInFlight: Bool,
+        isCacheEmpty: Bool
+    ) -> Bool {
+        _ = isCacheEmpty
+        return displayedPlottableCount == 0 && isScopeCacheRebuildInFlight
+    }
+
+    /// When My Sites is empty but All Sites has pins, either keep the current display,
+    /// wait briefly while a rebuild is in flight **and** logbook pins are expected, or
+    /// fall back to All Sites — never leave the map on the loading placeholder forever.
     nonisolated static func plottableSitesForDisplay(
         siteScope: ExploreSiteScope,
         scopedSitesCount: Int,
         allSitesCount: Int,
         currentlyDisplayingSites: Bool,
-        prefersLogbookDefault: Bool = false
+        prefersLogbookDefault: Bool = false,
+        isScopeCacheRebuildInFlight: Bool = false,
+        expectsLogbookPins: Bool = false
     ) -> PlottableDisplayDecision {
         if scopedSitesCount > 0 {
             return .useScopedSites
         }
         if siteScope == .logbook, allSitesCount > 0 {
-            if prefersLogbookDefault {
-                return currentlyDisplayingSites ? .keepCurrentDisplay : .keepWaitingForLogbook
-            }
             if currentlyDisplayingSites {
                 return .keepCurrentDisplay
+            }
+            if prefersLogbookDefault, isScopeCacheRebuildInFlight, expectsLogbookPins {
+                return .keepWaitingForLogbook
             }
             return .useAllSitesFallback
         }
@@ -94,7 +125,7 @@ enum ExploreScopeCacheRebuildPresentation: Sendable {
         case useScopedSites
         case useAllSitesFallback
         case keepCurrentDisplay
-        /// Leave the map on the loading placeholder until My Sites pins are ready.
+        /// Leave the map on the loading placeholder until the in-flight rebuild finishes.
         case keepWaitingForLogbook
     }
 

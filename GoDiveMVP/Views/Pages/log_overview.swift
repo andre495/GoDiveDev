@@ -31,6 +31,8 @@ struct LogOverviewView: View {
     @State private var lastCarouselFingerprint = 0
     @State private var lastCarouselTagFingerprint = 0
     @State private var hasCarouselSessionWarmCompleted = false
+    /// False until the launch media-index pass finishes — avoids a false “Add Media…” CTA flash.
+    @State private var hasResolvedLaunchCarousel = false
     @State private var hasPerformedInitialHomeBuild = false
     @State private var homeOverviewRebuildGeneration = 0
     @State private var selfBuddyID: UUID?
@@ -372,13 +374,27 @@ struct LogOverviewView: View {
                 : "Home.MediaCarousel.Hero"
         ) {
             if carouselHighlights.isEmpty {
-                HomeMediaCarouselEmptyPlaceholder(
-                    containerWidth: context.geometryWidth,
-                    topSafeAreaInset: context.heroTopSafeAreaInset,
-                    headerOverlayHeight: context.topInset,
-                    heroBandHeight: context.heroHeight,
-                    context: ownerDiveActivities.isEmpty ? .noLoggedActivities : .noMediaYet
-                )
+                // Until the launch index resolves, keep a quiet gradient (no spinner / false empty CTA).
+                if HomeLaunchCarouselHeroPresentation.showsQuietUnresolvedHero(
+                    hasResolvedLaunchCarousel: hasResolvedLaunchCarousel,
+                    hasLoggedActivities: !ownerDiveActivities.isEmpty,
+                    hasCarouselHighlights: false
+                ) {
+                    HomeMediaCarouselQuietHeroFill(
+                        containerWidth: context.geometryWidth,
+                        topSafeAreaInset: context.heroTopSafeAreaInset,
+                        headerOverlayHeight: context.topInset,
+                        heroBandHeight: context.heroHeight
+                    )
+                } else {
+                    HomeMediaCarouselEmptyPlaceholder(
+                        containerWidth: context.geometryWidth,
+                        topSafeAreaInset: context.heroTopSafeAreaInset,
+                        headerOverlayHeight: context.topInset,
+                        heroBandHeight: context.heroHeight,
+                        context: ownerDiveActivities.isEmpty ? .noLoggedActivities : .noMediaYet
+                    )
+                }
             } else {
                 homeCarouselContent(context: context)
             }
@@ -784,35 +800,76 @@ struct LogOverviewView: View {
                 queryDives: ownerDiveActivities.count,
                 aggregateDives: launch.aggregate.diveStatsInputs.count
             )
+
+            // Start media-index fetch under splash so soft previews can paint ASAP after chrome.
+            let launchAggregate = launch.aggregate
+            let ownerDiveIDs = Set(ownerDiveActivities.map(\.id))
+            let container = modelContext.container
+            if ownerDiveActivities.isEmpty {
+                hasResolvedLaunchCarousel = true
+            }
+            let mediaSeedsTask = Task.detached(priority: .userInitiated) {
+                let context = ModelContext(container)
+                let idList = Array(ownerDiveIDs)
+                let diveDescriptor = FetchDescriptor<DiveActivity>(
+                    predicate: #Predicate<DiveActivity> { idList.contains($0.id) }
+                )
+                let backgroundActivities = (try? context.fetch(diveDescriptor)) ?? []
+                return HomeDiveScalarSeeding.mediaPhotoSeeds(
+                    ownerDiveIDs: ownerDiveIDs,
+                    activities: backgroundActivities,
+                    modelContext: context
+                )
+            }
+
             await Task.yield()
             guard generation == homeOverviewRebuildGeneration else { return }
 
-            // Media index + pick-3 JPEGs before splash dismiss — avoid empty carousel flash.
-            let mediaSeeds = HomeDiveScalarSeeding.mediaPhotoSeeds(
-                ownerDiveIDs: Set(ownerDiveActivities.map(\.id)),
-                activities: ownerDiveActivities,
-                modelContext: modelContext
-            )
-            guard generation == homeOverviewRebuildGeneration else { return }
-            applyLaunchCarousel(
-                mediaSeeds: mediaSeeds,
-                aggregate: launch.aggregate,
-                generation: generation
-            )
-            // Let SwiftUI commit stats + carousel under the splash before it fades.
-            await Task.yield()
-            await Task.yield()
-            guard generation == homeOverviewRebuildGeneration else { return }
-            markHomeLaunchChromeReadyIfNeeded()
+            // Dismiss splash after lifetime stats — soft carousel previews apply when the index returns.
+            if HomeLaunchChromePresentation.shouldMarkChromeReadyAfterLaunchStats(
+                isAlreadyReady: accountSession.isHomeLaunchChromeReady
+            ) {
+                accountSession.markHomeLaunchChromeReady()
+            }
             hasPerformedInitialHomeBuild = true
+            await Task.yield()
+            guard generation == homeOverviewRebuildGeneration else { return }
 
-            // Full media / media-buddy enrich after a quiet interactive window — stats already painted.
             let activities = ownerDiveActivities
             let buddies = ownerDiveBuddies
             let commonNames = marineLifeCommonNameByUUID
             let renumber = automaticallyRenumberDives
             let units = diveDisplayUnitSystem
             let ownerID = ownerProfileID
+            let profile = ownerProfile
+
+            Task { @MainActor in
+                let carouselDefer =
+                    AppLaunchPostOverlayPresentation.postChromeLaunchCarouselDeferNanoseconds
+                if carouselDefer > 0 {
+                    try? await Task.sleep(nanoseconds: carouselDefer)
+                }
+                guard generation == homeOverviewRebuildGeneration else {
+                    hasResolvedLaunchCarousel = true
+                    return
+                }
+                AppLaunchTimelineLog.event(
+                    "home.carousel_seed_begin",
+                    "queryDives=\(ownerDiveIDs.count) deferMs=\(carouselDefer / 1_000_000)"
+                )
+                let mediaSeeds = await mediaSeedsTask.value
+                guard generation == homeOverviewRebuildGeneration else {
+                    hasResolvedLaunchCarousel = true
+                    return
+                }
+                applyLaunchCarousel(
+                    mediaSeeds: mediaSeeds,
+                    aggregate: launchAggregate,
+                    generation: generation
+                )
+            }
+
+            // Full media / media-buddy enrich after a quiet interactive window — stats already painted.
             Task { @MainActor in
                 let enrichDefer = AppLaunchPostOverlayPresentation.postChromeHomeEnrichDeferNanoseconds
                 if enrichDefer > 0 {
@@ -841,7 +898,7 @@ struct LogOverviewView: View {
                     automaticallyRenumberDives: renumber,
                     displayUnits: units,
                     ownerProfileID: ownerID,
-                    ownerProfile: ownerProfile,
+                    ownerProfile: profile,
                     modelContext: modelContext,
                     buddyRoster: buddies
                 )
@@ -956,7 +1013,8 @@ struct LogOverviewView: View {
         )
     }
 
-    /// Picks 3 carousel slides from the media **index**, then loads only those JPEG rows.
+    /// Picks 3 carousel slides from the media **index**, paints soft previews immediately,
+    /// then upgrades via deferred PhotoKit warm (app stays interactive).
     @MainActor
     private func applyLaunchCarousel(
         mediaSeeds: [HomeOverviewMediaPhotoSeed],
@@ -964,6 +1022,7 @@ struct LogOverviewView: View {
         generation: Int
     ) {
         guard generation == homeOverviewRebuildGeneration else { return }
+        defer { hasResolvedLaunchCarousel = true }
         guard let ownerProfileID else {
             carouselHighlights = []
             return
@@ -984,18 +1043,22 @@ struct LogOverviewView: View {
         lastCarouselFingerprint = aggregate.carouselFingerprint
         lastCarouselTagFingerprint = aggregate.carouselTagFingerprint
         hasCarouselSessionWarmCompleted = false
+        // Soft `previewJPEGData` paints via the carousel views immediately; PhotoKit upgrades later.
         carouselHighlights = picks
 
         #if canImport(UIKit)
-        seedCarouselSessionCache(using: homeAggregate)
-        #endif
-        scheduleCarouselWarmupIfNeeded(using: homeAggregate)
-
-        #if canImport(UIKit)
         let storedPreviewCount = pickPhotos.filter { DiveMediaPreviewStorage.hasStoredPreview(for: $0) }.count
+        // Decode soft JPEGs off-main so the first interactive frames stay snappy.
+        let seededAggregate = homeAggregate
+        Task(priority: .utility) { @MainActor in
+            guard generation == homeOverviewRebuildGeneration else { return }
+            await seedCarouselSessionCacheAsync(highlights: picks, using: seededAggregate)
+        }
         #else
         let storedPreviewCount = 0
         #endif
+
+        scheduleCarouselWarmupIfNeeded(using: homeAggregate, seedSoftSessionCache: false)
         AppLaunchTimelineLog.homeCarouselPreviewsSeeded(
             queryDives: ownerDiveActivities.count,
             carouselHighlights: carouselHighlights.count,
@@ -1074,14 +1137,19 @@ struct LogOverviewView: View {
         )
     }
 
-    private func scheduleCarouselWarmupIfNeeded(using aggregate: HomeOverviewAggregate) {
+    private func scheduleCarouselWarmupIfNeeded(
+        using aggregate: HomeOverviewAggregate,
+        seedSoftSessionCache: Bool = true
+    ) {
         guard !carouselHighlights.isEmpty else {
             hasCarouselSessionWarmCompleted = false
             return
         }
 
         #if canImport(UIKit)
-        seedCarouselSessionCache(using: aggregate)
+        if seedSoftSessionCache {
+            seedCarouselSessionCache(using: aggregate)
+        }
         #endif
 
         if let ownerProfileID {
@@ -1102,8 +1170,7 @@ struct LogOverviewView: View {
             displayableBeforeWarm: allDisplayable
         )
 
-        // Stored soft JPEGs are already in the session cache — let slides paint before PhotoKit.
-        // Full-res still upgrades run inside warmHighlights (preview tier, then incremental hero).
+        // Soft previews already paint from `previewJPEGData` — PhotoKit upgrades stay deferred.
         guard !hasCarouselSessionWarmCompleted else { return }
 
         let limitedHighlights = Array(
@@ -1111,7 +1178,7 @@ struct LogOverviewView: View {
         )
         let mediaByID = aggregate.mediaByID
 
-        Task { @MainActor in
+        Task(priority: .utility) { @MainActor in
             // Own the serial video gate for the whole defer + warm window so page `.task`s do not double-queue.
             HomeMediaHighlightWarmup.beginLaunchWarmGateOwnership()
             defer { HomeMediaHighlightWarmup.endLaunchWarmGateOwnership() }
@@ -1178,6 +1245,20 @@ struct LogOverviewView: View {
         DiveMediaPreviewStorage.seedSessionCache(for: mediaRows)
         HomeMediaHighlightWarmup.repinCarouselSessionCache(
             highlights: carouselHighlights,
+            mediaByID: aggregate.mediaByID
+        )
+    }
+
+    /// Launch path: decode soft JPEGs off the main actor, then pin into the session cache.
+    private func seedCarouselSessionCacheAsync(
+        highlights: [HomeMediaHighlight],
+        using aggregate: HomeOverviewAggregate
+    ) async {
+        let limited = Array(highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
+        let mediaRows = limited.compactMap { aggregate.mediaByID[$0.mediaID] }
+        await DiveMediaPreviewStorage.seedSessionCacheAsync(for: mediaRows)
+        HomeMediaHighlightWarmup.repinCarouselSessionCache(
+            highlights: limited,
             mediaByID: aggregate.mediaByID
         )
     }

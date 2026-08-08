@@ -67,7 +67,17 @@ enum HomeLaunchChromePresentation: Sendable {
     ///
     /// Do **not** gate on “was initial rebuild” — a superseded launch path can set
     /// **`hasPerformedInitialHomeBuild`** (or skip) such that a later rebuild never marks chrome.
+    ///
+    /// Launch path marks after lifetime **stats** paint; carousel JPEG seed runs after
+    /// (does not hold the overlay).
     nonisolated static func shouldMarkChromeReady(isAlreadyReady: Bool) -> Bool {
         !isAlreadyReady
+    }
+
+    /// Two-phase launch: dismiss splash after stats; carousel seed is not a Gate 3 dependency.
+    nonisolated static func shouldMarkChromeReadyAfterLaunchStats(
+        isAlreadyReady: Bool
+    ) -> Bool {
+        shouldMarkChromeReady(isAlreadyReady: isAlreadyReady)
     }
 }

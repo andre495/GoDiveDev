@@ -1,0 +1,29 @@
+---
+description: GoDive ships on iOS 26 — do not assume iOS 18 is current.
+alwaysApply: true
+---
+
+# Platform: iOS 26
+
+GoDiveMVP’s **deployment target is iOS 26** (see **`IPHONEOS_DEPLOYMENT_TARGET`** in **`GoDiveMVP.xcodeproj/project.pbxproj`** — currently **26.0** / **26.2** depending on the configuration). Dre’s Phone and the project’s Xcode SDK are on this generation.
+
+## Do
+
+- Treat **iOS 26** as the OS this app runs on and is developed against.
+- Prefer APIs and behaviors available on **iOS 26** / the project’s current Xcode SDK.
+- When describing runtime quirks (e.g. `TabView` selection staleness, lazy-tab black screens), attribute them to **current iOS 26 `TabView` / SwiftUI** behavior — not “we’re on iOS 18.”
+- When availability checks name an older version (`#available(iOS 18.0, *)`, “API introduced in iOS 18”), that is the **API introduction** version, not the app’s deployment OS.
+
+## Do not
+
+- Assume training-data defaults that “latest iOS is 18” (or 17/16) apply to this repo.
+- Write new comments, rules, or docs that imply the app targets or runs on **iOS 18** as its OS.
+- Gate new features behind `#available(iOS 18, *)` when the deployment target is already 26 — use the API directly unless you are sharing code with a lower target (this app is not).
+
+## Quick facts
+
+| Item | Value |
+|---|---|
+| Deployment target | **iOS 26.x** (`IPHONEOS_DEPLOYMENT_TARGET`) |
+| Device run default | Dre’s Phone (see **`xcode-run-dres-phone.mdc`**) |
+| Simulator test default | iPhone 17, latest OS (see **`xcode-run-test.mdc`**) |

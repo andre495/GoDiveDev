@@ -17750,6 +17750,74 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeLaunchCarouselHeroPresentation_usesQuietHeroUntilResolved() {
+        #expect(
+            HomeLaunchCarouselHeroPresentation.showsQuietUnresolvedHero(
+                hasResolvedLaunchCarousel: false,
+                hasLoggedActivities: true,
+                hasCarouselHighlights: false
+            )
+        )
+        #expect(
+            !HomeLaunchCarouselHeroPresentation.showsQuietUnresolvedHero(
+                hasResolvedLaunchCarousel: true,
+                hasLoggedActivities: true,
+                hasCarouselHighlights: false
+            )
+        )
+        #expect(
+            !HomeLaunchCarouselHeroPresentation.showsQuietUnresolvedHero(
+                hasResolvedLaunchCarousel: false,
+                hasLoggedActivities: true,
+                hasCarouselHighlights: true
+            )
+        )
+        #expect(
+            !HomeLaunchCarouselHeroPresentation.showsQuietUnresolvedHero(
+                hasResolvedLaunchCarousel: false,
+                hasLoggedActivities: false,
+                hasCarouselHighlights: false
+            )
+        )
+    }
+
+    @Test func metricKitLaunchMetricsPresentation_formatsHistogramBuckets() {
+        #expect(
+            MetricKitLaunchMetricsPresentation.formatBucketLine(
+                .init(startMilliseconds: 100, endMilliseconds: 200, count: 3)
+            ) == "100-200ms x3"
+        )
+        #expect(
+            MetricKitLaunchMetricsPresentation.formatHistogramSummary(name: "timeToFirstDraw", buckets: [])
+                == "timeToFirstDraw: (empty)"
+        )
+        #expect(
+            MetricKitLaunchMetricsPresentation.formatHistogramSummary(
+                name: "timeToFirstDraw",
+                buckets: [
+                    .init(startMilliseconds: 200, endMilliseconds: 300, count: 2),
+                    .init(startMilliseconds: 300, endMilliseconds: 400, count: 1),
+                ]
+            ) == "timeToFirstDraw: samples=3 [200-300ms x2, 300-400ms x1]"
+        )
+        let summary = MetricKitLaunchMetricsPresentation.summaryText(
+            timeStampEnd: Date(timeIntervalSince1970: 0),
+            appBuildVersion: "1",
+            osVersion: "26.0",
+            timeToFirstDraw: [.init(startMilliseconds: 400, endMilliseconds: 500, count: 1)],
+            optimizedTimeToFirstDraw: [],
+            applicationResumeTime: [],
+            extendedLaunch: []
+        )
+        #expect(summary.contains("timeToFirstDraw: samples=1 [400-500ms x1]"))
+        #expect(summary.contains("optimizedTimeToFirstDraw: (empty)"))
+        #expect(MetricKitLaunchMetricsPresentation.summaryFileName == "metrickit-launch-summary.txt")
+        let ms = MetricKitLaunchMetricsPresentation.milliseconds(
+            from: Measurement(value: 0.25, unit: UnitDuration.seconds)
+        )
+        #expect(abs(ms - 250) < 0.001)
+    }
+
     @Test func homeMediaCarouselEmptyPlaceholder_usesSameSlideHeightAsPopulatedCarousel() {
         let width: CGFloat = 393
         let topInset: CGFloat = 59
@@ -20840,7 +20908,13 @@ struct GoDiveMVPTests {
         #expect(AppLaunchPostOverlayPresentation.postChromeCatalogBindDeferNanoseconds == 2_000_000_000)
         #expect(AppLaunchPostOverlayPresentation.postChromePreviewPersistDeferNanoseconds == 1_000_000_000)
         #expect(AppLaunchPostOverlayPresentation.deferredMaintenanceDelaySeconds == 2)
+        #expect(AppLaunchPostOverlayPresentation.deferredPhotoKitMaintenanceDelaySeconds == 8)
         #expect(AppLaunchPostOverlayPresentation.deferredMapWarmupDelaySeconds == 2.5)
+    }
+
+    @Test func diveMediaReferenceLoader_existingLocalIdentifiers_ignoresBlankIDs() {
+        #expect(DiveMediaReferenceLoader.existingLocalIdentifiers(in: []) == [])
+        #expect(DiveMediaReferenceLoader.existingLocalIdentifiers(in: ["", "  "]) == [])
     }
 
     @Test func accountSessionLaunchRestorePresentation_skipsCloudKitWaitWhenLocalProfileExists() {
@@ -21056,6 +21130,81 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func lazyRootTabPresentation_gatesCatalogLoadsBySelection() {
+        #expect(
+            LazyRootTabPresentation.catalogBindStart(
+                isTabSelected: true,
+                isHomeLaunchChromeReady: false
+            ) == .immediate
+        )
+        #expect(
+            LazyRootTabPresentation.catalogBindStart(
+                isTabSelected: false,
+                isHomeLaunchChromeReady: false
+            ) == .waitUntilChromeOrSelected
+        )
+        #expect(
+            LazyRootTabPresentation.catalogBindStart(
+                isTabSelected: false,
+                isHomeLaunchChromeReady: true
+            ) == .afterChromeQuietWindow
+        )
+        // Empty catalogs still count as loaded — do not re-scan SwiftData forever.
+        #expect(
+            !LazyRootTabPresentation.shouldFetchCatalog(
+                hasLoadedCatalog: true,
+                force: false
+            )
+        )
+        #expect(
+            LazyRootTabPresentation.shouldFetchCatalog(
+                hasLoadedCatalog: false,
+                force: false
+            )
+        )
+        #expect(
+            LazyRootTabPresentation.shouldFetchCatalog(
+                hasLoadedCatalog: true,
+                force: true
+            )
+        )
+        #expect(LazyRootTabPresentation.emptyCatalogRetryNanoseconds == 2_000_000_000)
+        #expect(
+            AppLaunchPostOverlayPresentation.postChromeIdleTabCatalogBindDeferNanoseconds
+                == 1_000_000_000
+        )
+        #expect(
+            AppLaunchPostOverlayPresentation.postChromeLaunchCarouselDeferNanoseconds == 0
+        )
+        #expect(
+            AppLaunchPostOverlayPresentation.postChromeCloudKitKickDeferNanoseconds
+                == 500_000_000
+        )
+        #expect(AppLaunchPostOverlayPresentation.deferredDiveSitesPrewarmDelaySeconds == 2.5)
+        #expect(
+            HomeLaunchChromePresentation.shouldMarkChromeReadyAfterLaunchStats(
+                isAlreadyReady: false
+            )
+        )
+        #expect(
+            !HomeLaunchChromePresentation.shouldMarkChromeReadyAfterLaunchStats(
+                isAlreadyReady: true
+            )
+        )
+        #expect(RootTabBarSelectionSync.rootTab(forTabBarIndex: 0) == .home)
+        #expect(RootTabBarSelectionSync.rootTab(forTabBarIndex: 1) == .logbook)
+        #expect(RootTabBarSelectionSync.rootTab(forTabBarIndex: 2) == .fieldGuide)
+        #expect(RootTabBarSelectionSync.rootTab(forTabBarIndex: 3) == .explore)
+        #expect(RootTabBarSelectionSync.rootTab(forTabBarIndex: 4) == .search)
+        #expect(RootTabBarSelectionSync.rootTab(forTabBarIndex: 99) == nil)
+        #expect(
+            RootTabSelectionPresentation.shouldPauseBubbles(for: .logbook, selected: .home)
+        )
+        #expect(
+            !RootTabSelectionPresentation.shouldPauseBubbles(for: .logbook, selected: .logbook)
+        )
+    }
+
     @Test @MainActor
     func ownerDiveActivityLookup_fetchesDiveAndSnorkelByID() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -21262,14 +21411,96 @@ struct GoDiveMVPTests {
                 prefersLogbookDefault: false
             )
         )
+        // Prefer My Sites: wait only while rebuild in flight AND logbook pins are expected.
         #expect(
             ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
                 siteScope: .logbook,
                 scopedSitesCount: 0,
                 allSitesCount: 10,
                 currentlyDisplayingSites: false,
-                prefersLogbookDefault: true
+                prefersLogbookDefault: true,
+                isScopeCacheRebuildInFlight: true,
+                expectsLogbookPins: true
             ) == .keepWaitingForLogbook
+        )
+        // No logbook site links yet — fall back immediately (do not spin forever).
+        #expect(
+            ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+                siteScope: .logbook,
+                scopedSitesCount: 0,
+                allSitesCount: 10,
+                currentlyDisplayingSites: false,
+                prefersLogbookDefault: true,
+                isScopeCacheRebuildInFlight: true,
+                expectsLogbookPins: false
+            ) == .useAllSitesFallback
+        )
+        // After rebuild finishes with empty My Sites, fall back — never hang on spinner.
+        #expect(
+            ExploreScopeCacheRebuildPresentation.plottableSitesForDisplay(
+                siteScope: .logbook,
+                scopedSitesCount: 0,
+                allSitesCount: 10,
+                currentlyDisplayingSites: false,
+                prefersLogbookDefault: true,
+                isScopeCacheRebuildInFlight: false,
+                expectsLogbookPins: true
+            ) == .useAllSitesFallback
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldFallbackToAllSitesWhileLogbookEmpty(
+                prefersLogbookDefault: true,
+                isScopeCacheRebuildInFlight: true,
+                expectsLogbookPins: true
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldFallbackToAllSitesWhileLogbookEmpty(
+                prefersLogbookDefault: true,
+                isScopeCacheRebuildInFlight: true,
+                expectsLogbookPins: false
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldFallbackToAllSitesWhileLogbookEmpty(
+                prefersLogbookDefault: true,
+                isScopeCacheRebuildInFlight: false,
+                expectsLogbookPins: true
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldClearRebuildInFlight(
+                taskGeneration: 3,
+                activeGeneration: 3
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldClearRebuildInFlight(
+                taskGeneration: 2,
+                activeGeneration: 3
+            )
+        )
+        #expect(
+            ExploreScopeCacheRebuildPresentation.shouldShowMapLoadingPlaceholder(
+                displayedPlottableCount: 0,
+                isScopeCacheRebuildInFlight: true,
+                isCacheEmpty: false
+            )
+        )
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldShowMapLoadingPlaceholder(
+                displayedPlottableCount: 0,
+                isScopeCacheRebuildInFlight: false,
+                isCacheEmpty: false
+            )
+        )
+        // Empty cache alone must not spin forever when nothing is rebuilding.
+        #expect(
+            !ExploreScopeCacheRebuildPresentation.shouldShowMapLoadingPlaceholder(
+                displayedPlottableCount: 0,
+                isScopeCacheRebuildInFlight: false,
+                isCacheEmpty: true
+            )
         )
         #expect(
             !ExploreScopeCacheRebuildPresentation.shouldApplyScopePresentation(isCacheEmpty: true)
