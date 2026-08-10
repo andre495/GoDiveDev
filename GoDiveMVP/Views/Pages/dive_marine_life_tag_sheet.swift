@@ -44,9 +44,10 @@ struct DiveMarineLifeTagPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            AppScrollUnderSearchChromeLayout {
                 speciesSearchChrome
-                pickerContent
+            } content: { chromeClearance in
+                pickerContent(chromeClearance: chromeClearance)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -118,10 +119,11 @@ struct DiveMarineLifeTagPickerSheet: View {
     }
 
     @ViewBuilder
-    private var pickerContent: some View {
+    private func pickerContent(chromeClearance: CGFloat) -> some View {
         if !hasLoadedCatalog, catalog.isEmpty {
             GoDiveRotateLoadingIndicator()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, chromeClearance)
         } else if catalog.isEmpty {
             ContentUnavailableView(
                 "No species in catalog",
@@ -129,16 +131,19 @@ struct DiveMarineLifeTagPickerSheet: View {
                 description: Text("Tap + to add a species, or wait for the Field Guide catalog to load.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, chromeClearance)
         } else if displayedRows.isEmpty, isFilteringSpecies {
             ContentUnavailableView.search(text: speciesSearchQuery)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, chromeClearance)
         } else {
-            speciesList
+            speciesList(chromeClearance: chromeClearance)
         }
     }
 
-    private var speciesList: some View {
+    private func speciesList(chromeClearance: CGFloat) -> some View {
         List {
+            AppScrollUnderHeaderListLayout.topSpacerRow(height: chromeClearance)
             ForEach(displayedRows) { row in
                 Button {
                     toggleTag(for: row)

@@ -4410,4 +4410,9 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 138 - Next batch
 
+**Summary:** Marine-life tag picker sheets use scroll-under search chrome on the shared overview panel background (list scrolls beneath sticky search).
+
+- **`AppScrollUnderSearchChromeLayout`** — shared modal ZStack (list / empty under measured **`CatalogListSearchChrome`** + **`LogbookTopChromeScrim`**); chrome-only inset (no status-bar double-count).
+- **Tag sheets:** **`DiveMarineLifeTagPickerSheet`**, **`DiveActivityMarineLifeTagPickerSheet`**, **`SnorkelMarineLifeTagPickerSheet`** — replace VStack sibling search with scroll-under layout.
+- **Tests:** `appScrollUnderSearchChromePresentation_listTopInset_isChromeOnly`.
 

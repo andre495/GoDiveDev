@@ -74,7 +74,7 @@ GoDive depends on **[Fishial.AI](https://fishial.ai/)**’s hosted **Recognition
 
 **Operational notes:** requires network and a signed-in profile to save catalog tags; subject to Fishial account credits, API availability, and their [API terms / privacy policy](https://docs.fishial.ai/api). Client code: **`FishialAPIClient`**, **`FishialObservationLocation`**, **`DiveMediaFishialIdentification`**, **`FishialMarineLifeCatalogMatching`**, **`DiveMediaFishialIdentificationStorage`**, **`FishialIdentificationReviewPresentation`**. Revisit privacy copy and App Store disclosures before shipping identify broadly or enabling background/auto-identify.
 
-**Manual media tagging:** **`DiveMarineLifeTagPickerSheet`** (blue **`.large`** Cancel / **+** / Done modal) stages catalog picks until trailing **Done** commits **`MarineLifeSightingRecorder.tagPendingSpecies`**; **Cancel** discards staged tags; **+** opens **`FieldGuideMarineLifeAddSheet`** and stages the new species; buddy tag picker uses the same blue overview-panel chrome.
+**Manual media tagging:** **`DiveMarineLifeTagPickerSheet`** / **`SnorkelMarineLifeTagPickerSheet`** / dive-activity species picker (blue overview-panel Cancel / **+** / Done modal) use **`AppScrollUnderSearchChromeLayout`** so catalog search sits on the same panel background with the species list scrolling underneath; stages catalog picks until trailing **Done** commits **`MarineLifeSightingRecorder.tagPendingSpecies`**; **Cancel** discards staged tags; **+** opens **`FieldGuideMarineLifeAddSheet`** and stages the new species; buddy tag picker uses the same blue overview-panel chrome.
 
 ---
 
