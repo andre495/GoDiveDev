@@ -1,0 +1,74 @@
+---
+description: Changelog, app summary, user guide, commit message body, and changelog reset on push.
+globs: GoDiveMVP/**,docs/**,mkdocs.yml,GoDiveMVP/cursor/**
+alwaysApply: false
+---
+
+# Ship workflow (changelog, docs, commit)
+
+## Change log ↔ app summary
+
+After **meaningful** work in **`GoDiveMVP/`**, update docs in the **same effort**:
+
+1. **`GoDiveMVP/cursor/change_log.md`** — append unpushed batch: Summary line + bullets.
+2. **`GoDiveMVP/cursor/app_summary.md`** — only when architecture or user-visible behavior changes; **surgical** edit (≤2 short sentences per batch); do not mirror every changelog bullet.
+
+**`change_log.md`:** one running batch only; shipped history lives in git. Reset only after successful commit+push you perform (**below**). Do not reset if push failed or user did not request ship.
+
+**`app_summary.md`:** scannable map — not a changelog. Update for new/removed tabs, models, flows, data rules; skip polish, refactors, tests-only.
+
+## GitHub Pages user guide
+
+Before commit/push, sync **`docs/`** (MkDocs) when the batch changes user-visible behavior (screens, workflows, data rules, settings labels). Source: **`app_summary.md`**, **`change_log.md`**, code if stale.
+
+Skip: visual polish, performance, internal refactors, agent rules, test-only changes. No release-note prose on Pages.
+
+Push order: finish app + cursor docs → sync **`docs/`** → Xcode preflight (**`xcode-workflow.mdc`**) → commit → push.
+
+## Commit message shape
+
+Subject (≤72 chars, imperative) + body:
+
+```text
+Short subject.
+
+## Summary
+One or two sentences.
+
+## Features
+- …
+
+## Bug fixes
+- …
+
+## Notes (optional)
+- Tests, docs, migration
+```
+
+Pull bullets from **`change_log.md`**. Synthesize — do not paste entire change log.
+
+## Commit + push steps
+
+1. Ensure **`change_log.md`** / **`app_summary.md`** reflect the work.
+2. Sync **`docs/`** when functional user-facing changes ship.
+3. iPhone 17 sim preflight per **`xcode-workflow.mdc`** (`build-for-testing` + scoped tests for the batch) — do not commit until green, 0 project warnings.
+4. Draft commit body from **`change_log.md`** **before** clearing it.
+5. Reset **`change_log.md`** to empty template (header + intro only); stage cleared file in the same commit.
+6. **`git commit`** (HEREDOC subject + body) → **`git push`** when requested.
+
+Do not push without preflight. Do not use one-line subject only for multi-item batches.
+
+## Changelog reset template
+
+```markdown
+# Change Log
+
+**Since last push** — running notes for the current batch. Cleared after each successful **commit + push**; shipped history lives in **git**.
+
+Agents: append summaries and bullets here during work; refresh **`cursor/app_summary.md`** for architecture.
+
+---
+
+```
+
+Do not reset if not shipping in this task. Do not restore shipped bullets after reset.

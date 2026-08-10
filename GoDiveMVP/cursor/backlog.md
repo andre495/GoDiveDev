@@ -1,6 +1,6 @@
 # GoDive — Backlog
 
-Ideas and future directions that are **not** committed work yet. For in-flight tasks and known gaps, see **`todo.md`**. For shipped work, see **`change_log.md`**.
+Ideas and future directions that are **not** committed work yet. For in-flight tasks and known gaps, see **`todo.md`**. For the **current unpushed batch**, see **`change_log.md`** (cleared after each push; history is in git).
 
 Add items as bullets or short sections. Move to **`todo.md`** when you are ready to implement.
 

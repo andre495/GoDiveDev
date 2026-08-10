@@ -20,6 +20,27 @@ enum ProfilePresentation: Sendable {
         }
     }
 
+    /// Profile pinned summary accent — dives and/or snorkels; **`nil`** when the user has no activities yet.
+    nonisolated static func profileActivityAccentLabel(diveCount: Int, snorkelCount: Int) -> String? {
+        let dives = max(0, diveCount)
+        let snorkels = max(0, snorkelCount)
+        guard dives > 0 || snorkels > 0 else { return nil }
+
+        let diveWord = dives == 1 ? "Dive" : "Dives"
+        let snorkelWord = snorkels == 1 ? "Snorkel" : "Snorkels"
+
+        switch (dives > 0, snorkels > 0) {
+        case (true, true):
+            return "\(dives) \(diveWord) | \(snorkels) \(snorkelWord)"
+        case (true, false):
+            return "\(dives) \(diveWord)"
+        case (false, true):
+            return "\(snorkels) \(snorkelWord)"
+        case (false, false):
+            return nil
+        }
+    }
+
     static func certificationCountLabel(_ count: Int) -> String {
         switch count {
         case 0:

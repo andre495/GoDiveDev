@@ -65,4 +65,27 @@ enum FieldGuideCategoryAccentPresentation: Sendable {
     nonisolated static func darkGradientTopRGB(for categoryID: String) -> RGB {
         huePair(for: categoryID).dark
     }
+
+    /// Matches **`FieldGuideCategoryAccent.gradientBottom`** intensity without alpha (hub tiles).
+    nonisolated static let gradientBottomRelativeIntensity: Double = 0.18
+
+    nonisolated static func lightGradientBottomRGB(for categoryID: String) -> RGB {
+        let top = lightGradientTopRGB(for: categoryID)
+        let scale = gradientBottomRelativeIntensity
+        return RGB(
+            red: top.red * scale,
+            green: top.green * scale,
+            blue: top.blue * scale
+        )
+    }
+
+    nonisolated static func darkGradientBottomRGB(for categoryID: String) -> RGB {
+        let top = darkGradientTopRGB(for: categoryID)
+        let scale = gradientBottomRelativeIntensity
+        return RGB(
+            red: top.red * scale,
+            green: top.green * scale,
+            blue: top.blue * scale
+        )
+    }
 }
