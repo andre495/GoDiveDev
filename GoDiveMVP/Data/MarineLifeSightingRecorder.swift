@@ -98,6 +98,20 @@ enum MarineLifeSightingRecorder {
         return try modelContext.fetch(descriptor).first
     }
 
+    /// Any sighting of this species on the snorkel (media-linked or activity-level).
+    static func existingSightingOnSnorkel(
+        marineLifeUUID: String,
+        snorkelActivityID: UUID,
+        modelContext: ModelContext
+    ) throws -> SightingInstance? {
+        let descriptor = FetchDescriptor<SightingInstance>(
+            predicate: #Predicate<SightingInstance> {
+                $0.marineLifeUUID == marineLifeUUID && $0.snorkelActivityID == snorkelActivityID
+            }
+        )
+        return try modelContext.fetch(descriptor).first
+    }
+
     @discardableResult
     static func tagSpecies(
         _ marineLife: MarineLife,
@@ -338,6 +352,111 @@ enum MarineLifeSightingRecorder {
             sortBy: [SortDescriptor(\.sightingDateTime, order: .reverse)]
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    /// Tags a species on the snorkel without linking media. No-ops when the species is already
+    /// sighted on this snorkel (including via a media tag).
+    @discardableResult
+    static func tagSpeciesOnSnorkel(
+        _ marineLife: MarineLife,
+        snorkel: SnorkelActivity,
+        owner: UserProfile,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws -> SightingInstance {
+        if let existing = try existingSightingOnSnorkel(
+            marineLifeUUID: marineLife.uuid,
+            snorkelActivityID: snorkel.id,
+            modelContext: modelContext
+        ) {
+            try syncUserRecordSnorkel(
+                marineLife: marineLife,
+                snorkel: snorkel,
+                media: nil,
+                owner: owner,
+                modelContext: modelContext,
+                persistImmediately: persistImmediately
+            )
+            return existing
+        }
+
+        let draft = SnorkelSightingInstanceCreation.makeDraft(
+            marineLifeUUID: marineLife.uuid,
+            snorkel: snorkel,
+            mediaPhoto: nil
+        )
+        let sighting = try SnorkelSightingInstanceCreation.insert(
+            draft: draft,
+            snorkel: snorkel,
+            mediaPhoto: nil,
+            modelContext: modelContext,
+            persistImmediately: persistImmediately
+        )
+        try syncUserRecordSnorkel(
+            marineLife: marineLife,
+            snorkel: snorkel,
+            media: nil,
+            owner: owner,
+            modelContext: modelContext,
+            persistImmediately: persistImmediately
+        )
+        return sighting
+    }
+
+    /// Persists multiple snorkel-level species tags (no media) with a single save at the end.
+    static func tagPendingSpeciesOnSnorkel(
+        _ marineLife: [MarineLife],
+        snorkel: SnorkelActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        guard !marineLife.isEmpty else { return }
+
+        var created: [SightingInstance] = []
+        for species in marineLife {
+            let sighting = try tagSpeciesOnSnorkel(
+                species,
+                snorkel: snorkel,
+                owner: owner,
+                modelContext: modelContext,
+                persistImmediately: false
+            )
+            created.append(sighting)
+        }
+
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        scheduleCommunityContributionUpserts(created, modelContext: modelContext)
+    }
+
+    /// Removes snorkel-level (and media-linked) sightings of the species on this snorkel.
+    static func untagSpeciesOnSnorkel(
+        marineLifeUUID: String,
+        snorkel: SnorkelActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        let rows = try sightings(forSnorkelActivityID: snorkel.id, modelContext: modelContext)
+            .filter { $0.marineLifeUUID == marineLifeUUID }
+        let deletedUUIDs = rows.map(\.sightingUUID)
+        for row in rows {
+            modelContext.delete(row)
+        }
+        try clearUserRecordLinksAfterUntag(
+            marineLifeUUID: marineLifeUUID,
+            activityID: snorkel.id,
+            diveSiteID: snorkel.diveSiteID,
+            mediaLink: nil,
+            owner: owner,
+            modelContext: modelContext,
+            remainingOnActivity: { false }
+        )
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        DiveActivityMediaStorage.postMediaDidChange()
+        scheduleCommunityContributionDeletes(deletedUUIDs)
     }
 
     @discardableResult

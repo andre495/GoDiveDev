@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Create, fetch, and link **`ActivityTag`** rows for dives.
+/// Create, fetch, and link **`ActivityTag`** rows for dives and snorkels.
 enum ActivityTagStore {
 
     nonisolated static let maxNameLength = 48
@@ -31,7 +31,20 @@ enum ActivityTagStore {
     }
 
     @MainActor
+    static func sortedTags(on activity: SnorkelActivity) -> [ActivityTag] {
+        activity.activityTags.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    @MainActor
     static func summaryLine(for activity: DiveActivity) -> String {
+        let names = sortedTags(on: activity).map(\.name)
+        return names.isEmpty ? "—" : names.joined(separator: ", ")
+    }
+
+    @MainActor
+    static func summaryLine(for activity: SnorkelActivity) -> String {
         let names = sortedTags(on: activity).map(\.name)
         return names.isEmpty ? "—" : names.joined(separator: ", ")
     }
@@ -82,12 +95,28 @@ enum ActivityTagStore {
     }
 
     @MainActor
+    static func applyTag(_ tag: ActivityTag, to activity: SnorkelActivity) {
+        guard !activity.activityTags.contains(where: { $0.id == tag.id }) else { return }
+        activity.activityTags.append(tag)
+    }
+
+    @MainActor
     static func removeTag(_ tag: ActivityTag, from activity: DiveActivity) {
         activity.activityTags.removeAll { $0.id == tag.id }
     }
 
     @MainActor
+    static func removeTag(_ tag: ActivityTag, from activity: SnorkelActivity) {
+        activity.activityTags.removeAll { $0.id == tag.id }
+    }
+
+    @MainActor
     static func isApplied(_ tag: ActivityTag, on activity: DiveActivity) -> Bool {
+        activity.activityTags.contains { $0.id == tag.id }
+    }
+
+    @MainActor
+    static func isApplied(_ tag: ActivityTag, on activity: SnorkelActivity) -> Bool {
         activity.activityTags.contains { $0.id == tag.id }
     }
 

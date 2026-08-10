@@ -4598,4 +4598,11 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 140 - Next batch
 
+**Summary:** Snorkel map tab — Buddies, Marine Life, and Tags sections (dive parity).
+
+- **`SnorkelActivityMapTaggingSectionsView`** + overview sections; **`DiveActivityTagsSectionView`** on map sheet.
+- Sheets: **`SnorkelActivityBuddiesEditSheet`**, **`SnorkelActivityMarineLifeTagPickerSheet`**, **`SnorkelActivityTagsEditSheet`**.
+- **`SnorkelActivity.activityTags`**; **`ActivityTagStore`** / **`MarineLifeSightingRecorder`** snorkel helpers.
+- Tests: buddy draft, activity tags on snorkel, activity-level marine-life dedupe.
+- Docs: **`docs/logbook.md`** snorkel map tagging.
 

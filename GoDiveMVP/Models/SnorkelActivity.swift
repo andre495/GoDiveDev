@@ -61,6 +61,15 @@ final class SnorkelActivity {
         set { buddiesStorage = newValue }
     }
 
+    /// Reusable custom labels (**`ActivityTag`**) applied to this snorkel (unlinked on delete; tag rows persist).
+    @Relationship(deleteRule: .nullify)
+    var activityTagsStorage: [ActivityTag]? = []
+    @Transient
+    var activityTags: [ActivityTag] {
+        get { activityTagsStorage ?? [] }
+        set { activityTagsStorage = newValue }
+    }
+
     @Relationship(deleteRule: .cascade)
     var mediaPhotosStorage: [SnorkelMediaPhoto]? = []
     @Transient

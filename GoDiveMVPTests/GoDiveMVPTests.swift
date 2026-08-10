@@ -9589,6 +9589,47 @@ struct GoDiveMVPTests {
         #expect(chips.map(\.marineLifeUUID) == [species.uuid])
     }
 
+    @Test @MainActor func marineLifeSightingRecorder_tagSpeciesOnSnorkel_dedupesWithMediaTag() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "owner-ml-snorkel", displayName: "Pat")
+        let snorkel = SnorkelActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_200_000),
+            durationMinutes: 45
+        )
+        snorkel.owner = owner
+        let species = MarineLife(uuid: "marine-life-test-parrotfish", commonName: "Stoplight Parrotfish")
+        let media = SnorkelMediaPhoto(sortOrder: 0, mediaKind: .image, photosLocalIdentifier: "ph-snorkel-1")
+        snorkel.mediaPhotos = [media]
+        context.insert(owner)
+        context.insert(snorkel)
+        context.insert(species)
+        context.insert(media)
+        try context.save()
+
+        let mediaSighting = try MarineLifeSightingRecorder.tagSpecies(
+            species,
+            on: media,
+            snorkel: snorkel,
+            owner: owner,
+            modelContext: context
+        )
+        let snorkelSighting = try MarineLifeSightingRecorder.tagSpeciesOnSnorkel(
+            species,
+            snorkel: snorkel,
+            owner: owner,
+            modelContext: context
+        )
+        #expect(snorkelSighting.sightingUUID == mediaSighting.sightingUUID)
+
+        let all = try MarineLifeSightingRecorder.sightings(
+            forSnorkelActivityID: snorkel.id,
+            modelContext: context
+        )
+        #expect(all.count == 1)
+    }
+
     @Test func diveActivityMarineLifeOverviewPresentation_avatarKindPrefersModelThenPhoto() {
         #expect(
             DiveActivityMarineLifeOverviewPresentation.resolvedAvatarKind(
@@ -10951,6 +10992,29 @@ struct GoDiveMVPTests {
 
         ActivityTagStore.removeTag(tag!, from: dive)
         #expect(dive.activityTags.isEmpty)
+    }
+
+    @Test @MainActor func activityTagStore_applyAndRemove_updatesSnorkelMembership() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+        let snorkel = SnorkelActivity(source: .manual, startTime: .now, durationMinutes: 30)
+        snorkel.ownerProfileID = ownerID
+        context.insert(snorkel)
+
+        let tag = try ActivityTagStore.findOrCreateTag(
+            rawName: "Shallow Reef",
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+        #expect(tag != nil)
+
+        ActivityTagStore.applyTag(tag!, to: snorkel)
+        #expect(ActivityTagStore.sortedTags(on: snorkel).map(\.name) == ["Shallow Reef"])
+        #expect(ActivityTagStore.summaryLine(for: snorkel) == "Shallow Reef")
+
+        ActivityTagStore.removeTag(tag!, from: snorkel)
+        #expect(snorkel.activityTags.isEmpty)
     }
 
     @Test func tripPlannerPresentation_pageTitleAndExploreIcon() {
@@ -15281,6 +15345,40 @@ struct GoDiveMVPTests {
         try context.save()
 
         #expect(Set(dive.buddies.compactMap(\.buddyID)) == [alex.id])
+    }
+
+    @Test @MainActor func snorkelBuddyActivityTagDraftPresentation_apply_syncsRoster() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "snorkel-buddy-draft", displayName: "Diver")
+        let snorkel = SnorkelActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_450_000),
+            durationMinutes: 35
+        )
+        snorkel.ownerProfileID = owner.id
+        let jamie = DiveBuddy(displayName: "Jamie", owner: owner)
+        let alex = DiveBuddy(displayName: "Alex", owner: owner)
+        context.insert(owner)
+        context.insert(snorkel)
+        context.insert(jamie)
+        context.insert(alex)
+
+        _ = SnorkelBuddyActivityAssociation.tagBuddy(jamie, on: snorkel, modelContext: context)
+        try context.save()
+        #expect(snorkel.buddies.count == 1)
+
+        let roster = [jamie.id: jamie, alex.id: alex]
+        SnorkelBuddyActivityTagDraftPresentation.apply(
+            draftTaggedBuddyIDs: [alex.id],
+            to: snorkel,
+            rosterByID: roster,
+            modelContext: context
+        )
+        try context.save()
+
+        #expect(Set(snorkel.buddies.compactMap(\.buddyID)) == [alex.id])
     }
 
     @Test @MainActor func diveMediaBuddyTagDraftPresentation_apply_batchesMediaTagWrites() throws {
@@ -34206,6 +34304,47 @@ struct CrashReportingTests {
         #expect(first.sightingUUID == second.sightingUUID)
         #expect(first.persistentModelID == second.persistentModelID)
         let all = try context.fetch(FetchDescriptor<SightingInstance>())
+        #expect(all.count == 1)
+    }
+
+    @Test @MainActor func marineLifeSightingRecorder_tagSpeciesOnSnorkel_dedupesWithMediaTag() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "owner-ml-snorkel", displayName: "Pat")
+        let snorkel = SnorkelActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_200_000),
+            durationMinutes: 45
+        )
+        snorkel.owner = owner
+        let species = MarineLife(uuid: "marine-life-test-parrotfish", commonName: "Stoplight Parrotfish")
+        let media = SnorkelMediaPhoto(sortOrder: 0, mediaKind: .image, photosLocalIdentifier: "ph-snorkel-1")
+        snorkel.mediaPhotos = [media]
+        context.insert(owner)
+        context.insert(snorkel)
+        context.insert(species)
+        context.insert(media)
+        try context.save()
+
+        let mediaSighting = try MarineLifeSightingRecorder.tagSpecies(
+            species,
+            on: media,
+            snorkel: snorkel,
+            owner: owner,
+            modelContext: context
+        )
+        let snorkelSighting = try MarineLifeSightingRecorder.tagSpeciesOnSnorkel(
+            species,
+            snorkel: snorkel,
+            owner: owner,
+            modelContext: context
+        )
+        #expect(snorkelSighting.sightingUUID == mediaSighting.sightingUUID)
+
+        let all = try MarineLifeSightingRecorder.sightings(
+            forSnorkelActivityID: snorkel.id,
+            modelContext: context
+        )
         #expect(all.count == 1)
     }
 

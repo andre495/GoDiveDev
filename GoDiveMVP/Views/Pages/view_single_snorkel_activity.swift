@@ -43,6 +43,7 @@ struct ViewSingleSnorkelActivity: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
+    @Environment(AccountSession.self) private var accountSession
 
     @State private var selectedActivityTab: SnorkelActivityTab = .map
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
@@ -63,6 +64,9 @@ struct ViewSingleSnorkelActivity: View {
     @State private var fishialIdentifyMediaID: UUID?
     @State private var showsFriendShareSettings = false
     @State private var showsMapNotesEditSheet = false
+    @State private var showsMapBuddiesEditSheet = false
+    @State private var showsMapMarineLifeTagSheet = false
+    @State private var showsTagsEditSheet = false
     /// Local-first publish checkpoint banner — pending + friends + global share (detent gated in overlay).
     @State private var showsPublishCheckpointBanner = false
     @State private var publishCheckpointBannerExitDirection =
@@ -152,6 +156,20 @@ struct ViewSingleSnorkelActivity: View {
         .sheet(isPresented: $showsMapNotesEditSheet) {
             SnorkelActivityNotesEditSheet(activity: activity)
         }
+        .sheet(isPresented: $showsMapBuddiesEditSheet) {
+            SnorkelActivityBuddiesEditSheet(activity: activity)
+        }
+        .sheet(isPresented: $showsMapMarineLifeTagSheet) {
+            SnorkelActivityMarineLifeTagPickerSheet(snorkel: activity, onTagged: {})
+        }
+        .sheet(isPresented: $showsTagsEditSheet) {
+            if let ownerProfileID = accountSession.currentProfile?.id {
+                SnorkelActivityTagsEditSheet(
+                    activity: activity,
+                    ownerProfileID: ownerProfileID
+                )
+            }
+        }
         .onChange(of: snorkelMediaPickerItems) { _, items in
             guard !items.isEmpty else { return }
             Task { await importSnorkelMediaPickerItems(items) }
@@ -172,7 +190,7 @@ struct ViewSingleSnorkelActivity: View {
     }
 
     private var derivedDataRefreshToken: String {
-        "\(activity.id.uuidString)-\(activity.mediaPhotos.count)-\(activity.marineLifeSightings.count)-\(activity.mediaBuddyTags.count)"
+        "\(activity.id.uuidString)-\(activity.mediaPhotos.count)-\(activity.marineLifeSightings.count)-\(activity.mediaBuddyTags.count)-\(activity.buddies.count)-\(activity.activityTags.count)"
     }
 
     private var activityTopChrome: some View {
@@ -557,6 +575,10 @@ struct ViewSingleSnorkelActivity: View {
             onOpenLinkedSite: openLinkedDiveSiteOverview,
             regionCountryLine: overviewMapHeaderRegionCountryLine,
             onEditNotes: { showsMapNotesEditSheet = true },
+            onManageBuddies: { showsMapBuddiesEditSheet = true },
+            onManageMarineLife: { showsMapMarineLifeTagSheet = true },
+            onAddTags: { showsTagsEditSheet = true },
+            canAddTags: accountSession.currentProfile?.id != nil,
             opensCommentsOnAppear: opensCommentsOnAppear && !didConsumeOpenCommentsOnAppear,
             onOpenCommentsOnAppearConsumed: { didConsumeOpenCommentsOnAppear = true }
         )

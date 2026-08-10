@@ -11,6 +11,10 @@ struct SnorkelActivityMapOverviewPanelContent: View {
     let onOpenLinkedSite: () -> Void
     let regionCountryLine: String?
     let onEditNotes: () -> Void
+    let onManageBuddies: () -> Void
+    let onManageMarineLife: () -> Void
+    let onAddTags: () -> Void
+    let canAddTags: Bool
     var opensCommentsOnAppear: Bool = false
     var onOpenCommentsOnAppearConsumed: (() -> Void)? = nil
 
@@ -124,6 +128,12 @@ struct SnorkelActivityMapOverviewPanelContent: View {
                 )
             )
 
+            SnorkelActivityMapTaggingSectionsView(
+                activity: activity,
+                onManageBuddies: onManageBuddies,
+                onManageMarineLife: onManageMarineLife
+            )
+
             SnorkelActivityNotesOverviewSection(
                 notes: activity.notes,
                 mentionDisplayNames: GoDiveMentionPresentation.knownDisplayNames(
@@ -131,6 +141,13 @@ struct SnorkelActivityMapOverviewPanelContent: View {
                 ),
                 onEditNotes: onEditNotes
             )
+
+            DiveActivityTagsSectionView(
+                tags: ActivityTagStore.sortedTags(on: activity),
+                canAddTags: canAddTags,
+                onAddTags: onAddTags
+            )
+            .accessibilityIdentifier("SnorkelOverview.TagsSection")
         }
         .accessibilityIdentifier("SnorkelOverview.MapDetailsSection")
     }

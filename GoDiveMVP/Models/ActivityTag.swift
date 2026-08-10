@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Reusable label the signed-in user can apply to one or more dives.
+/// Reusable label the signed-in user can apply to one or more dives or snorkels.
 @Model
 final class ActivityTag {
 
@@ -19,6 +19,14 @@ final class ActivityTag {
     var dives: [DiveActivity] {
         get { divesStorage ?? [] }
         set { divesStorage = newValue }
+    }
+
+    @Relationship(inverse: \SnorkelActivity.activityTagsStorage)
+    var snorkelsStorage: [SnorkelActivity]? = []
+    @Transient
+    var snorkels: [SnorkelActivity] {
+        get { snorkelsStorage ?? [] }
+        set { snorkelsStorage = newValue }
     }
 
     init(
