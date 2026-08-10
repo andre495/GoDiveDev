@@ -1,0 +1,89 @@
+---
+description: Scope, context cost, iteration limits, and short chat replies for agent tasks.
+alwaysApply: true
+---
+
+# Agent workflow
+
+Keep work focused, bounded, and proportional to the request.
+
+## Scope and efficiency
+
+- Work only on the task explicitly requested.
+- Prefer the fewest tool calls needed; do not repeat searches or file reads when information is already available.
+- Do not proactively fix unrelated bugs, warnings, failing tests, or code quality issues.
+- Do not expand scope based on issues discovered while working.
+- Once the requested outcome is obtained, **stop** — do not hunt for extra improvements.
+- If an unexpected problem appears unrelated to the task, stop and report rather than expanding scope.
+
+## Before making changes
+
+- Identify relevant files and code paths first.
+- Prefer the smallest change that addresses the request.
+- Do not refactor surrounding code unless explicitly requested.
+
+## Context cost
+
+Context grows on every turn (history, rules, tool output). Minimize payload size and tool loops.
+
+**Discovery**
+
+- **Grep / Glob / Read directly** — do not spawn **Task** explore/shell subagents unless the user asks or the search space is genuinely unknown after one narrow pass.
+- **Never** launch parallel subagents for the same question.
+- Start with **narrow** globs and paths; widen only if the first pass finds nothing.
+- **Read** with `offset`/`limit` for large files; prefer **Grep** with `head_limit` over whole-file reads when hunting symbols.
+- Do not re-read or re-grep the same path with the same pattern in one session.
+
+**Build and test**
+
+- Default: **author** tests; **do not** run **`xcodebuild`** (see Overrides).
+- When tests run: **one** test class or filter first — not the full suite unless the user asks or ship preflight requires it.
+- Capture **filtered** output only (`grep FAILED`, `tail`, last N lines of failure) — never load full clean/build/test logs into context.
+- Do not run build/test to “verify” after a small change when the user did not ask.
+
+**Ship vs implement**
+
+- Treat **implement / fix / explain** and **commit / push / ship** as separate efforts unless the user combines them in one message.
+- If the user only asked to fix or implement, **stop** after code + tests authored — do not stage changelog, docs, or preflight unless asked.
+
+**When done**
+
+- Stop after the requested outcome; do not continue with related polish, extra greps, or “while I’m here” edits.
+- Suggest a **new chat** for the next discrete task (especially ship) rather than extending a long thread.
+
+## Iteration limits
+
+- Never enter an open-ended fix → test → retest loop.
+- After **2 consecutive fix → test cycles**, stop and report.
+- If the **same failure persists after 2 attempts**, stop.
+- If a **new, unrelated failure** appears, stop and report it.
+
+## Testing (when invoked)
+
+- Run the **smallest relevant test** first; do not run the full suite unless requested.
+- Do not fix unrelated test failures discovered during a run unless asked.
+- Filter large logs instead of reloading entire output into context.
+
+## Escalation
+
+Stop and ask when: ambiguous solution; >2 fix/test iterations needed; unrelated failures; fix causes new class of problems; significant architectural change required.
+
+## Overrides (explicit user requests)
+
+| User asks for | Follow instead |
+|---|---|
+| **Commit / push / ship** | **`ship-workflow.mdc`** + **`xcode-workflow.mdc`** preflight — iteration cap does not apply |
+| **Run / build / test / launch** | **`xcode-workflow.mdc`** |
+| **Fix a specific bug or warning** | That issue is in scope; iteration limits apply to that fix only |
+| **Changelog / docs** | **`ship-workflow.mdc`** when the batch or commit requires them |
+
+Outside those workflows: **author** tests per **`code-changes-require-tests.mdc`** when behavior changes, but **do not execute** **`xcodebuild`** unless the user asks or commit/push requires preflight.
+
+## Chat output
+
+Default to **short replies** — depth in code, commits, and docs.
+
+- Lead with outcome (done / blocked / answer) in the first line.
+- **≤3 bullets** or **≤1 short paragraph** unless the user asked for more.
+- No preamble, filler closings, or step-by-step tool play-by-play unless debugging.
+- Keep detail for: explain/review requests, errors/failures (actionable lines only), commit bodies (in git, not chat).
