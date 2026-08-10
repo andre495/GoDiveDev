@@ -4596,7 +4596,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **`TripBuddyTripShareChrome`** / **`TripPlannedBuddyMember`** use explicit **`nonisolated`** `Equatable`; subtitle uses `switch` instead of `==`.
 
-## 140 - Next batch
+## 140 - Snorkel map-tab tagging **(pushed)**
 
 **Summary:** Snorkel map tab — Buddies, Marine Life, and Tags sections (dive parity).
 
@@ -4605,4 +4605,6 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`SnorkelActivity.activityTags`**; **`ActivityTagStore`** / **`MarineLifeSightingRecorder`** snorkel helpers.
 - Tests: buddy draft, activity tags on snorkel, activity-level marine-life dedupe.
 - Docs: **`docs/logbook.md`** snorkel map tagging.
+
+## 141 - Next batch
 
