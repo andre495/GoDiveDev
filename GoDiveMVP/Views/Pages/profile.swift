@@ -31,6 +31,7 @@ struct ProfileView: View {
 
     @Query private var ownedCertifications: [Certification]
     @Query private var ownedDiveActivities: [DiveActivity]
+    @Query private var ownedSnorkelActivities: [SnorkelActivity]
     @Query private var ownerDiveBuddies: [DiveBuddy]
 
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
@@ -83,6 +84,13 @@ struct ProfileView: View {
                 SortDescriptor(\DiveActivity.id, order: .forward),
             ]
         )
+        _ownedSnorkelActivities = Query(
+            filter: #Predicate<SnorkelActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\SnorkelActivity.startTime, order: .reverse),
+                SortDescriptor(\SnorkelActivity.id, order: .forward),
+            ]
+        )
         _ownerDiveBuddies = Query(
             filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
             sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
@@ -113,9 +121,10 @@ struct ProfileView: View {
         ownedCertifications
     }
 
-    private var diveCountLabel: String {
-        ProfilePresentation.diveActivityCountLabel(
-            DiveActivityDiveNumbering.numberedDiveCount(in: ownedDiveActivities)
+    private var profileActivityAccent: String? {
+        ProfilePresentation.profileActivityAccentLabel(
+            diveCount: DiveActivityDiveNumbering.numberedDiveCount(in: ownedDiveActivities),
+            snorkelCount: ownedSnorkelActivities.count
         )
     }
 
@@ -432,9 +441,9 @@ struct ProfileView: View {
 
     private var profilePinnedSummary: some View {
         BlueSheetPinnedSummary(
-            accent: diveCountLabel,
+            accent: profileActivityAccent,
             accentFont: BlueSheetPinnedSummaryPresentation.buddyAccentFont,
-            accentAccessibilityIdentifier: "Profile.DiveCount",
+            accentAccessibilityIdentifier: "Profile.ActivityCount",
             title: accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName,
             titleFont: BlueSheetPinnedSummaryPresentation.buddyTitleFont,
             titleLineLimit: 2,

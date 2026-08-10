@@ -1,0 +1,129 @@
+---
+description: Xcode build, test, deploy, warnings, and Dre's Phone — run only when asked or before commit/push.
+globs: GoDiveMVP/**/*.swift,GoDiveMVPTests/**/*.swift,GoDiveMVPUITests/**/*.swift,GoDiveMVP.xcodeproj/**
+alwaysApply: false
+---
+
+# Xcode workflow
+
+## When to run `xcodebuild`
+
+**Do not run** (`clean`, `build`, `build-for-testing`, `test`) proactively after code changes, fixes, or test authoring.
+
+Run **only** when:
+
+1. **Explicit build / run / test request** — user asks to run, launch, build, test, ⌘U, verify compile, or rebuild on Dre's phone.
+2. **Commit and/or push** — before staging: iPhone 17 sim **`clean`** → **`clean build-for-testing`** → **scoped `test`** (see **Commit/push preflight**); fix errors, failures, and **all project warnings** until green. Do not commit or push until **BUILD SUCCEEDED**, scoped tests pass, and project warning count is **0**.
+
+Do not run to “just verify” work. At handoff without a build request, skip build logs; do not claim BUILD SUCCEEDED/FAILED.
+
+## CLI setup
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+XCBUILD="$DEVELOPER_DIR/usr/bin/xcodebuild"
+PROJECT="/Users/andrdugas/Desktop/GoDiveMVP/GoDiveMVP.xcodeproj"
+SCHEME="GoDiveMVP"
+```
+
+Use **full Xcode** (not Command Line Tools only). If `xcodebuild` is missing, say so.
+
+## Destinations
+
+| User says | `-destination` |
+|---|---|
+| Dre's phone / device / my phone | `platform=iOS,id=00008130-001241C118A1401C` |
+| iPhone 17 simulator / simulator | `platform=iOS Simulator,name=iPhone 17,OS=latest` |
+
+If destination fails, run **`$XCBUILD -showdestinations`**, pick closest match, report which was used.
+
+## Build & deploy (ordinary requests)
+
+- Stay focused; do not fix unrelated issues or refactor.
+- No proactive **`clean`**, signing changes, or dependency reinstall unless required for a targeted fix.
+- Build succeeds → **stop**; report meaningful warnings; do not fix warnings unless asked.
+- Build fails → one targeted fix, rebuild; max **2 fix/rebuild cycles**, then stop and report root error.
+- Do not chase cascading errors; inspect relevant log sections, not full dumps.
+
+```bash
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination '<parsed-destination>' \
+  build 2>&1 | tee /tmp/godive-run.log
+```
+
+Grep **`error:`** and **`warning:`** (exclude `appintentsmetadataprocessor` noise unless blocking).
+
+## Commit/push preflight
+
+1. **`clean`** for the build destination.
+2. **`clean build-for-testing`** on iPhone 17 simulator (catches test-target compile issues across all targets).
+3. **Scoped `test`** on same simulator — **not** the full suite unless the user asks. Run only:
+   - Test classes/files **added or modified** in the batch (`GoDiveMVPTests/`, `GoDiveMVPUITests/`).
+   - Existing tests **in the domain** of changed app code — map changed `GoDiveMVP/` paths to matching `*Tests` (e.g. `ProfilePresentation.swift` → `ProfilePresentationTests`, `Data/Import/` → `ImportDecoderTests`, `FieldGuide*` → `FieldGuideTests`). When unsure, grep the changed symbol/type in `GoDiveMVPTests/`.
+   - **Widen** to full **`test`** only when the batch touches shared app/test infrastructure (e.g. `GoDiveMVPTestSupport`, app entry, global SwiftData/CloudKit bootstrapping) or the user requests the full suite.
+4. Fix **every warning** in **`GoDiveMVP/`**, **`GoDiveMVPTests/`**, **`GoDiveMVPUITests/`** — same priority as errors for handoff.
+5. Repeat until green and **0 project warnings**.
+
+**Scoped test selection:** from `git diff` (staged + unstaged) for the batch, build `-only-testing:` filters — one per class, e.g. `-only-testing:GoDiveMVPTests/ProfilePresentationTests`. Deduplicate; omit `GoDiveMVPTestSupport` and other non-test helpers unless they changed.
+
+```bash
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+  -only-testing:GoDiveMVPTests/ProfilePresentationTests \
+  -only-testing:GoDiveMVPTests/FieldGuideTests \
+  test 2>&1 | tee /tmp/godive-preflight-test.log
+```
+
+Ordinary build/run requests skip **`clean`** and do not require fixing warnings unless asked.
+
+## Fix warnings (preflight or explicit request)
+
+Address Swift 6 actor-isolation/Sendable, deprecated APIs, unused variables, test `#expect` isolation. Smallest correct fix — no blanket `@preconcurrency` unless no safe alternative.
+
+**Exclude (report only):** `appintentsmetadataprocessor` metadata skipped; warnings in unchanged SPM deps (FITSwiftSDK, GoogleMaps, etc.).
+
+## Testing behavior
+
+- Start with smallest relevant test target or class.
+- Do not run full suite unless requested (commit/push preflight runs **scoped** tests per **Commit/push preflight** above).
+- On failure: first meaningful failure → inspect relevant source → report → stop (unless fixing that failure is in scope).
+- After a fix: rerun affected test only.
+- Max **2 test → fix → test cycles** for ad-hoc debugging; then stop.
+- Stop on simulator/signing/env issues rather than repairing the environment.
+
+| User asks for | Follow instead |
+|---|---|
+| **Commit / push / ship** | Build-for-testing + scoped tests preflight; iteration cap does not apply |
+| **Fix a specific failing test** | That failure in scope; iteration limits apply |
+| **Run full test suite** | Run full suite |
+
+## Dre's Phone — build, install, launch
+
+When user asks to **run on Dre's phone** (device run context), do **not** stop after build-only.
+
+| Field | Value |
+|---|---|
+| Destination | `platform=iOS,id=00008130-001241C118A1401C` |
+| Bundle ID | `PrimoSoftware.GoDiveMVP` |
+
+```bash
+DEST='platform=iOS,id=00008130-001241C118A1401C'
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination "$DEST" -allowProvisioningUpdates \
+  build 2>&1 | tee /tmp/godive-dres-build.log
+```
+
+After **BUILD SUCCEEDED**, install and launch (do not hand off with “tap Run in Xcode” unless `devicectl` fails):
+
+```bash
+xcrun devicectl device install app --device 00008130-001241C118A1401C "$APP_PATH"
+xcrun devicectl device process launch --device 00008130-001241C118A1401C PrimoSoftware.GoDiveMVP
+```
+
+If device locked/offline or `devicectl` unavailable, report build path and ask user to tap Run as fallback.
+
+## Required behavior
+
+- Never say “run it in Xcode” without running **`xcodebuild`** when tools are available.
+- Surface compiler errors and meaningful warnings (especially Swift 6 isolation in app/tests).
+- Keep responses scannable: result, destination, top actionable lines, what was fixed.

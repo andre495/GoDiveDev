@@ -1,0 +1,13 @@
+---
+description: On build/test/run/commit/push requests, apply xcode-workflow and ship-workflow rules.
+alwaysApply: true
+---
+
+# Workflow triggers
+
+When the user asks to **build**, **run**, **launch**, **test**, **commit**, **push**, or **ship**, follow:
+
+- **`xcode-workflow.mdc`** — Xcode CLI, destinations, build/deploy/test, warnings, Dre's Phone install+launch
+- **`ship-workflow.mdc`** — changelog, app summary, user guide, commit message body, changelog reset on push
+
+Apply these even when globs did not attach those rules to the current context.

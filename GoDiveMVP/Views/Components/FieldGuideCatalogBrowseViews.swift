@@ -176,7 +176,7 @@ private struct FieldGuideCategoryHubTile: View {
         LinearGradient(
             colors: [
                 FieldGuideCategoryAccent.gradientTop(definition.id),
-                FieldGuideCategoryAccent.gradientBottom(definition.id),
+                FieldGuideCategoryAccent.opaqueGradientBottom(definition.id),
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

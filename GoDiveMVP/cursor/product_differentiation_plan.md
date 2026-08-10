@@ -206,4 +206,4 @@ For each competitor, capture:
 
 ## Tracking
 
-Use this doc as the source for engineering batches. When starting a batch, append concrete tasks to the **latest open** section in **`change_log.md`** and refresh **`app_summary.md`** only when user-visible behavior ships.
+Use this doc as the source for engineering batches. When starting a batch, append concrete tasks to **`change_log.md`**; touch **`app_summary.md`** only when user-visible behavior or architecture ships — keep edits to one or two short sentences.

@@ -37,7 +37,7 @@ Context grows on every turn (history, rules, tool output). Minimize payload size
 **Build and test**
 
 - Default: **author** tests; **do not** run **`xcodebuild`** (see Overrides).
-- When tests run: **one** test class or filter first — not the full suite unless the user asks or ship preflight requires it.
+- When tests run: **one** test class or filter first — not the full suite unless the user asks; commit/push preflight runs **scoped** tests per **`xcode-workflow.mdc`**.
 - Capture **filtered** output only (`grep FAILED`, `tail`, last N lines of failure) — never load full clean/build/test logs into context.
 - Do not run build/test to “verify” after a small change when the user did not ask.
 

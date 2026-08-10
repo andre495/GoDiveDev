@@ -1,6 +1,7 @@
 ---
 description: GoDive ships on iOS 26 — do not assume iOS 18 is current.
-alwaysApply: true
+globs: GoDiveMVP/**/*.swift
+alwaysApply: false
 ---
 
 # Platform: iOS 26
@@ -25,5 +26,5 @@ GoDiveMVP’s **deployment target is iOS 26** (see **`IPHONEOS_DEPLOYMENT_TARGET
 | Item | Value |
 |---|---|
 | Deployment target | **iOS 26.x** (`IPHONEOS_DEPLOYMENT_TARGET`) |
-| Device run default | Dre’s Phone (see **`xcode-run-dres-phone.mdc`**) |
-| Simulator test default | iPhone 17, latest OS (see **`xcode-run-test.mdc`**) |
+| Device run default | Dre’s Phone (see **`xcode-workflow.mdc`**) |
+| Simulator test default | iPhone 17, latest OS (see **`xcode-workflow.mdc`**) |

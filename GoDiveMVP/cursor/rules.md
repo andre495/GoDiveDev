@@ -256,19 +256,38 @@ Do NOT skip this step. `todo.md` is the single source of truth for project state
 
 ## Change log and app summary
 
-When adding a **new numbered section** to `cursor/change_log.md` for work being **pushed to git**, update **`cursor/app_summary.md`** in the same change so the high-level architecture summary stays accurate. Follow **`.cursor/rules/changelog-app-summary-sync.mdc`**.
+When work in **`GoDiveMVP/`** changes behavior, append **`cursor/change_log.md`** (unpushed batch). Update **`cursor/app_summary.md`** only for architecture or user-visible changes — brief surgical edits, not changelog dumps (**`.cursor/rules/ship-workflow.mdc`**).
 
 ---
 
 ## Code changes and tests
 
-Non-trivial edits under **`GoDiveMVP/`** should include new or updated tests in **`GoDiveMVPTests`** (unit) or **`GoDiveMVPUITests`** (UI), per **`.cursor/rules/code-changes-require-tests.mdc`**.
+Non-trivial edits under **`GoDiveMVP/`** should include new or updated tests in **`GoDiveMVPTests`** (unit) or **`GoDiveMVPUITests`** (UI), per **`.cursor/rules/code-changes-require-tests.mdc`**. Agent scope and Xcode/ship workflows: **`agent-workflow.mdc`**, **`workflow-triggers.mdc`**, **`xcode-workflow.mdc`**, **`ship-workflow.mdc`**.
 
 ---
 
 ## Snappy navigation & performance
 
 Follow **`.cursor/rules/swiftui-snappy-navigation.mdc`** for tab switches, pushes, sheets, and SwiftData-heavy screens. Prefer off-main snapshots (**`LogbookDisplayCacheBuilder`**, **`DiveDerivedDataBuilder`**), fingerprint skips, debounced rebuilds (**`HomeOverviewRebuildScheduler`**, **`LogbookCacheRefreshScheduler`**), and scoped **`@Query`**.
+
+---
+
+## Cursor indexing (`.cursorignore`)
+
+The repo root [`.cursorignore`](../../.cursorignore) excludes ~900MB of bundled media, venvs, and sibling projects from Cursor indexing to reduce token/cache cost.
+
+**After editing `.cursorignore`:** Cursor → Settings → Features → Codebase Indexing → **Resync Index** (or restart Cursor).
+
+**Temporarily re-include paths for specialized work** — comment out the relevant line(s), resync, then restore when done:
+
+| Work | Comment out in `.cursorignore` |
+|------|-------------------------------|
+| Commit/push changelog updates | `GoDiveMVP/cursor/change_log.md` |
+| Firebase CDN rules / deploy | `catalog-cdn/` |
+| Marine KG / R2RML | `marine life ontology/` |
+| Full catalog authoring | `# GoDiveMVP/CatalogAuthoring/` (uncomment that line) |
+
+iOS Swift code, tests, and `GoDiveMVP/Resources/Catalog/*.json` stay indexed by default.
 
 ---
 

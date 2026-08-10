@@ -1,0 +1,43 @@
+# ── Bundled media (agents only need Swift path strings, not binary content) ──
+GoDiveMVP/Resources/MarineLife3D/
+GoDiveMVP/Resources/MarineLifePhotos/
+GoDiveMVP/Resources/*.mov
+GoDiveMVP/Resources/**/*.mov
+GoDiveMVP/Resources/OnboardingPhotos/
+
+# KEEP indexed: GoDiveMVP/Resources/Catalog/*.json (~1.5MB, used by seeders/tests)
+
+# ── Local agent skill vendoring (gitignored, 166MB on disk) ──
+.agents/
+
+# ── Sibling monorepo projects (comment out these lines when actively working there) ──
+catalog-cdn/
+marine life ontology/
+
+# ── Vendored language runtimes (always safe to ignore) ──
+**/node_modules/
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# ── Build / IDE artifacts ──
+build/
+DerivedData/
+.derivedData/
+*.xcresult
+site/
+
+# ── Large authoring caches (uncomment CatalogAuthoring/ line for catalog work) ──
+GoDiveMVP/CatalogAuthoring/*_cache.json
+GoDiveMVP/CatalogAuthoring/*_report.json
+# GoDiveMVP/CatalogAuthoring/   # uncomment to exclude all catalog authoring (~2.3MB)
+
+# ── Changelog archive (657KB; agents rarely need 4,600 lines of history) ──
+GoDiveMVP/cursor/change_log.md
+
+# ── Binary assets in Xcode asset catalog (icons/screenshots; Swift refs names only) ──
+GoDiveMVP/Assets.xcassets/**/*.png
+GoDiveMVP/Assets.xcassets/**/*.jpg
+
+# ── macOS noise ──
+.DS_Store
