@@ -12,13 +12,59 @@ enum HomeMediaCarouselScrollInteractionPresentation: Sendable {
     /// Eager **`HStack`** (not **`LazyHStack`**) — carousel is capped at **`carouselLimit`** and lazy
     /// materialization was dropping forward-page pans.
     nonisolated static let usesEagerHorizontalStackForPaging = true
+
+    /// UIKit / SwiftUI hosting class-name tokens that own the tap (dive link, fish, buddy, etc.).
+    /// Open-media must not also fire for those hits.
+    nonisolated static let openMediaExcludedViewClassNameTokens: [String] = [
+        "Button",
+        "UIButton",
+        "UIControl",
+        "UISwitch",
+        "UISlider",
+        "UITextField",
+        "UITextView",
+    ]
+
+    /// Whether a touch sitting on **`viewClassName`** should skip open-media (chrome owns the tap).
+    nonisolated static func viewClassNameExcludesOpenMediaTap(_ viewClassName: String) -> Bool {
+        openMediaExcludedViewClassNameTokens.contains { token in
+            viewClassName.localizedCaseInsensitiveContains(token)
+        }
+    }
+
+    /// Open-media yields to another recognizer when that recognizer is a control tap (not the pager pan).
+    nonisolated static func openMediaTapShouldRequireFailure(
+        ofOtherGestureClassName otherClassName: String,
+        otherIsTapGesture: Bool,
+        otherIsPanGesture: Bool,
+        otherViewIsPagingScrollView: Bool
+    ) -> Bool {
+        if otherViewIsPagingScrollView { return false }
+        if otherIsPanGesture { return false }
+        if otherIsTapGesture { return true }
+        return otherClassName.localizedCaseInsensitiveContains("Button")
+            || otherClassName.localizedCaseInsensitiveContains("TapGesture")
+    }
+
+    /// Walked view-class names from the touch target up to (but not including) the paging scroll view.
+    nonisolated static func shouldIgnoreOpenMediaTap(
+        touchingViewClassNames: [String],
+        encounteredNestedScrollView: Bool,
+        hasCompetingTapRecognizer: Bool
+    ) -> Bool {
+        if encounteredNestedScrollView { return true }
+        if hasCompetingTapRecognizer { return true }
+        return touchingViewClassNames.contains(where: viewClassNameExcludesOpenMediaTap)
+    }
 }
 
 #if canImport(UIKit)
 /// Installs a **`UITapGestureRecognizer`** on the Home carousel **`UIScrollView`**.
 ///
 /// Uses **`cancelsTouchesInView = false`** + simultaneous recognition with the pan (not
-/// **`require(toFail:)`**, which often prevents taps from ever firing on SwiftUI scroll views).
+/// **`require(toFail:)`** on the pan, which often prevents taps from ever firing on SwiftUI
+/// scroll views). Chrome buttons win via **`shouldReceive`** exclusion + requiring failure of
+/// competing tap / button recognizers.
 struct HomeMediaCarouselScrollTapInstaller: UIViewRepresentable {
     var onTap: () -> Void
 
@@ -91,6 +137,15 @@ struct HomeMediaCarouselScrollTapInstaller: UIViewRepresentable {
 
         @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard recognizer.state == .ended else { return }
+            guard let scrollView else {
+                onTap()
+                return
+            }
+            let point = recognizer.location(in: scrollView)
+            if let hit = scrollView.hitTest(point, with: nil),
+               Self.shouldIgnoreOpenMedia(for: hit, pagingScrollView: scrollView, tapRecognizer: recognizer) {
+                return
+            }
             onTap()
         }
 
@@ -98,23 +153,89 @@ struct HomeMediaCarouselScrollTapInstaller: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            true
+            // Stay simultaneous with the pager pan; do not race chrome button taps.
+            if otherGestureRecognizer is UIPanGestureRecognizer { return true }
+            if otherGestureRecognizer is UITapGestureRecognizer { return false }
+            let name = String(describing: type(of: otherGestureRecognizer))
+            if name.localizedCaseInsensitiveContains("Button")
+                || name.localizedCaseInsensitiveContains("TapGesture") {
+                return false
+            }
+            return true
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            guard gestureRecognizer === tapRecognizer else { return false }
+            let otherName = String(describing: type(of: otherGestureRecognizer))
+            return HomeMediaCarouselScrollInteractionPresentation.openMediaTapShouldRequireFailure(
+                ofOtherGestureClassName: otherName,
+                otherIsTapGesture: otherGestureRecognizer is UITapGestureRecognizer,
+                otherIsPanGesture: otherGestureRecognizer is UIPanGestureRecognizer,
+                otherViewIsPagingScrollView: otherGestureRecognizer.view === scrollView
+            )
         }
 
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldReceive touch: UITouch
         ) -> Bool {
-            var view = touch.view
-            while let current = view {
-                if current is UIControl { return false }
-                let name = String(describing: type(of: current))
-                if name.contains("Button") {
-                    return false
+            guard let scrollView else { return true }
+            guard let touchView = touch.view else { return true }
+            return !Self.shouldIgnoreOpenMedia(
+                for: touchView,
+                pagingScrollView: scrollView,
+                tapRecognizer: tapRecognizer
+            )
+        }
+
+        private static func shouldIgnoreOpenMedia(
+            for startView: UIView,
+            pagingScrollView: UIScrollView,
+            tapRecognizer: UIGestureRecognizer?
+        ) -> Bool {
+            var classNames: [String] = []
+            var encounteredNestedScrollView = false
+            var hasCompetingTapRecognizer = false
+            var current: UIView? = startView
+
+            while let view = current {
+                if view === pagingScrollView { break }
+
+                if view is UIControl {
+                    return true
                 }
-                view = current.superview
+                if view is UIScrollView {
+                    encounteredNestedScrollView = true
+                }
+
+                let name = NSStringFromClass(type(of: view))
+                classNames.append(name)
+
+                if let recognizers = view.gestureRecognizers {
+                    for recognizer in recognizers {
+                        guard recognizer !== tapRecognizer else { continue }
+                        if recognizer is UITapGestureRecognizer {
+                            hasCompetingTapRecognizer = true
+                        }
+                        let gestureName = String(describing: type(of: recognizer))
+                        if gestureName.localizedCaseInsensitiveContains("Button")
+                            || gestureName.localizedCaseInsensitiveContains("TapGesture") {
+                            hasCompetingTapRecognizer = true
+                        }
+                    }
+                }
+
+                current = view.superview
             }
-            return true
+
+            return HomeMediaCarouselScrollInteractionPresentation.shouldIgnoreOpenMediaTap(
+                touchingViewClassNames: classNames,
+                encounteredNestedScrollView: encounteredNestedScrollView,
+                hasCompetingTapRecognizer: hasCompetingTapRecognizer
+            )
         }
 
         private static func findHorizontalScrollView(near anchor: UIView) -> UIScrollView? {

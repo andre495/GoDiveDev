@@ -48,8 +48,51 @@ enum DiveBuddyRosterPresentation {
         }
     }
 
+    /// Counts owned shared dives without sorting the activity list (list rows only need the count).
     static func sharedDiveCount(for buddy: DiveBuddy, ownerProfileID: UUID) -> Int {
-        Set(sharedDiveActivities(for: buddy, ownerProfileID: ownerProfileID).map(\.id)).count
+        var ids = Set<UUID>()
+        for tag in buddy.diveParticipations {
+            guard let dive = tag.dive, dive.ownerProfileID == ownerProfileID else { continue }
+            ids.insert(dive.id)
+        }
+        return ids.count
+    }
+
+    /// One-shot count map for **Buddies** list — avoids walking tags once per body evaluation.
+    static func sharedDiveCountsByBuddyID(
+        for buddies: [DiveBuddy],
+        ownerProfileID: UUID
+    ) -> [UUID: Int] {
+        var result: [UUID: Int] = [:]
+        result.reserveCapacity(buddies.count)
+        for buddy in buddies {
+            result[buddy.id] = sharedDiveCount(for: buddy, ownerProfileID: ownerProfileID)
+        }
+        return result
+    }
+
+    /// List-safe counts from denormalized **`DiveBuddyTag`** fields — no **`diveParticipations`** / dive faults.
+    @MainActor
+    static func sharedDiveCountsByBuddyID(
+        buddyIDs: Set<UUID>,
+        modelContext: ModelContext
+    ) -> [UUID: Int] {
+        guard !buddyIDs.isEmpty else { return [:] }
+        let tags = (try? modelContext.fetch(FetchDescriptor<DiveBuddyTag>())) ?? []
+        var diveIDsByBuddy: [UUID: Set<UUID>] = [:]
+        for tag in tags {
+            guard let buddyID = tag.buddyID,
+                  buddyIDs.contains(buddyID),
+                  let diveID = tag.diveActivityID
+            else { continue }
+            diveIDsByBuddy[buddyID, default: []].insert(diveID)
+        }
+        var result: [UUID: Int] = [:]
+        result.reserveCapacity(buddyIDs.count)
+        for buddyID in buddyIDs {
+            result[buddyID] = diveIDsByBuddy[buddyID]?.count ?? 0
+        }
+        return result
     }
 
     /// Inputs for refreshing cached logbook rows on buddy detail without recomputing on every expand tap.

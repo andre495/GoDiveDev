@@ -291,10 +291,23 @@ enum DiveSiteCatalogMatcher: Sendable {
         for site: DiveSite,
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
     ) -> String? {
-        if let sanitized = DiveSiteFormValidation.sanitizedSiteName(site.siteName) {
+        resolvedCatalogSiteName(
+            siteName: site.siteName,
+            siteTags: site.siteTags,
+            reference: reference
+        )
+    }
+
+    /// Same as **`resolvedCatalogSiteName(for: DiveSite)`** for Sendable site seeds / off-main index builds.
+    nonisolated static func resolvedCatalogSiteName(
+        siteName: String,
+        siteTags: [String],
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> String? {
+        if let sanitized = DiveSiteFormValidation.sanitizedSiteName(siteName) {
             return sanitized
         }
-        guard let referenceID = referenceID(from: site.siteTags) else { return nil }
+        guard let referenceID = referenceID(from: siteTags) else { return nil }
         guard let snapshot = reference.first(where: { $0.id == referenceID }) else { return nil }
         return sanitizedReferenceDisplayName(snapshot.name)
     }

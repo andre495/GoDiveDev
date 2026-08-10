@@ -1,4 +1,6 @@
 import Foundation
+import SwiftData
+import SwiftUI
 
 /// Copy and counts for **Profile → My tagged media**.
 enum ProfileTaggedMediaPresentation: Sendable {
@@ -33,5 +35,37 @@ enum ProfileTaggedMediaPresentation: Sendable {
                 return mediaID
             }
         ).count
+    }
+
+    nonisolated static func mediaTagIDsFingerprint(_ tags: [DiveMediaBuddyTag]) -> String {
+        tags.map(\.id.uuidString).sorted().joined(separator: ",")
+    }
+}
+
+/// Scoped **`@Query`** for the self-buddy media tags — keeps Profile off the unscoped tag table.
+struct ProfileSelfBuddyMediaTagsObserver: View {
+    @Query private var tags: [DiveMediaBuddyTag]
+    let onTagsChange: ([DiveMediaBuddyTag]) -> Void
+
+    init(buddyID: UUID, onTagsChange: @escaping ([DiveMediaBuddyTag]) -> Void) {
+        self.onTagsChange = onTagsChange
+        _tags = Query(
+            filter: #Predicate<DiveMediaBuddyTag> { $0.buddyID == buddyID },
+            sort: [SortDescriptor(\.id, order: .forward)]
+        )
+    }
+
+    private var tagIDsFingerprint: String {
+        ProfileTaggedMediaPresentation.mediaTagIDsFingerprint(Array(tags))
+    }
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .onAppear { onTagsChange(Array(tags)) }
+            .onChange(of: tagIDsFingerprint) { _, _ in
+                onTagsChange(Array(tags))
+            }
     }
 }

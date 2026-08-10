@@ -4416,6 +4416,186 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tag sheets:** **`DiveMarineLifeTagPickerSheet`**, **`DiveActivityMarineLifeTagPickerSheet`**, **`SnorkelMarineLifeTagPickerSheet`** — replace VStack sibling search with scroll-under layout.
 - **Tests:** `appScrollUnderSearchChromePresentation_listTopInset_isChromeOnly`.
 
-## 139 - Next batch
+## 139 - Trip share, tagging sheets, MainActor perf, buddies UX **(pushed)**
+
+**Summary:** Trip buddies grid — first name(s) on line 1, last name on line 2.
+
+- **`DiveBuddyPresentation.twoLineDisplayName`**: last whitespace token = last name; everything before = first line.
+- Trip buddy avatar cells use the two-line caption (single-token names stay one line).
+
+**Summary:** Trip buddies share chrome — **You** / **Invited** / **Joined** / **Invite** (no “On this trip”).
+
+- Owner: **You**. GoDive friends: **Invited** (pending), **Joined** (accepted), or **Invite** button to re-prompt share. Local buddies: no caption.
+- Decline/revoke clears sender share flags so **Invite** returns.
+- Tests: share-chrome states for invite / invited / joined / local.
+
+**Summary:** Trip buddies — show only the **Joined** capsule (drop duplicate “Joined” subtitle).
+
+**Summary:** Trip share — notify sender on accept + **Joined** badge on trip buddies.
+
+- CF **`notifyTripShareInviteAccepted`** (`pending` → `accepted`) pushes sharer: title **Trip buddy joined**, body *"{name} joined {trip}!"*; tap opens the sharer’s trip.
+- Sender tracks **`tripShareAcceptedFriendUIDs`**; reconcile on foreground / trip detail; push applies accept immediately.
+- Planned (and tagged) buddy grids show cert-style **Joined** capsule + subtitle when that friend accepted.
+- Tests: accept push parse/trigger, lineage accepted UIDs, planned-buddy Joined presentation.
+- Docs: **`trips-and-buddies`**, **`trip_share_invite_push_notifications.md`**.
+
+**Summary:** Bug fix — recipient crash loop on trip-share invite materialize (SwiftData cross-context buddy link).
+
+- Crash: `reconcileIncoming` → `materializePending` → `DiveTripBuddyLink.buddy.setter` (`EXC_BREAKPOINT`) when launch used a fresh `ModelContext` with `AccountSession`’s owner from another context.
+- Materializer re-fetches owner in the target context before assign/link; skips buddy link if contexts still disagree.
+- App foreground reconcile resolves owner in-context before calling sync.
+- Test: materialize with owner from a different `ModelContext` must not trap and still links the sharer.
+
+**Summary:** Trip share invite push copy — title **You're Invited**, body *"{name} invited you on {trip}!"* (`notifyTripShareInvite`).
+
+**Summary:** Bug fix — trip share invite push never delivered (Firestore create denied).
+
+- Root cause: invite `createdAt` was a client `Timestamp`, but rules require `createdAt == request.time`.
+- **`GoDiveTripShareMapping.firestoreData(for:invite:)`** now writes **`FieldValue.serverTimestamp()`**.
+- Soft-fail share path logs the error so permission failures are visible in Console.
+- Test asserts invite encode uses a `FieldValue` for `createdAt`.
+
+**Summary:** Trip detail — **My Activities** + new **Trip Activities** page for buddy-shared dives/snorkels in the trip dates.
+
+- Renamed the owner linked-activities pager title to **My Activities**.
+- Added **Trip Activities** (after My Activities) listing GoDive buddies’ shared activities whose start falls in the trip window; tap opens friend-shared detail.
+- Fetch scopes to planned-buddy Firebase UIDs (+ shared-trip sharer); empty / loading copy included.
+- Tests: pager page order/titles; friend UID collection + date-window filter.
+
+**Summary:** Trip share invites — add a GoDive friend to a trip → offer to share; push + Notifications; Accept/Decline duplicate; owner-synced details.
+
+- After adding a **linked GoDive friend** to a trip (create / edit / planned-buddy picker), confirm **Share this trip with {name}?**
+- Firebase **`users/{uid}/sharedTrips`** (canonical details) + **`users/{uid}/tripShareInvites`** (pending/accepted/declined/revoked); rules deployed; CF **`notifyTripShareInvite`**.
+- Recipient gets FCM + Home Notifications; tap materializes a pending local **`DiveTrip`** (their `ownerProfileID`) with Accept / Decline on trip detail.
+- Owner edits to title / dates / countries / planned sites republish; invitee copies apply patches and cannot edit those fields. Decline / leave deletes only the recipient copy.
+- Tests: mapping round-trip, offer candidates, materializer + edit lock + sync fingerprint, push payload, notifications merge.
+- Docs: **`trips-and-buddies`**, **`friends`**, **`privacy-and-data`**, hybrid/OWASP, **`trip_share_invite_push_notifications.md`**.
+
+**Summary:** Root tab switch MainActor lag — Explore full pin cache, MapKit warm-up, Field Guide index, selection Observation fan-out, Logbook seed sort.
+
+- **Explore** — full **`ExploreSiteScopeCache.make`** (~3k ODM sites) now runs in **`Task.detached`** via **`ExploreSiteScopeCacheBackgroundBuild`** (background **`ModelContext`** + persistent IDs). Soft-first reference paint unchanged; no longer rebuilds the full catalog overlay on MainActor after the reference phase.
+- **MapKit warm-up** — **`MapKitWarmup.warmUpIfNeeded`** schedules like **`GoogleMapsWarmup`** (yield + async insert); no sync **`MKMapView`** create on Explore select.
+- **Field Guide** — hub index from already-bound rows (**`FieldGuideCatalogCacheBuild`**); removed second **`allCatalogSnapshots`** fetch.
+- **Tab selection fan-out** — ContentView posts **`rootTabSelectionDidChange`** only when the tab changes; Logbook / Field Guide / Explore / Search mirror into local **`@State`** (bubbles + gates) instead of reading **`RootTabSelectionStore.selected`** in **`body`**.
+- **Logbook** — capture seeds on main; sort + kind-filter off-main before **`LogbookDisplayCacheBuilder`**.
+- Tests: background scope-cache parity; Field Guide cache build; MapKit non-blocking schedule; selection publish / notification; seed sort order.
+
+**Summary:** Fix tab-select regressions — stuck loading + Explore My Sites empty after local selection mirrors.
+
+- Root cause: first tab visit posts **`rootTabSelectionDidChange`** **before** the tab body mounts, so local **`@State`** stayed **`false`** (Logbook/Field Guide gates never opened; Explore dive bridge never mounted → My Sites empty).
+- Seed local selection from **`RootTabSelectionStore`** on **appear**; also listen to UIKit **`rootTabBarDidSelect`** + **`rootTabSelectionDidChange`**.
+- Field Guide hub index applies synchronously after bind (no spinner wait on detached index).
+- Explore rebuilds scope cache on every dive-bridge delivery (not only the first snapshot).
+- Tests: **`localSelectionAfterMount`** / notification → local flag.
+
+**Summary:** Search typing / results lag — debounce painted query, cheap match-reason patches, lighter media strip.
+
+- Results UI paints from **`resultsQuery`** (applied after debounce); live `$query` only schedules refresh so keystrokes do not re-drive media/empty-state body work.
+- Keystroke debounce **120 ms**; **`catalogSyncToken`** / catalog capture moved **after** debounce; prefer warmed catalog cache on the typing path.
+- Same hit IDs → patch **`matchReasons` only** (skip logbook numbering / catalog scans); **`GlobalSearchResultRowView`** is **`Equatable`** + **`.equatable()`**.
+- General-search media strip: filter after debounced apply (not per key); cache resolved media models per filtered-ID set. Hidden warmer uses **`.constant("")`** so typing does not invalidate it.
+- Tests: match-reason patch helper; keystroke debounce > catalog list debounce.
+
+**Summary:** Search MainActor lag — off-main catalog assemble + owner-scoped media tag/sighting fetch.
+
+- **Catalog warm / rebuild** — MainActor only **captures** Sendable seeds (`GlobalSearchCatalogCapture`); index assemble (dives + ~3k OpenDiveMap sites) runs in **`Task.detached`** via **`GlobalSearchCatalogBuild`** / **`ensureCatalogAsync`**.
+- **Media index** — removed unscoped **`@Query`** on all **`DiveMediaBuddyTag`** / **`SightingInstance`** from Search results + Media browse. Background **`GlobalSearchOwnerScopedMediaIndexFetch`** filters by owner dive activity IDs; fullscreen binds scoped sighting PIs.
+- Tests: async catalog cache fingerprint; off-main build indexes notes/species; seed-based site index coverage.
+
+**Summary:** Trip detail MainActor lag — stop body-time full logbook accent rebuild + auto-link task restart loop.
+
+- **Pinned summary accent** was calling **`LogbookTripGroupAccentPresentation.accentColor`** on every body pass (rebuilds the entire logbook display cache from all owner dives/trips). Now cached once during content rebuild.
+- Content **`.task`** token no longer includes **`updatedAt`** (auto-link save was restarting rebuild + marine enrich + hero warm).
+- Auto-link runs **once per visit** (separate from content token); cancel enrich/warm on disappear; fingerprint skip for no-op rebuilds.
+- Tests: deferred content token / rebuild fingerprint.
+
+**Summary:** Profile ↔ Buddies navigation lag — stop stacking MainActor friend-share republish + buddy/profile secondary tasks.
+
+- **Buddies list** no longer fire-and-forgets **`republishAllOwnedDives`** on every appear (that queued full-logbook Firestore work on MainActor and made taps worse after a few navigations). Opens now go through **`GoDiveFriendShareRefreshCoordinator.scheduleRepublish`** (coalesced drain) + **`BuddiesListFriendShareRepublishGate`** (60 s throttle on list-open only; friend-graph / unfriend still schedule immediately).
+- **`GoDiveSharedDiveProjectionSync.republishAllOwnedDives`** — cooperative **`Task.isCancelled`** between activities + **`Task.yield()`** so hit-testing can breathe during a publish.
+- **Buddy detail** — stable **`deferredContentTaskToken`** (no longer includes owner-numbering count, which restarted the deferred `.task` after index load); cancel secondary / tag-rebuild tasks on disappear; 80 ms debounce on tag-driven rebuilds.
+- **Profile** — cancel aggregate / enrichment tasks on disappear; dive-site catalog `.task` keyed by owner; tagged-media **`onChange`** uses a fingerprint string.
+- Tests: republish gate throttle; deferred content token stability; tagged-media fingerprint.
+
+**Summary:** Buddies list page scroll lag — stop body-time relationship faults + defer republish off the list.
+
+- **`rosterSharedDiveCountToken`** was reading **`diveParticipations.count`** on every body pass (SwiftData faults). Replaced with identity-only roster token + denormalized **`DiveBuddyTag`** count fetch.
+- Cache **`mergedRows`** in state; value-based **`navigationDestination`** (no per-row **`NavigationLink { detail }`**).
+- List-open friend-share republish deferred until **`onDisappear`** so MainActor publish does not fight scrolling.
+- Tests: denormalized count map; route **`Identifiable`** ids.
+
+**Summary:** Profile ↔ Buddies residual MainActor pile-up — scoped media tags, no-op roster sync, cached dive counts, fingerprint rebuilds.
+
+- **Profile** — removed unscoped **`DiveMediaBuddyTag` `@Query`** (was invalidating Profile under the stack on any tag change). Scoped **`ProfileSelfBuddyMediaTagsObserver`** + cached resolved photos; skip re-building lifetime stats / map pins when tokens are unchanged.
+- **`GoDiveFriendBuddyLinking.syncRosterLinks`** — owner-scoped fetch; skip when friends fingerprint + linked metadata already match; batch one save / one roster notification (no per-friend save storm).
+- **Buddies list** — cache shared-dive counts once per roster token (count path no longer sorts full activity lists); cancel friend-graph reload tasks on disappear.
+- **Buddy detail** — **`contentRebuildFingerprint`** skips no-op MainActor rebuilds.
+- Tests: roster link no-op / already-current; shared-dive count map; content rebuild fingerprint.
+
+**Summary:** Home featured media — accurate tap targets (chrome vs open-media / swipe).
+
+- **Open-media UIKit tap** yields to dive-link / fish / buddy (and nested buddy-strip scroll): class-name + competing-tap exclusion, require-failure of button taps; still simultaneous with pager pan.
+- **Dive-link** hit shape matches the Liquid Glass capsule (**`contentShape(Capsule())`**); chrome row Spacer stays non-hittable so the mid-band pans / opens media.
+- **Top chrome** — bell / profile / fish **×** always hittable (buddy expand no longer disables header hits); empty wordmark band still passes pans to media.
+- **Dead-zone fixes** — stats panel pass-through over the media-chrome overlap band; dive-link / fish / buddy overlay above the pager (not inside pages); Home header fade no longer expands a hittable feather; **`Color.clear`** header metrics / status scrim are non-hittable.
+- Tests: open-media exclusion helpers; **`allowsHomeTopChromeHitTesting`** always **`true`**; panel pass-through shape / height.
+- **`docs/home.md`** — tap vs swipe vs chrome controls.
+
+**Summary:** Profile — certifications on **Diver stats**; remove Details (cert/insurance) pager page.
+
+- **`ProfileDetailContentPager`** — two pages (**Diver stats** | tagged media); certs as full-width **`ProfileCertificationStatTile`** under lifetime tiles; tap → **`ViewCertificationDetails`**.
+- Tile layout matches logbook activity rows: name / agency / date leading, small trailing card-front thumbnail (no section title).
+- Removed Profile **Details** page (DAN + featured cert); DAN remains on **Edit Profile** / onboarding; ☰ **Certifications** list still manages add/delete.
+- Presentation: **`ProfileDetailContentPage`**, **`CertificationPresentation.listAgencyLine`**; tests + user guide (**`docs/getting-started.md`**, **`docs/home.md`**, **`docs/trips-and-buddies.md`**).
+
+**Summary:** Non-GoDive buddy detail — Invite on avatar opens SMS with share link.
+
+- **`ViewDiveBuddyDetails`** — opaque accent **+** badge on the avatar, same bottom-trailing seat as Profile **`ProfileAvatarEditor`** camera; creates a friend invite link and opens Messages. Linked Contacts phone is prefilled; otherwise empty recipient + drafted body.
+- **`DiveBuddyInviteSMSPresentation`** — shared create-invite + SMS present path (also used by **Buddies** list).
+- Invite buttons (detail **+** / list **Invite**) no longer show an in-button loading spinner while the link is created — Messages / share opens when ready.
+- Invite SMS body uses buddy **first name** only (**`DiveBuddyPresentation.firstName`**).
+- Tests: avatar badge scale / accessibility id; offline fail-closed; SMS first-name copy.
+- **`docs/trips-and-buddies.md`** — buddy detail Invite note.
+
+**Summary:** Friend invite QR sheet — blue panel chrome; 24h auto-expire (no revoke).
+
+- **`FriendInviteShareSheet`** — blue overview-panel modal (**Cancel**); removed **Revoke invite**; footer notes 24-hour expiry.
+- **`GoDiveFriendInviteMapping.inviteTimeToLiveSeconds`** — **24 hours** (was 7 days); redeem still fail-closed on **`expiresAt`**.
+- Docs: **`docs/friends.md`**, hybrid boundaries, access-control matrix.
+- Tests: TTL + open/expired window; share-sheet layout tokens.
+
+**Summary:** Profile ☰ menu — **Invite a buddy** QR footer.
+
+- **`ProfileSideMenuOverlay`** — pinned bottom row (QR + **Invite a buddy**) opens the friend-invite share sheet from Profile.
+- **`ProfilePresentation.menuInviteBuddy*`** tokens; offline disables the action.
+- Docs: **`docs/friends.md`**, **`docs/home.md`**, **`docs/getting-started.md`**.
+- Test: side-menu invite copy / a11y; footer excluded from destination title list.
+
+**Summary:** Snorkel map stats — blue **water.waves** icon for swim distance.
+
+- **`DiveActivityMapOverviewStatIcon.waterWaves`** + accent SF Symbol in **`DiveActivityMapOverviewStatIconView`**.
+- **`SnorkelActivityOverviewPresentation.mapOverviewStatsLayout`** — Swim Distance uses the waves icon (matches Session Duration clock).
+- Test: **`snorkelActivityOverviewPresentation_mapStats_swimDistanceUsesMetersOrYards`** asserts the icon.
+
+**Summary:** Activity comments / blue overview-panel modals — sheet covers the bottom screen edge on iOS 26.
+
+- **`diveActivityOverviewPanelModalSheetPresentation`** uses system **`.large`** again (not a partial custom height). iOS 26 floats partial-height sheets inset from the bottom; **`.large`** edge-attaches so comments / notes / buddies fill to the screen edge.
+- Test: **`overviewPanelModal_usesSystemLargeDetentForEdgeAttachment`**.
+- **Build warning** — **`TripDetailPlannedBuddyPresentation.joinedBadgeStyle`** is **`@MainActor`** (reads **`AppTheme.Colors`**).
+
+**Summary:** Shared tagging-sheet look and feel (notification-style divider lists).
+
+- **`TaggingSheetSelectionRow`** + **`TaggingSheetListChrome`** — leading 44pt art, 1-line title, up to 2 subtitle lines, gray/blue check circles, inset dividers (notification center pattern); full-row tap toggles selection.
+- **`TaggingSheetBottomSearchChrome`** — Liquid Glass search pinned at the bottom of the sheet (filters in-list objects only).
+- **`taggingSheetToolbar`** — Cancel · optional **+** · Done; **+** omitted when there is no add-new flow (country, planned/manual sites).
+- Migrated: activity/media buddy pickers, trip planned buddies, marine life (activity + media dive/snorkel), activity tags, trip country, planned sites, manual dive site picker.
+- Retired card-style **`DiveMarineLifeTagSpeciesRow`** in pickers.
+- Tests: **`TaggingSheetSelectionPresentationTests`** (line limits, check symbols, search match, divider inset).
+
+**Summary:** Fix Swift 6 MainActor Equatable warning on trip buddy share chrome.
+
+- **`TripBuddyTripShareChrome`** / **`TripPlannedBuddyMember`** use explicit **`nonisolated`** `Equatable`; subtitle uses `switch` instead of `==`.
+
+## 140 - Next batch
 
 

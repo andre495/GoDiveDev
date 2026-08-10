@@ -24,6 +24,9 @@ struct TripDetailContentPager: View {
     var initialContentPage: TripDetailContentPage?
     var initialSelectedMediaID: UUID?
     var onOpenDive: (UUID) -> Void
+    var onOpenBuddySharedActivity: (LogbookBuddyFeedPresentation.Row) -> Void
+    var buddyActivityRows: [LogbookBuddyFeedPresentation.Row]
+    var isLoadingBuddyActivities: Bool
 
     @State private var selectedPage: TripDetailContentPage
 
@@ -53,7 +56,10 @@ struct TripDetailContentPager: View {
         bottomScrollInset: CGFloat,
         initialContentPage: TripDetailContentPage? = nil,
         initialSelectedMediaID: UUID? = nil,
-        onOpenDive: @escaping (UUID) -> Void
+        buddyActivityRows: [LogbookBuddyFeedPresentation.Row] = [],
+        isLoadingBuddyActivities: Bool = false,
+        onOpenDive: @escaping (UUID) -> Void,
+        onOpenBuddySharedActivity: @escaping (LogbookBuddyFeedPresentation.Row) -> Void = { _ in }
     ) {
         self.trip = trip
         self.hasStarted = hasStarted
@@ -76,7 +82,10 @@ struct TripDetailContentPager: View {
         self.bottomScrollInset = bottomScrollInset
         self.initialContentPage = initialContentPage
         self.initialSelectedMediaID = initialSelectedMediaID
+        self.buddyActivityRows = buddyActivityRows
+        self.isLoadingBuddyActivities = isLoadingBuddyActivities
         self.onOpenDive = onOpenDive
+        self.onOpenBuddySharedActivity = onOpenBuddySharedActivity
         let initialPage = TripDetailContentPagerPresentation.resolvedInitialPage(
             hasStarted: hasStarted,
             requested: initialContentPage
@@ -122,16 +131,19 @@ struct TripDetailContentPager: View {
                 onOpenDive: onOpenDive
             )
         case .buddies:
-            if hasStarted {
-                TripDetailBuddiesSection(
-                    buddies: aggregate.buddies,
-                    rosterBuddiesByID: rosterBuddiesByID,
-                    ownerProfile: ownerProfile
-                )
-            } else {
+            // Owner trips keep the planned roster (You / Invited / Joined / Invite).
+            // Invitee copies after start use tagged-dive buddies.
+            if DiveTripShareLineagePresentation.canEditSharedDetails(trip) || !hasStarted {
                 TripDetailPlannedBuddiesSection(
                     trip: trip,
                     ownerProfile: ownerProfile
+                )
+            } else {
+                TripDetailBuddiesSection(
+                    buddies: aggregate.buddies,
+                    rosterBuddiesByID: rosterBuddiesByID,
+                    ownerProfile: ownerProfile,
+                    trip: trip
                 )
             }
         case .stats:
@@ -149,6 +161,12 @@ struct TripDetailContentPager: View {
             )
         case .activities:
             linkedDivesSection
+        case .tripActivities:
+            TripDetailBuddyActivitiesSection(
+                rows: buddyActivityRows,
+                isLoading: isLoadingBuddyActivities,
+                onOpenRow: onOpenBuddySharedActivity
+            )
         case .media:
             TripDetailMediaGallerySection(
                 mediaItems: mediaItems,

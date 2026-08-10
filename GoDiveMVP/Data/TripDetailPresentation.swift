@@ -69,4 +69,50 @@ enum TripDetailPresentation: Sendable {
             )
         )
     }
+
+    /// Stable **`.task(id:)`** token — omits **`updatedAt`** so auto-link / save does not restart rebuild.
+    nonisolated static func deferredContentTaskToken(
+        tripID: UUID,
+        activityLinkCount: Int,
+        plannedSiteCount: Int,
+        featuredTripMediaPhotoID: UUID?,
+        ownedDiveActivityCount: Int,
+        unitSystemRawValue: String,
+        automaticallyRenumberDives: Bool
+    ) -> String {
+        [
+            tripID.uuidString,
+            "\(activityLinkCount)",
+            "\(plannedSiteCount)",
+            featuredTripMediaPhotoID?.uuidString ?? "",
+            "\(ownedDiveActivityCount)",
+            unitSystemRawValue,
+            automaticallyRenumberDives ? "1" : "0",
+        ].joined(separator: "|")
+    }
+
+    /// Fingerprint for skipping no-op MainActor content rebuilds.
+    nonisolated static func contentRebuildFingerprint(
+        tripID: UUID,
+        activityLinkCount: Int,
+        plannedSiteCount: Int,
+        featuredTripMediaPhotoID: UUID?,
+        ownedDiveActivityCount: Int,
+        rosterBuddyCount: Int,
+        unitSystemRawValue: String,
+        automaticallyRenumberDives: Bool
+    ) -> String {
+        [
+            deferredContentTaskToken(
+                tripID: tripID,
+                activityLinkCount: activityLinkCount,
+                plannedSiteCount: plannedSiteCount,
+                featuredTripMediaPhotoID: featuredTripMediaPhotoID,
+                ownedDiveActivityCount: ownedDiveActivityCount,
+                unitSystemRawValue: unitSystemRawValue,
+                automaticallyRenumberDives: automaticallyRenumberDives
+            ),
+            "\(rosterBuddyCount)",
+        ].joined(separator: "|")
+    }
 }

@@ -1,4 +1,5 @@
 import CoreGraphics
+import SwiftUI
 import Testing
 @testable import GoDiveMVP
 
@@ -91,26 +92,8 @@ import Testing
         }
     }
 
-    @Test @MainActor func overviewPanelModal_usesActivityLargeDetentHeight() {
-        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
-        let modal = DiveActivityOverviewDetent.overviewPanelModalLargePresentationDetent(
-            context: context
-        )
-        let activityLarge = DiveActivityOverviewDetent.large.presentationDetent(
-            screenHeight: context.layoutHeight,
-            screenWidth: context.screenWidth,
-            topSafeInset: context.topSafeInset,
-            bottomSafeInset: context.bottomSafeInset
-        )
-        #expect(modal == activityLarge)
-        #expect(
-            DiveActivityOverviewDetent(
-                presentationDetent: modal,
-                screenHeight: context.layoutHeight,
-                screenWidth: context.screenWidth,
-                topSafeInset: context.topSafeInset,
-                bottomSafeInset: context.bottomSafeInset
-            ) == .large
-        )
+    @Test func overviewPanelModal_usesSystemLargeDetentForEdgeAttachment() {
+        // iOS 26 floats partial-height sheets inset from the bottom; system `.large` edge-attaches.
+        #expect(DiveActivityOverviewPanelModalPresentation.presentationDetents == [.large])
     }
 }

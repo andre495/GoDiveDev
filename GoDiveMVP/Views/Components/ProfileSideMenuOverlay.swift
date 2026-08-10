@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Trailing overlay panel for **Profile** (~⅔ screen width). Title-only destinations.
+/// Trailing overlay panel for **Profile** (~⅔ screen width). Title-only destinations + invite footer.
 struct ProfileSideMenuOverlay: View {
     let isPresented: Bool
     let onDismiss: () -> Void
@@ -9,6 +9,8 @@ struct ProfileSideMenuOverlay: View {
     let onEquipment: () -> Void
     let onBuddies: () -> Void
     let onTrips: () -> Void
+    let onInviteBuddy: () -> Void
+    var isInviteBuddyEnabled: Bool = true
 
     var body: some View {
         GeometryReader { geometry in
@@ -88,8 +90,33 @@ struct ProfileSideMenuOverlay: View {
             .padding(.horizontal, AppTheme.Spacing.lg)
 
             Spacer(minLength: 0)
+
+            inviteBuddyFooter
+                .padding(.horizontal, AppTheme.Spacing.lg)
+                .padding(.bottom, AppTheme.Spacing.lg)
         }
         .accessibilityIdentifier("Profile.SideMenu")
+    }
+
+    private var inviteBuddyFooter: some View {
+        Button(action: onInviteBuddy) {
+            HStack(spacing: AppTheme.Spacing.sm) {
+                Image(systemName: ProfilePresentation.menuInviteBuddySystemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                Text(ProfilePresentation.menuInviteBuddyTitle)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, AppTheme.Spacing.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isInviteBuddyEnabled)
+        .opacity(isInviteBuddyEnabled ? 1 : 0.45)
+        .accessibilityLabel(ProfilePresentation.menuInviteBuddyTitle)
+        .accessibilityIdentifier(ProfilePresentation.menuInviteBuddyAccessibilityIdentifier)
     }
 
     private func menuRow(

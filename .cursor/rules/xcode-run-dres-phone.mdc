@@ -1,13 +1,15 @@
 ---
-description: Dre's Phone runs — always clean, rebuild, then install and launch on device.
+description: Dre's Phone runs — build, install, and launch on device (destination + devicectl).
 alwaysApply: true
 ---
 
-# Run on Dre's Phone — clean, rebuild, launch
+# Run on Dre's Phone — build, install, launch
 
 When the user asks to **run on Dre's phone** (or **Dre's Phone**, **my phone**, **device** in a run context), follow this **full** pipeline — do not stop after a successful build.
 
 **Gate:** Only when the user explicitly asks to run/launch (see **`.cursor/rules/xcode-test-only-when-asked.mdc`**). This rule defines *how* to run on device, not *when*.
+
+**Build behavior:** **`.cursor/rules/xcode-build-deploy.mdc`** — no proactive **`clean`**; max 2 fix/rebuild cycles; report warnings without fixing unless asked. Commit/push preflight still uses **`xcode-run-test.mdc`** + **`xcode-fix-build-warnings.mdc`**.
 
 ## Device
 
@@ -21,7 +23,7 @@ Prefer the **device id** over the display name in **`-destination`**.
 
 ## Required steps (in order)
 
-### 1. Clean the build folder
+### 1. Build for device
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -32,23 +34,14 @@ DEST='platform=iOS,id=00008130-001241C118A1401C'
 
 $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
   -destination "$DEST" \
-  clean 2>&1 | tee /tmp/godive-dres-clean.log
-```
-
-### 2. Rebuild for device
-
-```bash
-$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
-  -destination "$DEST" \
   -allowProvisioningUpdates \
-  clean build 2>&1 | tee /tmp/godive-dres-build.log
+  build 2>&1 | tee /tmp/godive-dres-build.log
 ```
 
-- Grep for **`error:`** and **`warning:`** (same rules as **`xcode-run-test.mdc`**).
-- **Fix all project warnings** before launch (**`xcode-fix-build-warnings.mdc`**); rebuild until warning count is **0** in app/test targets.
-- **Do not launch** if the build failed — fix errors first, then repeat **clean → rebuild**.
+- Grep for **`error:`** and **`warning:`**; report meaningful warnings.
+- **Do not launch** if the build failed — fix root errors per **`xcode-build-deploy.mdc`** (max 2 fix/rebuild cycles), then rebuild.
 
-### 3. Install and run on Dre's Phone
+### 2. Install and run on Dre's Phone
 
 After **BUILD SUCCEEDED**, install the **Debug-iphoneos** `.app` and launch it — do not hand off with “tap Run in Xcode” unless **`devicectl`** / install truly fails.
 
@@ -67,6 +60,6 @@ If **`devicectl`** is unavailable or the device is locked/offline, say so explic
 
 ## Do not
 
-- Skip **`clean`** before a Dre's Phone run.
+- Proactively **`clean`**, change signing, or reinstall dependencies unless the user asks or a targeted fix requires it.
 - Report success after **build** only when the user asked to **run** on Dre's phone.
 - Use the simulator destination for a Dre's Phone run request.

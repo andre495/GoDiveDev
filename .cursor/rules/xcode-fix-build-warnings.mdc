@@ -9,8 +9,10 @@ Whenever you run **`xcodebuild`** (per **`.cursor/rules/xcode-test-only-when-ask
 
 ## When this applies
 
-- Explicit **run**, **build**, or **test** requests (**`xcode-run-test.mdc`**, **`xcode-run-dres-phone.mdc`**).
-- **Commit / push** preflight builds (**`clean build-for-testing`**).
+- **Commit / push** preflight builds (**`clean build-for-testing`** per **`xcode-run-test.mdc`**).
+- User explicitly asks to **fix warnings** (or similar).
+
+**Does not apply** to ordinary build/run/deploy requests — those follow **`xcode-build-deploy.mdc`** (report warnings; do not fix unless asked).
 
 ## Required workflow
 

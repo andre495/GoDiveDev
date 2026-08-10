@@ -80,13 +80,23 @@ enum ProfilePresentation: Sendable {
     nonisolated static let menuFriendsTitle = "Friends"
     nonisolated static let menuTripsTitle = "Trips"
     nonisolated static let menuSignOutTitle = "Sign out"
+    /// Pinned footer action in the Profile side menu (opens friend-invite QR sheet).
+    nonisolated static let menuInviteBuddyTitle = "Invite a buddy"
+    nonisolated static let menuInviteBuddySystemImage = "qrcode"
+    nonisolated static let menuInviteBuddyAccessibilityIdentifier = "Profile.InviteBuddy"
 
     /// Blue **⋯** beside the display name on Profile (opens Edit Profile).
     nonisolated static let editProfileAccessibilityLabel = "Edit Profile"
     nonisolated static let editProfileAccessibilityIdentifier = "Profile.EditButton"
 
+    /// Stable **`onChange`** key for tagged-media id lists (avoids allocating via **`map`** in the modifier).
+    nonisolated static func taggedMediaIDsFingerprint(_ ids: [UUID]) -> String {
+        ids.map(\.uuidString).joined(separator: ",")
+    }
+
     /// Ordered page titles shown in the Profile side menu (tagged media lives on the Profile page).
     /// **Edit Profile** is the **⋯** beside the display name. **Sign Out** lives under **Settings → Advanced**.
+    /// **Invite a buddy** is pinned under the spacer (not a navigation destination).
     nonisolated static let sideMenuItemTitles: [String] = [
         menuTripsTitle,
         menuCertificationsTitle,

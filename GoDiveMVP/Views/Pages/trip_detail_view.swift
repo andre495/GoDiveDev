@@ -32,6 +32,16 @@ struct TripDetailView: View {
     @State private var showsShareSheet = false
     @State private var shareImageURL: URL?
     @State private var isPreparingShare = false
+    @State private var cachedTripAccentColor: Color = AppTheme.Colors.accent
+    @State private var lastContentRebuildFingerprint: String?
+    @State private var didRunAutoLinkThisVisit = false
+    @State private var enrichAndWarmTask: Task<Void, Never>?
+    @State private var isHandlingShareInvite = false
+    @State private var shareInviteErrorTitle: String?
+    @State private var shareInviteErrorMessage: String?
+    @State private var buddyActivityRows: [LogbookBuddyFeedPresentation.Row] = []
+    @State private var isLoadingBuddyActivities = false
+    @State private var didLoadBuddyActivitiesForTripID: UUID?
 
     let tripID: UUID
     var initialContentPage: TripDetailContentPage?
@@ -88,32 +98,17 @@ struct TripDetailView: View {
         return ownerTrips
     }
 
-    private func tripLogbookAccentColor(for trip: DiveTrip) -> Color {
-        LogbookTripGroupAccentPresentation.accentColor(
-            for: trip.id,
-            ownerActivities: ownedDiveActivities,
-            ownerTrips: ownedTrips,
-            unitSystem: diveDisplayUnitSystem,
-            useChronologicalNumbers: automaticallyRenumberDives
-        )
-    }
-
     private var tripDetailContentToken: String {
         guard let trip else { return tripID.uuidString }
-        return [
-            trip.id.uuidString,
-            "\(trip.activityLinks.count)",
-            "\(trip.plannedSiteIDs.count)",
-            "\(trip.updatedAt.timeIntervalSince1970)",
-            "\(ownedDiveActivities.count)",
-            trip.featuredTripMediaPhotoID?.uuidString ?? "",
-            diveDisplayUnitSystem.rawValue,
-            automaticallyRenumberDives ? "1" : "0",
-        ].joined(separator: "|")
-    }
-
-    private var autoLinkSyncToken: String {
-        tripDetailContentToken
+        return TripDetailPresentation.deferredContentTaskToken(
+            tripID: trip.id,
+            activityLinkCount: trip.activityLinks.count,
+            plannedSiteCount: trip.plannedSiteIDs.count,
+            featuredTripMediaPhotoID: trip.featuredTripMediaPhotoID,
+            ownedDiveActivityCount: ownedDiveActivities.count,
+            unitSystemRawValue: diveDisplayUnitSystem.rawValue,
+            automaticallyRenumberDives: automaticallyRenumberDives
+        )
     }
 
     var body: some View {
@@ -147,23 +142,41 @@ struct TripDetailView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task(id: tripDetailContentToken) {
             await Task.yield()
+            guard !Task.isCancelled else { return }
             let signpostID = AppPerformanceSignpost.begin(.tripDetailContentRebuild)
             rebuildTripDetailContent()
             AppPerformanceSignpost.end(.tripDetailContentRebuild, signpostID: signpostID)
             showsDeferredMap = true
-            await enrichTripDetailMarineLife()
-            await warmTripHeroHeaderMediaPreviewIfNeeded()
+            enrichAndWarmTask?.cancel()
+            enrichAndWarmTask = Task { @MainActor in
+                await enrichTripDetailMarineLife()
+                guard !Task.isCancelled else { return }
+                await warmTripHeroHeaderMediaPreviewIfNeeded()
+            }
+            await enrichAndWarmTask?.value
         }
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.tripDetail(tripID))
         }
         .onDisappear {
+            enrichAndWarmTask?.cancel()
+            enrichAndWarmTask = nil
             DiveMediaScopeCache.shared.deactivateScope(.tripDetail(tripID))
         }
-        .task(id: autoLinkSyncToken) {
+        // One auto-link pass per visit — must not share the content token (save bumps links / updatedAt).
+        .task(id: tripID) {
+            guard !didRunAutoLinkThisVisit else { return }
             await Task.yield()
             try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
             syncTripActivityLinks()
+            didRunAutoLinkThisVisit = true
+        }
+        .task(id: tripID) {
+            await loadBuddyActivitiesIfNeeded()
+        }
+        .task(id: tripID) {
+            await reconcileOutgoingTripShareAcceptancesIfNeeded()
         }
         .sheet(isPresented: $showsEditSheet) {
             if let trip {
@@ -174,6 +187,17 @@ struct TripDetailView: View {
                     dismiss()
                 }
             }
+        }
+        .alert(
+            shareInviteErrorTitle ?? DiveTripShareInvitePresentation.acceptErrorTitle,
+            isPresented: Binding(
+                get: { shareInviteErrorMessage != nil },
+                set: { if !$0 { shareInviteErrorMessage = nil; shareInviteErrorTitle = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(shareInviteErrorMessage ?? "")
         }
         #if canImport(UIKit)
         .sheet(isPresented: $showsShareSheet, onDismiss: cleanupShareFile) {
@@ -220,12 +244,33 @@ struct TripDetailView: View {
         guard let trip else {
             contentSnapshot = .empty
             heroTripMediaID = nil
+            lastContentRebuildFingerprint = nil
             return
         }
+        let fingerprint = TripDetailPresentation.contentRebuildFingerprint(
+            tripID: trip.id,
+            activityLinkCount: trip.activityLinks.count,
+            plannedSiteCount: trip.plannedSiteIDs.count,
+            featuredTripMediaPhotoID: trip.featuredTripMediaPhotoID,
+            ownedDiveActivityCount: ownedDiveActivities.count,
+            rosterBuddyCount: rosterBuddies.count,
+            unitSystemRawValue: diveDisplayUnitSystem.rawValue,
+            automaticallyRenumberDives: automaticallyRenumberDives
+        )
+        guard lastContentRebuildFingerprint != fingerprint else { return }
+
         contentSnapshot = TripDetailContentSnapshotBuilder.buildLight(
             trip: trip,
             ownedDiveActivities: ownedDiveActivities,
             rosterBuddies: rosterBuddies,
+            unitSystem: diveDisplayUnitSystem,
+            useChronologicalNumbers: automaticallyRenumberDives
+        )
+        // Cache once — body must not rebuild the full logbook display cache for accent color.
+        cachedTripAccentColor = LogbookTripGroupAccentPresentation.accentColor(
+            for: trip.id,
+            ownerActivities: ownedDiveActivities,
+            ownerTrips: ownedTrips,
             unitSystem: diveDisplayUnitSystem,
             useChronologicalNumbers: automaticallyRenumberDives
         )
@@ -239,6 +284,7 @@ struct TripDetailView: View {
             hasAssociatedMedia: hasMedia,
             hasMapContent: hasMap
         )
+        lastContentRebuildFingerprint = fingerprint
     }
 
     private var displayHeroTripMedia: DiveMediaPhoto? {
@@ -281,6 +327,7 @@ struct TripDetailView: View {
 
     private func enrichTripDetailMarineLife() async {
         guard let trip else { return }
+        guard !Task.isCancelled else { return }
         let marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
         guard !Task.isCancelled else { return }
         let enriched = TripDetailContentSnapshotBuilder.enrichMarineLife(
@@ -290,6 +337,7 @@ struct TripDetailView: View {
             marineLifeCatalog: marineLifeCatalog,
             modelContext: modelContext
         )
+        guard !Task.isCancelled else { return }
         contentSnapshot = enriched
     }
 
@@ -339,7 +387,17 @@ struct TripDetailView: View {
             },
             panelOverlay: { EmptyView() },
             pinnedContent: {
-                tripPinnedSummary(trip: trip)
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                    tripPinnedSummary(trip: trip)
+                    if DiveTripShareLineagePresentation.isPendingInvite(trip) {
+                        TripShareInviteCheckpointBanner(
+                            sharerDisplayName: sharerDisplayName(for: trip),
+                            onAccept: { acceptShareInvite(trip: trip) },
+                            onDecline: { declineShareInvite(trip: trip) },
+                            isBusy: isHandlingShareInvite
+                        )
+                    }
+                }
             },
             panelContent: { bottomScrollInset, _ in
                 tripDetailPagerContent(
@@ -359,6 +417,59 @@ struct TripDetailView: View {
             }
         )
         .accessibilityIdentifier("TripDetail.Content")
+    }
+
+    private func sharerDisplayName(for trip: DiveTrip) -> String? {
+        guard let uid = trip.sharedFromFirebaseUID else { return nil }
+        return rosterBuddies.first(where: {
+            DiveBuddyFriendLinkPresentation.linkedFirebaseUID(for: $0) == uid
+        })?.displayName
+    }
+
+    private func acceptShareInvite(trip: DiveTrip) {
+        guard !isHandlingShareInvite else { return }
+        isHandlingShareInvite = true
+        Task { @MainActor in
+            defer { isHandlingShareInvite = false }
+            do {
+                try await GoDiveTripShareSync.acceptInvite(
+                    for: trip,
+                    ownerTrips: ownedTrips,
+                    modelContext: modelContext
+                )
+            } catch let error as GoDiveTripShareSync.AcceptError {
+                shareInviteErrorTitle = DiveTripShareInvitePresentation.acceptErrorTitle
+                switch error {
+                case .dateOverlap(let conflictTitle):
+                    shareInviteErrorMessage = DiveTripShareInvitePresentation.acceptOverlapMessage(
+                        conflictTitle: conflictTitle
+                    )
+                case .missingInvite, .firebaseUnavailable:
+                    shareInviteErrorMessage = "Try again when you’re online."
+                }
+            } catch {
+                shareInviteErrorTitle = DiveTripShareInvitePresentation.acceptErrorTitle
+                shareInviteErrorMessage = "Try again when you’re online."
+            }
+        }
+    }
+
+    private func declineShareInvite(trip: DiveTrip) {
+        guard !isHandlingShareInvite else { return }
+        isHandlingShareInvite = true
+        Task { @MainActor in
+            defer { isHandlingShareInvite = false }
+            do {
+                try await GoDiveTripShareSync.declineInvite(
+                    for: trip,
+                    modelContext: modelContext
+                )
+                dismiss()
+            } catch {
+                shareInviteErrorTitle = DiveTripShareInvitePresentation.declineErrorTitle
+                shareInviteErrorMessage = "Try again when you’re online."
+            }
+        }
     }
 
     @ViewBuilder
@@ -434,15 +545,50 @@ struct TripDetailView: View {
             bottomScrollInset: bottomScrollInset,
             initialContentPage: initialContentPage,
             initialSelectedMediaID: initialSelectedMediaID,
-            onOpenDive: { pushTripNavigation(.linkedDive($0)) }
+            buddyActivityRows: buddyActivityRows,
+            isLoadingBuddyActivities: isLoadingBuddyActivities,
+            onOpenDive: { pushTripNavigation(.linkedDive($0)) },
+            onOpenBuddySharedActivity: { pushTripNavigation(.buddySharedActivity($0)) }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    @MainActor
+    private func loadBuddyActivitiesIfNeeded() async {
+        guard let trip else { return }
+        guard DiveTripActivityLinking.hasStarted(trip: trip) else {
+            buddyActivityRows = []
+            isLoadingBuddyActivities = false
+            didLoadBuddyActivitiesForTripID = trip.id
+            return
+        }
+        guard didLoadBuddyActivitiesForTripID != trip.id else { return }
+        isLoadingBuddyActivities = true
+        defer { isLoadingBuddyActivities = false }
+        await Task.yield()
+        let rows = await TripDetailBuddyActivitiesFetch.loadRows(for: trip)
+        guard !Task.isCancelled else { return }
+        buddyActivityRows = rows
+        didLoadBuddyActivitiesForTripID = trip.id
+    }
+
+    @MainActor
+    private func reconcileOutgoingTripShareAcceptancesIfNeeded() async {
+        guard let trip,
+              let owner = accountSession.currentProfile,
+              DiveTripShareLineagePresentation.canEditSharedDetails(trip),
+              !trip.sharedWithFriendUIDs.isEmpty
+        else { return }
+        await GoDiveTripShareSync.reconcileOutgoingAcceptances(
+            owner: owner,
+            modelContext: modelContext
+        )
     }
 
     private func tripPinnedSummary(trip: DiveTrip) -> some View {
         BlueSheetPinnedSummary(
             accent: DiveTripPresentation.formattedDateRange(start: trip.startDate, end: trip.endDate),
-            accentColor: tripLogbookAccentColor(for: trip),
+            accentColor: cachedTripAccentColor,
             accentFont: BlueSheetPinnedSummaryPresentation.subtitleFont,
             title: trip.displayTitle,
             titleAccessibilityIdentifier: "TripDetail.Title"
@@ -540,6 +686,13 @@ struct TripDetailView: View {
                     }
                 }
             }
+        case .buddySharedActivity(let row):
+            FriendSharedDiveDetailView(
+                dive: row.dive,
+                friendName: row.friendDisplayName,
+                friendPhotoURL: row.friendPhotoURL,
+                friendUID: row.friendUID
+            )
         }
     }
 

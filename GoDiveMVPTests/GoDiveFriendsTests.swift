@@ -2188,8 +2188,38 @@ struct GoDiveFriendsTests {
         #expect((image?.size.width ?? 0) > 0)
     }
 
-    @Test func friendInviteShareSheet_usesMediumDetentLayoutTokens() {
+    @Test func friendInviteShareSheet_usesBluePanelLayoutTokens() {
         #expect(FriendInviteShareSheetPresentation.qrDisplaySize == 196)
+        #expect(
+            FriendInviteShareSheetPresentation.cancelAccessibilityIdentifier
+                == "FriendInviteShare.Cancel"
+        )
+        #expect(GoDiveFriendsPresentation.inviteExpiresFooter.contains("24 hours"))
+    }
+
+    @Test func friendInviteMapping_expiresAfter24Hours() {
+        #expect(GoDiveFriendInviteMapping.inviteTimeToLiveSeconds == 24 * 60 * 60)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let draft = GoDiveFriendInviteMapping.inviteDraft(
+            fromUid: "uid-a",
+            token: "abc123",
+            now: now
+        )
+        #expect(draft.expiresAt == now.addingTimeInterval(24 * 60 * 60))
+        #expect(
+            GoDiveFriendInviteMapping.isInviteOpen(
+                status: GoDiveFriendInviteMapping.inviteStatusOpen,
+                expiresAt: draft.expiresAt,
+                now: now.addingTimeInterval(23 * 60 * 60)
+            )
+        )
+        #expect(
+            !GoDiveFriendInviteMapping.isInviteOpen(
+                status: GoDiveFriendInviteMapping.inviteStatusOpen,
+                expiresAt: draft.expiresAt,
+                now: now.addingTimeInterval(25 * 60 * 60)
+            )
+        )
     }
 
     @Test func friendInvitePushTrigger_firesOnRedeemTransitionOnly() {
@@ -2865,6 +2895,98 @@ struct GoDiveFriendsTests {
         #expect(BuddiesListPresentation.friendTotalDivesLabel(12) == "12 total dives")
     }
 
+    @Test @MainActor func buddiesListFriendShareRepublishGate_throttlesListOpenSlots() {
+        BuddiesListFriendShareRepublishGate.resetForTesting()
+        defer { BuddiesListFriendShareRepublishGate.resetForTesting() }
+
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        #expect(
+            BuddiesListFriendShareRepublishGate.consumeListOpenRepublishSlot(
+                now: t0,
+                minimumInterval: 60
+            )
+        )
+        #expect(
+            !BuddiesListFriendShareRepublishGate.consumeListOpenRepublishSlot(
+                now: t0.addingTimeInterval(30),
+                minimumInterval: 60
+            )
+        )
+        #expect(
+            BuddiesListFriendShareRepublishGate.consumeListOpenRepublishSlot(
+                now: t0.addingTimeInterval(60),
+                minimumInterval: 60
+            )
+        )
+        #expect(BuddiesListPresentation.listOpenRepublishMinimumInterval == 60)
+    }
+
+    @Test func friendBuddyLinking_rosterLinksAlreadyCurrent_matchesLinkedMetadata() {
+        let friends = [
+            GoDiveFriendGraphService.friendEdge(
+                friendUID: "uid-a",
+                displayName: "Alex",
+                photoURL: "https://example.com/a.jpg"
+            )
+        ]
+        #expect(
+            GoDiveFriendBuddyLinking.rosterLinksAlreadyCurrent(
+                friends: friends,
+                linkedBuddies: [("uid-a", "Alex", "https://example.com/a.jpg")]
+            )
+        )
+        #expect(
+            !GoDiveFriendBuddyLinking.rosterLinksAlreadyCurrent(
+                friends: friends,
+                linkedBuddies: [("uid-a", "Alex", nil)]
+            )
+        )
+        #expect(
+            !GoDiveFriendBuddyLinking.rosterLinksAlreadyCurrent(
+                friends: friends,
+                linkedBuddies: []
+            )
+        )
+        let fingerprint = GoDiveFriendBuddyLinking.friendsRosterSyncFingerprint(friends)
+        #expect(fingerprint.contains("uid-a"))
+        #expect(fingerprint.contains("Alex"))
+    }
+
+    @Test @MainActor func friendBuddyLinking_syncRosterLinks_skipsNoOpSecondPass() throws {
+        GoDiveFriendBuddyLinking.resetSessionSyncStateForTesting()
+        defer { GoDiveFriendBuddyLinking.resetSessionSyncStateForTesting() }
+
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "link-noop-owner", displayName: "Diver")
+        context.insert(owner)
+
+        let friends = [
+            GoDiveFriendGraphService.friendEdge(
+                friendUID: "uid-noop",
+                displayName: "Casey",
+                photoURL: nil
+            )
+        ]
+        GoDiveFriendBuddyLinking.syncRosterLinks(
+            friends: friends,
+            owner: owner,
+            modelContext: context
+        )
+        let afterFirst = try context.fetch(FetchDescriptor<DiveBuddy>())
+        #expect(afterFirst.count == 1)
+        #expect(afterFirst[0].linkedFirebaseUID == "uid-noop")
+
+        GoDiveFriendBuddyLinking.syncRosterLinks(
+            friends: friends,
+            owner: owner,
+            modelContext: context
+        )
+        let afterSecond = try context.fetch(FetchDescriptor<DiveBuddy>())
+        #expect(afterSecond.count == 1)
+        #expect(afterSecond[0].id == afterFirst[0].id)
+    }
+
     @Test func buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly() {
         #expect(BuddiesListPresentation.showsGoDiveUserPin(isFriend: true))
         #expect(!BuddiesListPresentation.showsGoDiveUserPin(isFriend: false))
@@ -2993,11 +3115,17 @@ struct GoDiveFriendsTests {
         }
     }
 
-    @Test func buddiesListPresentation_smsBody_includesNameAndURL() {
+    @Test func buddiesListPresentation_smsBody_includesFirstNameAndURL() {
         let url = URL(string: "https://links.godiveios.com/invite/abc")!
-        let body = BuddiesListPresentation.smsBody(inviteURL: url, buddyDisplayName: "Jamie")
-        #expect(body.contains("Jamie"))
+        let body = BuddiesListPresentation.smsBody(
+            inviteURL: url,
+            buddyDisplayName: "Jamie Rivera"
+        )
+        #expect(body.contains("Hey Jamie —"))
+        #expect(!body.contains("Rivera"))
         #expect(body.contains(url.absoluteString))
+        let emptyName = BuddiesListPresentation.smsBody(inviteURL: url, buddyDisplayName: "  ")
+        #expect(emptyName.hasPrefix("Connect with me on GoDive:"))
     }
 
     @Test func buddyFeed_rowsEqual_comparesMediaPayload() {
@@ -3237,6 +3365,30 @@ struct GoDiveFriendsTests {
         #expect(DiveBuddyContactSMSPresentation.smsRecipients(contactsIdentifier: nil).isEmpty)
     }
 
+    @Test func diveBuddyInviteSMSPresentation_avatarBadgeMatchesProfileCameraScale() {
+        #expect(
+            DiveBuddyInviteSMSPresentation.detailAccessibilityIdentifier == "DiveBuddyDetails.Invite"
+        )
+        #expect(DiveBuddyInviteSMSPresentation.plusSystemImage == "plus")
+        #expect(
+            DiveBuddyInviteSMSPresentation.avatarPlusBadgeSideLength(avatarDiameter: 120)
+                == max(32, 120 * 0.27)
+        )
+        #expect(
+            DiveBuddyInviteSMSPresentation.avatarPlusBadgeSideLength(avatarDiameter: 80) == 32
+        )
+    }
+
+    @Test @MainActor
+    func diveBuddyInviteSMSPresentation_failsClosedWhenOffline() async {
+        let outcome = await DiveBuddyInviteSMSPresentation.presentInviteSMS(
+            buddyDisplayName: "Jamie",
+            contactsIdentifier: nil,
+            isNetworkConnected: false
+        )
+        #expect(outcome == .failed(message: GoDiveFriendsPresentation.firebaseUnavailableMessage))
+    }
+
     @Test func diveActivityMapOverviewHeaderPresentation_usesBuddyOwnerLayout_whenNamePresent() {
         #expect(
             DiveActivityMapOverviewHeaderPresentation.usesBuddyOwnerLayout(
@@ -3422,10 +3574,10 @@ struct GoDiveFriendsTests {
         ]
         GoDiveFirebaseCloudMessaging.handleNotificationResponse(userInfo: likeInfo)
         #expect(!comments.consume(activityID: activityID))
-        let likeTarget = likedNav.consumePendingTarget()
-        #expect(likeTarget?.activityID == activityID)
+        let parsedLikeTarget = GoDiveBuddyActivityLikedPushPresentation.target(fromUserInfo: likeInfo)
+        #expect(parsedLikeTarget?.activityID == activityID)
         #expect(
-            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: likeTarget!)
+            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: parsedLikeTarget!)
                 == .diveDetail(activityID)
         )
 
@@ -3437,11 +3589,16 @@ struct GoDiveFriendsTests {
         ]
         GoDiveFirebaseCloudMessaging.handleNotificationResponse(userInfo: commentInfo)
         #expect(comments.consume(activityID: activityID))
-        let commentNavTarget = likedNav.consumePendingTarget()
-        #expect(commentNavTarget?.activityID == activityID)
-        #expect(commentNavTarget?.activityKind == .snorkel)
+        let parsedCommentTarget = GoDiveBuddyActivityCommentedPushPresentation.target(
+            fromUserInfo: commentInfo
+        )
+        let commentNavTarget = GoDiveBuddyActivityCommentedPushPresentation.likedPushCompatibleTarget(
+            for: parsedCommentTarget!
+        )
+        #expect(commentNavTarget.activityID == activityID)
+        #expect(commentNavTarget.activityKind == .snorkel)
         #expect(
-            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: commentNavTarget!)
+            GoDiveBuddyActivityLikedPushPresentation.logbookRoute(for: commentNavTarget)
                 == .snorkelDetail(activityID)
         )
 
@@ -6293,5 +6450,167 @@ struct GoDiveFriendsTests {
         #expect(rows[0]["displayName"] as? String == "Kathleen")
         #expect(rows[0]["firebaseUid"] as? String == "uid-kathleen")
         #expect(rows[1]["firebaseUid"] == nil)
+    }
+
+    @Test func tripShareMapping_inviteDocumentID_isDeterministic() {
+        let id = GoDiveTripShareMapping.inviteDocumentID(
+            sharerUID: "sharer",
+            tripID: "TRIP-1"
+        )
+        #expect(id == "sharer_TRIP-1")
+        #expect(
+            GoDiveTripShareMapping.inviteDocumentID(sharerUID: " sharer ", tripID: " TRIP-1 ")
+                == id
+        )
+    }
+
+    @Test func tripShareMapping_roundTripsSharedTripAndInvite() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let end = Date(timeIntervalSince1970: 1_800_100_000)
+        let shared = GoDiveTripShareMapping.SharedTripSnapshot(
+            tripID: "AAAA-BBBB",
+            title: "Bonaire 2026",
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire"],
+            plannedSiteIDs: ["11111111-1111-1111-1111-111111111111"],
+            updatedAt: end,
+            createdAt: start,
+            schemaVersion: GoDiveTripShareMapping.schemaVersion
+        )
+        let sharedData = GoDiveTripShareMapping.firestoreData(for: shared)
+        let decodedShared = GoDiveTripShareMapping.sharedTripSnapshot(
+            tripID: shared.tripID,
+            data: sharedData
+        )
+        #expect(decodedShared?.title == "Bonaire 2026")
+        #expect(decodedShared?.countries == ["Bonaire"])
+        #expect(decodedShared?.plannedSiteIDs.count == 1)
+        #expect(
+            GoDiveTripShareMapping.syncedFieldsFingerprint(shared)
+                == GoDiveTripShareMapping.syncedFieldsFingerprint(decodedShared!)
+        )
+
+        let invite = GoDiveTripShareMapping.InviteSnapshot(
+            inviteID: "sharer_AAAA-BBBB",
+            sharerUID: "sharer",
+            tripID: "AAAA-BBBB",
+            status: .pending,
+            title: "Bonaire 2026",
+            sharerDisplayName: "Alex",
+            createdAt: start,
+            updatedAt: nil,
+            schemaVersion: GoDiveTripShareMapping.schemaVersion
+        )
+        let inviteData = GoDiveTripShareMapping.firestoreData(for: invite, includeCreatedAt: true)
+        // Rules require `createdAt == request.time` — must be a server timestamp sentinel.
+        #expect(inviteData["createdAt"] is FieldValue)
+        var decodeData = inviteData
+        decodeData["createdAt"] = Timestamp(date: start)
+        let decodedInvite = GoDiveTripShareMapping.inviteSnapshot(
+            inviteID: invite.inviteID,
+            data: decodeData
+        )
+        #expect(decodedInvite?.status == .pending)
+        #expect(decodedInvite?.sharerDisplayName == "Alex")
+        #expect(decodedInvite?.tripID == "AAAA-BBBB")
+    }
+
+    @Test func tripSharePushPresentation_parsesUserInfo() {
+        let target = GoDiveTripSharePushPresentation.target(
+            fromUserInfo: [
+                "type": GoDiveTripSharePushPresentation.notificationType,
+                "inviteId": "sharer_trip",
+                "sharerUid": "sharer",
+                "tripId": "trip",
+                "title": "Bonaire",
+            ]
+        )
+        #expect(target?.inviteID == "sharer_trip")
+        #expect(target?.sharerUID == "sharer")
+        #expect(target?.tripID == "trip")
+        #expect(target?.title == "Bonaire")
+        #expect(
+            GoDiveTripSharePushPresentation.target(fromUserInfo: ["type": "other"]) == nil
+        )
+    }
+
+    @Test func tripShareInviteAcceptedPushPresentation_parsesUserInfoAndTrigger() {
+        let tripID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let target = GoDiveTripShareInviteAcceptedPushPresentation.target(
+            fromUserInfo: [
+                "type": GoDiveTripShareInviteAcceptedPushPresentation.notificationType,
+                "inviteId": "sharer_trip",
+                "tripId": tripID.uuidString,
+                "friendUID": "recipient",
+                "title": "Bonaire",
+            ]
+        )
+        #expect(target?.tripID == tripID)
+        #expect(target?.friendUID == "recipient")
+        #expect(target?.title == "Bonaire")
+        #expect(
+            GoDiveTripShareInviteAcceptedPushPresentation.notificationBody(
+                friendDisplayName: "Alex",
+                tripTitle: "Bonaire"
+            ) == "Alex joined Bonaire!"
+        )
+        #expect(
+            GoDiveTripShareInviteAcceptedPushTrigger.shouldNotify(
+                beforeStatus: "pending",
+                afterStatus: "accepted"
+            )
+        )
+        #expect(
+            !GoDiveTripShareInviteAcceptedPushTrigger.shouldNotify(
+                beforeStatus: "accepted",
+                afterStatus: "accepted"
+            )
+        )
+        #expect(
+            !GoDiveTripShareInviteAcceptedPushTrigger.shouldNotify(
+                beforeStatus: "pending",
+                afterStatus: "declined"
+            )
+        )
+    }
+
+    @Test func diveTripShareLineage_recordAcceptedFriend() {
+        let trip = DiveTrip(startDate: .now, endDate: .now, title: "Shared")
+        DiveTripShareLineagePresentation.recordAcceptedFriend(trip, friendUID: "friend-a")
+        #expect(DiveTripShareLineagePresentation.hasAcceptedFriend(trip, friendUID: "friend-a"))
+        #expect(DiveTripShareLineagePresentation.hasSharedWithFriend(trip, friendUID: "friend-a"))
+        DiveTripShareLineagePresentation.removeSharedWithFriend(trip, friendUID: "friend-a")
+        #expect(!DiveTripShareLineagePresentation.hasAcceptedFriend(trip, friendUID: "friend-a"))
+    }
+
+    @Test func homeNotificationsPresentation_includesTripShareInvite() {
+        let invite = GoDiveTripShareMapping.InviteSnapshot(
+            inviteID: "sharer_trip",
+            sharerUID: "sharer",
+            tripID: "trip",
+            status: .pending,
+            title: "Bonaire 2026",
+            sharerDisplayName: "Alex",
+            createdAt: Date(timeIntervalSince1970: 2_000),
+            updatedAt: nil,
+            schemaVersion: 1
+        )
+        let localID = UUID()
+        let items = HomeNotificationsPresentation.items(
+            friends: [],
+            activityRows: [],
+            tripShareInvites: [invite],
+            localTripIDByInviteID: [invite.inviteID: localID]
+        )
+        #expect(items.count == 1)
+        #expect(items[0].message == HomeNotificationsPresentation.tripShareInviteMessage(displayName: "Alex"))
+        #expect(items[0].detail == "Bonaire 2026")
+        if case .tripShareInvite(let target) = items[0].kind {
+            #expect(target.localTripID == localID)
+            #expect(target.inviteID == invite.inviteID)
+        } else {
+            Issue.record("Expected tripShareInvite kind")
+        }
     }
 }

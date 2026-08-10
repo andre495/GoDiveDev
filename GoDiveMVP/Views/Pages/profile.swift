@@ -27,29 +27,32 @@ struct ProfileView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
 
     @Query private var ownedCertifications: [Certification]
     @Query private var ownedDiveActivities: [DiveActivity]
     @Query private var ownerDiveBuddies: [DiveBuddy]
 
-    @Query(sort: [SortDescriptor(\DiveMediaBuddyTag.id, order: .forward)])
-    private var buddyMediaTags: [DiveMediaBuddyTag]
-
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @State private var showsProfileEditSheet = false
     @State private var showsSideMenu = false
+    @State private var activeInvite: FriendInviteSharePresentation?
+    @State private var isCreatingInvite = false
+    @State private var inviteStatusMessage: String?
     @State private var menuRoute: MenuRoute?
     @State private var profileAuxiliaryRoute: ProfileAuxiliaryRoute?
     @State private var profileHomeAggregate = HomeOverviewAggregate.empty
     @State private var marineLifeCatalog: [MarineLife] = []
     @State private var userDiveSites: [UserDiveSite] = []
     @State private var hasLoadedProfileNavigationCatalogs = false
+    @State private var cachedTaggedMediaItems: [DiveMediaPhoto] = []
     @State private var cachedTaggedMediaTimeZoneOffsetByID: [UUID: Int?] = [:]
     @State private var cachedLinkedMediaItems: [TripDetailLinkedMediaItem] = []
     @State private var cachedTaggedMediaSightings: [SightingInstance] = []
     @State private var cachedMarineLifeCatalogForMedia: [MarineLife] = []
     @State private var hasLoadedTaggedMediaEnrichment = false
+    @State private var observedSelfBuddyMediaTags: [DiveMediaBuddyTag] = []
     @State private var gallerySelectedMediaID: UUID?
     @State private var selfBuddyID: UUID?
     @State private var selfBuddyFeaturedTaggedMediaPhotoID: UUID?
@@ -59,6 +62,10 @@ struct ProfileView: View {
     @State private var profileMapPins: [TripDetailMapPin] = []
     @State private var showsDeferredProfileMap = false
     @State private var diveSiteCatalog: [DiveSite] = []
+    @State private var profileAggregateRebuildTask: Task<Void, Never>?
+    @State private var profileEnrichmentTask: Task<Void, Never>?
+    @State private var lastBuiltProfileStatsToken: String?
+    @State private var lastProfileMapPinsToken: String?
 
     private let ownerProfileID: UUID?
 
@@ -91,18 +98,19 @@ struct ProfileView: View {
         return "\(ownedDiveActivities.count)-\(automaticallyRenumberDives)-\(profileID)"
     }
 
+    private var selfBuddyMediaTagsFingerprint: String {
+        ProfileTaggedMediaPresentation.mediaTagIDsFingerprint(observedSelfBuddyMediaTags)
+    }
+
+    private var profileMapPinsToken: String {
+        let owner = effectiveOwnerProfileID?.uuidString ?? "none"
+        return "\(owner)|\(ownedDiveActivities.count)|\(diveSiteCatalog.count)"
+    }
+
     private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     private var ownedCertificationsFiltered: [Certification] {
         ownedCertifications
-    }
-
-    private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay? {
-        CertificationPresentation.profileFeaturedCertification(from: ownedCertificationsFiltered)
-    }
-
-    private var featuredCertificationCard: Certification? {
-        CertificationPresentation.profileFeaturedCertificationCard(from: ownedCertificationsFiltered)
     }
 
     private var diveCountLabel: String {
@@ -116,31 +124,26 @@ struct ProfileView: View {
     }
 
     private var selfBuddyTags: [DiveMediaBuddyTag] {
-        guard let selfBuddyID else { return [] }
-        return buddyMediaTags.filter { $0.buddyID == selfBuddyID }
+        observedSelfBuddyMediaTags
     }
 
     private var taggedMediaItems: [DiveMediaPhoto] {
-        DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
-            tags: selfBuddyTags,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            modelContext: modelContext
-        )
+        cachedTaggedMediaItems
     }
 
     private var displayHeroTaggedMedia: DiveMediaPhoto? {
         DiveActivityMediaPresentation.selectedMedia(
             selectedID: heroTaggedMediaID,
-            in: taggedMediaItems
+            in: cachedTaggedMediaItems
         )
     }
 
     private var expectsHeroTaggedMedia: Bool {
-        !selfBuddyTags.isEmpty
+        !observedSelfBuddyMediaTags.isEmpty
     }
 
     private var profileHasAssociatedMedia: Bool {
-        !taggedMediaItems.isEmpty
+        !cachedTaggedMediaItems.isEmpty
     }
 
     private var profileHasMapContent: Bool {
@@ -156,6 +159,12 @@ struct ProfileView: View {
 
     var body: some View {
         ZStack {
+            if let selfBuddyID {
+                ProfileSelfBuddyMediaTagsObserver(buddyID: selfBuddyID) { tags in
+                    applyObservedSelfBuddyMediaTags(tags)
+                }
+            }
+
             BlueSheetDetailPage(
                 configuration: DiveBuddyDetailPresentation.identityBlueSheetPageConfiguration(
                     accessibilityRootIdentifier: "Profile.Root",
@@ -233,9 +242,29 @@ struct ProfileView: View {
                         showsSideMenu = false
                     }
                     openTripPlanner?()
-                }
+                },
+                onInviteBuddy: {
+                    Task { await createInviteFromSideMenu() }
+                },
+                isInviteBuddyEnabled: networkConnectivity.isConnected && !isCreatingInvite
             )
             .zIndex(1)
+        }
+        .sheet(item: $activeInvite) { invite in
+            FriendInviteShareSheet(inviteURL: invite.url)
+        }
+        .alert(
+            "Invite unavailable",
+            isPresented: Binding(
+                get: { inviteStatusMessage != nil },
+                set: { if !$0 { inviteStatusMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                inviteStatusMessage = nil
+            }
+        } message: {
+            Text(inviteStatusMessage ?? "")
         }
         .navigationDestination(item: $menuRoute) { route in
             menuDestinationView(for: route)
@@ -283,38 +312,52 @@ struct ProfileView: View {
             syncHeroTaggedMediaSelection()
             rebuildProfileTaggedMediaCaches(includeMarineLife: hasLoadedTaggedMediaEnrichment)
             GoDiveProfileHeroFirestoreSync.scheduleSyncIfNeeded(heroMedia: displayHeroTaggedMedia)
-            refreshProfileMapPins()
+            refreshProfileMapPinsIfNeeded()
             try? await Task.sleep(for: PushedNavigationDeferralPresentation.afterPushMapDeferral)
             guard !Task.isCancelled else { return }
             showsDeferredProfileMap = true
             allowsHeroVideoAutoplay = true
         }
         .task(id: profileStatsRebuildToken) {
+            guard lastBuiltProfileStatsToken != profileStatsRebuildToken else { return }
             await rebuildProfileHomeAggregateAsync()
+            guard !Task.isCancelled else { return }
+            lastBuiltProfileStatsToken = profileStatsRebuildToken
         }
         .onChange(of: automaticallyRenumberDives) { _, _ in
-            Task { await rebuildProfileHomeAggregateAsync() }
+            lastBuiltProfileStatsToken = nil
+            scheduleProfileHomeAggregateRebuild()
         }
-        .task(id: ownedDiveActivities.count) {
-            refreshProfileMapPins()
+        .task(id: profileMapPinsToken) {
+            refreshProfileMapPinsIfNeeded()
         }
-        .task {
+        .task(id: effectiveOwnerProfileID) {
+            guard diveSiteCatalog.isEmpty else {
+                refreshProfileMapPinsIfNeeded()
+                return
+            }
             diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
-            refreshProfileMapPins()
+            guard !Task.isCancelled else { return }
+            refreshProfileMapPinsIfNeeded()
         }
         .onChange(of: heroTaggedMediaID) { _, _ in
             GoDiveProfileHeroFirestoreSync.scheduleSyncIfNeeded(heroMedia: displayHeroTaggedMedia)
             syncProfileHeroMode()
         }
-        .onChange(of: taggedMediaItems.map(\.id)) { _, _ in
+        .onChange(of: selfBuddyMediaTagsFingerprint) { _, _ in
             rebuildProfileTaggedMediaCaches(includeMarineLife: hasLoadedTaggedMediaEnrichment)
             syncHeroTaggedMediaSelection()
             GoDiveProfileHeroFirestoreSync.scheduleSyncIfNeeded(heroMedia: displayHeroTaggedMedia)
             syncProfileHeroMode()
         }
-        .onChange(of: selfBuddyID) { _, _ in
-            syncSelfBuddyFeaturedMediaID()
+        .onChange(of: ownedDiveActivities.count) { _, _ in
             rebuildProfileTaggedMediaCaches(includeMarineLife: hasLoadedTaggedMediaEnrichment)
+            syncHeroTaggedMediaSelection()
+        }
+        .onChange(of: selfBuddyID) { _, _ in
+            observedSelfBuddyMediaTags = []
+            cachedTaggedMediaItems = []
+            syncSelfBuddyFeaturedMediaID()
             activateTaggedMediaScopeIfNeeded()
         }
         .onChange(of: profileMapPins.count) { _, _ in
@@ -324,6 +367,7 @@ struct ProfileView: View {
             activateTaggedMediaScopeIfNeeded()
         }
         .onDisappear {
+            cancelProfileBackgroundTasks()
             deactivateTaggedMediaScopeIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: GoDiveFirebaseCloudMessaging.openFriendsListNotification)) { _ in
@@ -431,6 +475,31 @@ struct ProfileView: View {
         NavigationStackPushCoalescing.assignUnlessDuplicate(route, to: &menuRoute)
     }
 
+    @MainActor
+    private func createInviteFromSideMenu() async {
+        guard !isCreatingInvite else { return }
+        guard networkConnectivity.isConnected else {
+            inviteStatusMessage = GoDiveFriendsPresentation.firebaseUnavailableMessage
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.28)) {
+            showsSideMenu = false
+        }
+
+        isCreatingInvite = true
+        defer { isCreatingInvite = false }
+
+        let result = await GoDiveFriendGraphService.createInvite()
+        switch result {
+        case .success(let pair):
+            activeInvite = FriendInviteSharePresentation(token: pair.token, url: pair.url)
+            inviteStatusMessage = nil
+        case .failure(let failure):
+            inviteStatusMessage = failure.message
+        }
+    }
+
     @ViewBuilder
     private func menuDestinationView(for route: MenuRoute) -> some View {
         switch route {
@@ -445,8 +514,17 @@ struct ProfileView: View {
         }
     }
 
+    private func applyObservedSelfBuddyMediaTags(_ tags: [DiveMediaBuddyTag]) {
+        let nextFingerprint = ProfileTaggedMediaPresentation.mediaTagIDsFingerprint(tags)
+        let currentFingerprint = ProfileTaggedMediaPresentation.mediaTagIDsFingerprint(
+            observedSelfBuddyMediaTags
+        )
+        guard nextFingerprint != currentFingerprint else { return }
+        observedSelfBuddyMediaTags = tags
+    }
+
     private func syncHeroTaggedMediaSelection() {
-        let photos = taggedMediaItems
+        let photos = cachedTaggedMediaItems
         guard !photos.isEmpty else {
             heroTaggedMediaID = nil
             return
@@ -471,11 +549,7 @@ struct ProfileView: View {
                     to: &profileAuxiliaryRoute
                 )
             },
-            danInsuranceNumber: accountSession.currentProfile?.danInsuranceNumber,
-            featuredCertification: featuredCertificationCard,
-            featuredCertificationDisplay: profileFeaturedCertification,
-            certificationCount: ownedCertificationsFiltered.count,
-            onViewAllCertifications: { navigate(to: .certifications) },
+            certifications: CertificationPresentation.sortedForList(ownedCertificationsFiltered),
             taggedMediaItems: taggedMediaItems,
             taggedMediaTimeZoneOffsetByID: cachedTaggedMediaTimeZoneOffsetByID,
             linkedMediaItems: cachedLinkedMediaItems,
@@ -501,10 +575,33 @@ struct ProfileView: View {
             guard !hasLoadedTaggedMediaEnrichment else { return }
             hasLoadedTaggedMediaEnrichment = true
             rebuildProfileTaggedMediaCaches(includeMarineLife: true)
-            Task { await loadProfileMarineLifeCatalogForMediaIfNeeded() }
-        case .diverStats, .details:
+            scheduleProfileEnrichmentLoad {
+                await loadProfileMarineLifeCatalogForMediaIfNeeded()
+            }
+        case .diverStats:
             break
         }
+    }
+
+    private func scheduleProfileHomeAggregateRebuild() {
+        profileAggregateRebuildTask?.cancel()
+        profileAggregateRebuildTask = Task { @MainActor in
+            await rebuildProfileHomeAggregateAsync()
+        }
+    }
+
+    private func scheduleProfileEnrichmentLoad(_ work: @escaping @MainActor () async -> Void) {
+        profileEnrichmentTask?.cancel()
+        profileEnrichmentTask = Task { @MainActor in
+            await work()
+        }
+    }
+
+    private func cancelProfileBackgroundTasks() {
+        profileAggregateRebuildTask?.cancel()
+        profileAggregateRebuildTask = nil
+        profileEnrichmentTask?.cancel()
+        profileEnrichmentTask = nil
     }
 
     @MainActor
@@ -512,6 +609,7 @@ struct ProfileView: View {
         if marineLifeCatalog.isEmpty {
             await reloadProfileNavigationCatalogsIfNeeded()
         }
+        guard !Task.isCancelled else { return }
         let ownerProfile = accountSession.currentProfile
         let built = await HomeOverviewAggregateBuilder.buildAsync(
             activities: ownedDiveActivities,
@@ -522,7 +620,9 @@ struct ProfileView: View {
             ownerProfile: ownerProfile,
             modelContext: modelContext
         )
+        guard !Task.isCancelled else { return }
         profileHomeAggregate = built
+        lastBuiltProfileStatsToken = profileStatsRebuildToken
     }
 
     private func reloadProfileNavigationCatalogsIfNeeded(force: Bool = false) async {
@@ -560,9 +660,14 @@ struct ProfileView: View {
     }
 
     private func rebuildProfileTaggedMediaCaches(includeMarineLife: Bool) {
-        let tags = selfBuddyTags
+        let tags = observedSelfBuddyMediaTags
         let ownerIDs = ownerDiveActivityIDs
-        let media = taggedMediaItems
+        let media = DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
+            tags: tags,
+            ownerDiveActivityIDs: ownerIDs,
+            modelContext: modelContext
+        )
+        cachedTaggedMediaItems = media
 
         let offsetByActivityID = Dictionary(
             godiveUniquingKeysWithValues: ownedDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
@@ -675,11 +780,14 @@ struct ProfileView: View {
         }
     }
 
-    private func refreshProfileMapPins() {
+    private func refreshProfileMapPinsIfNeeded() {
+        let token = profileMapPinsToken
+        guard lastProfileMapPinsToken != token else { return }
         profileMapPins = ProfileDetailMapPresentation.pins(
             from: ownedDiveActivities,
             catalogSites: diveSiteCatalog
         )
+        lastProfileMapPinsToken = token
         syncProfileHeroMode()
     }
 

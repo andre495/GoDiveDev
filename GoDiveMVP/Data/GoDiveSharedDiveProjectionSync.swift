@@ -114,10 +114,12 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
 
         for dive in dives {
+            guard !Task.isCancelled else { return }
             await ensureProfileTrackBlob(for: dive, modelContext: modelContext)
         }
 
         for dive in dives {
+            guard !Task.isCancelled else { return }
             if ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: userDefaults) {
                 _ = await upsertDive(
                     dive,
@@ -129,14 +131,18 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             } else {
                 await deleteDiveProjection(diveID: dive.id)
             }
+            // Let hit-testing breathe between MainActor projection writes.
+            await Task.yield()
         }
 
         let snorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
         for snorkel in snorkels {
+            guard !Task.isCancelled else { return }
             await ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
         }
         for snorkel in snorkels {
+            guard !Task.isCancelled else { return }
             if ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel, userDefaults: userDefaults) {
                 _ = await upsertSnorkel(
                     snorkel,
@@ -148,6 +154,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             } else {
                 await deleteDiveProjection(diveID: snorkel.id)
             }
+            await Task.yield()
         }
     }
 

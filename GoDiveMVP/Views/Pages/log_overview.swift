@@ -577,6 +577,9 @@ struct LogOverviewView: View {
                     case .shared(let row):
                         pushHome(.buddySharedActivity(row, opensComments: true))
                     }
+                },
+                onOpenTripShareInvite: { target in
+                    pushHome(.tripDetail(target.localTripID))
                 }
             )
         case .friendProfile(let friend):

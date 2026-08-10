@@ -11,8 +11,8 @@ GoDive is a dive log for iPhone. It helps you import dives and snorkels from you
 | **Field Guide** | Browse a marine life catalog; tag species on dive photos |
 | **Explore** | Map or list of dive sites; add your own sites |
 | **Search** | App-wide search across dives, snorkels, sites, species, buddies, trips, gear, and more |
-| **Friends** | Connect via QR code or shareable link (no public people search); browse friend profiles and shared media; likes, comments, and `@mentions` on shared activities |
-| **Profile** | Avatar on Home; buddy-style blue sheet (tagged media hero); blue **⋯** beside your name edits profile; side menu for trips, certifications, gear, buddies, Settings |
+| **Friends** | Connect via QR code or shareable link (no public people search); browse friend profiles and shared media; likes, comments, and `@mentions` on shared activities; share a trip copy with a GoDive buddy |
+| **Profile** | Avatar on Home; buddy-style blue sheet (tagged media hero); blue **⋯** beside your name edits profile; side menu for trips, certifications, gear, buddies, Settings, plus **Invite a buddy** (QR) at the bottom |
 
 ## The main tabs
 

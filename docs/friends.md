@@ -4,15 +4,14 @@ Connect with other GoDive divers using a **QR code** or **shareable link** — t
 
 ## Add a friend
 
-1. Open **Profile → menu (☰) → Buddies**.
-2. Tap the **QR** button.
-3. Show the code, or use **Share link** / **Copy link**.
-4. Your friend scans the QR code or opens the link on their phone (signed in with Apple). Links use **`https://links.godiveios.com/invite/…`** and open the GoDive app when it’s installed.
-5. They confirm **Connect**. GoDive then opens **Logbook** on that friend’s **profile** page (header media, name, shared dive count).
+1. Open **Profile → menu (☰)** and tap **Invite a buddy** at the bottom (QR icon), **or** open **Buddies** and tap the **QR** button.
+2. Show the code, or use **Share link** / **Copy link**.
+3. Your friend scans the QR code or opens the link on their phone (signed in with Apple). Links use **`https://links.godiveios.com/invite/…`** and open the GoDive app when it’s installed.
+4. They confirm **Connect**. GoDive then opens **Logbook** on that friend’s **profile** page (header media, name, shared dive count).
 
 The **Buddies** title uses the same collapsible large-title header as Settings and Certifications.
 
-Invites expire after about a week. You can revoke an unused invite from the share sheet.
+Invites expire after **24 hours**. Create a new QR or link anytime from the Profile menu or the Buddies list.
 
 ## When someone accepts your invite
 
@@ -29,6 +28,10 @@ If they **tag you** on a shared activity, the push uses that wording instead —
 Tap the notification to open that shared activity (the most recent one when several were shared). GoDive loads Buddy Feed data first so the activity is ready, then opens it — going back returns you to the feed. You are only notified the first time an activity is shared; edits and re-shares of the same activity don’t alert you again.
 
 You can turn these alerts off (and back on) with **Settings → Buddy activity notifications** — the invite-accepted push above is not affected by that toggle.
+
+## When a buddy shares a trip
+
+If a friend adds you as a GoDive buddy on one of their trips and chooses to share it, you get a push and a Home **Notifications** row. Opening it shows a copy of that trip in your planner. **Accept** keeps it; **Decline** removes your copy (their trip is unchanged). They stay the owner of the trip name, dates, countries, and planned dive sites — when they update those details, your copy stays in sync. See [Trips & buddies](trips-and-buddies.md).
 
 ## What friends can see
 
@@ -94,7 +97,7 @@ When editing **notes** on a dive or snorkel, type **`@`** to mention a GoDive fr
 
 When you connect with someone (or they connect with you), GoDive links them to your **Dive Buddies** roster. If you already had a buddy with a matching name, that roster row becomes the friend link instead of creating a duplicate — your existing dive and trip tags stay on the same person. The same name check runs when you **import a dive**, **tag a buddy on a dive or photo**, or **add a buddy** to your roster.
 
-Linked friends show the GoDive pin on the lower-right of their avatar (Buddies list, friend profile, Home, activities, trips, and search). Tap them from a dive, trip, search, or **Profile → Buddies** to open their **friend profile** (not the local-only buddy detail page). Buddies who are not friends yet show an **Invite** button — it creates your invite link and opens Messages (prefilled to their linked contact when you connected them in Contacts).
+Linked friends show the GoDive pin on the lower-right of their avatar (Buddies list, friend profile, Home, activities, trips, and search). Tap them from a dive, trip, search, or **Profile → Buddies** to open their **friend profile** (not the local-only buddy detail page). Buddies who are not friends yet show an **Invite** button on the Buddies list and a blue **+** on the lower-right of their avatar on buddy detail — it creates your invite link and opens Messages (prefilled to their linked contact when you connected them in Contacts; otherwise the recipient field stays empty).
 
 Tag friends on a dive from the dive overview **Buddies** sheet like any other buddy. Linked friends show their GoDive profile photo on the overview **Buddies** row (and on friend-shared activity **Buddies**) even when you have not saved a local Contacts photo for them. If they tagged you on a dive they shared, their shared dive detail can show that you were tagged.
 

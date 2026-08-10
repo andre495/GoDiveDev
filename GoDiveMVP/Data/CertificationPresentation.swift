@@ -101,6 +101,12 @@ enum CertificationPresentation: Sendable {
         agencyNumberLine(for: certification) ?? "—"
     }
 
+    /// Profile **Diver stats** cert tile: agency only (or **—**).
+    static func listAgencyLine(for certification: Certification) -> String {
+        let agency = certification.agency.trimmingCharacters(in: .whitespacesAndNewlines)
+        return agency.isEmpty ? "—" : agency
+    }
+
     /// List tile bottom row: attained date (or **—**).
     static func listDateLine(for certification: Certification) -> String {
         formattedDate(certification.dateAttained)

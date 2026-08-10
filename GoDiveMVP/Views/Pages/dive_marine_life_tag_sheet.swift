@@ -44,34 +44,26 @@ struct DiveMarineLifeTagPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            AppScrollUnderSearchChromeLayout {
-                speciesSearchChrome
-            } content: { chromeClearance in
-                pickerContent(chromeClearance: chromeClearance)
+            VStack(spacing: 0) {
+                pickerContent
+                TaggingSheetBottomSearchChrome(
+                    searchText: $speciesSearchQuery,
+                    isSearchFocused: $isSpeciesSearchFocused,
+                    placeholder: DiveMarineLifeTagPickerPresentation.searchPlaceholder,
+                    searchFieldAccessibilityIdentifier: "DiveMarineLifeTagPicker.SearchField",
+                    cancelAccessibilityIdentifier: "DiveMarineLifeTagPicker.SearchCancel"
+                )
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    AppGlassToolbarCancelButton(
-                        action: discardPendingTagsAndDismiss,
-                        accessibilityIdentifier: DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier
-                    )
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppSheetToolbarPlusButton(
-                        action: { showsAddSpeciesSheet = true },
-                        accessibilityIdentifier: DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityIdentifier,
-                        accessibilityLabel: DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityLabel
-                    )
-                }
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .confirmationAction) {
-                    AppGlassProminentDoneButton(
-                        action: confirmPendingTagsAndDismiss,
-                        accessibilityIdentifier: DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier,
-                        title: DiveMarineLifeTagPickerPresentation.doneButtonTitle
-                    )
-                }
-            }
+            .taggingSheetToolbar(
+                cancelAccessibilityIdentifier: DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier,
+                doneAccessibilityIdentifier: DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier,
+                doneTitle: DiveMarineLifeTagPickerPresentation.doneButtonTitle,
+                plusAccessibilityIdentifier: DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityIdentifier,
+                plusAccessibilityLabel: DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityLabel,
+                onCancel: discardPendingTagsAndDismiss,
+                onDone: confirmPendingTagsAndDismiss,
+                onPlus: { showsAddSpeciesSheet = true }
+            )
         }
         .diveActivityOverviewPanelModalSheetPresentation()
         .sheet(isPresented: $showsAddSpeciesSheet) {
@@ -106,24 +98,11 @@ struct DiveMarineLifeTagPickerSheet: View {
         .accessibilityIdentifier("DiveMarineLifeTagPicker.Root")
     }
 
-    private var speciesSearchChrome: some View {
-        CatalogListSearchChrome(
-            searchText: $speciesSearchQuery,
-            isSearchFocused: $isSpeciesSearchFocused,
-            placeholder: DiveMarineLifeTagPickerPresentation.searchPlaceholder,
-            searchFieldAccessibilityIdentifier: "DiveMarineLifeTagPicker.SearchField",
-            cancelAccessibilityIdentifier: "DiveMarineLifeTagPicker.SearchCancel",
-            showsTrailingActions: false,
-            trailingActions: { EmptyView() }
-        )
-    }
-
     @ViewBuilder
-    private func pickerContent(chromeClearance: CGFloat) -> some View {
+    private var pickerContent: some View {
         if !hasLoadedCatalog, catalog.isEmpty {
             GoDiveRotateLoadingIndicator()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, chromeClearance)
         } else if catalog.isEmpty {
             ContentUnavailableView(
                 "No species in catalog",
@@ -131,47 +110,44 @@ struct DiveMarineLifeTagPickerSheet: View {
                 description: Text("Tap + to add a species, or wait for the Field Guide catalog to load.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, chromeClearance)
         } else if displayedRows.isEmpty, isFilteringSpecies {
             ContentUnavailableView.search(text: speciesSearchQuery)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, chromeClearance)
         } else {
-            speciesList(chromeClearance: chromeClearance)
+            speciesList
         }
     }
 
-    private func speciesList(chromeClearance: CGFloat) -> some View {
-        List {
-            AppScrollUnderHeaderListLayout.topSpacerRow(height: chromeClearance)
-            ForEach(displayedRows) { row in
-                Button {
-                    toggleTag(for: row)
-                } label: {
-                    DiveMarineLifeTagSpeciesRow(
-                        commonName: row.commonName,
-                        trailingLabel: row.trailingLabel,
-                        detailLine: row.detailLine,
-                        featureImageURL: row.featureImageURL,
-                        featureImageResourceName: row.featureImageResourceName,
-                        showsTaggedCheckmark: row.isTagged
+    private var speciesList: some View {
+        TaggingSheetListChrome {
+            ForEach(Array(displayedRows.enumerated()), id: \.element.id) { index, row in
+                TaggingSheetListRowContainer(showsDivider: index < displayedRows.count - 1) {
+                    TaggingSheetSelectionRow(
+                        title: row.commonName,
+                        subtitle: marineLifeSubtitle(for: row),
+                        isSelected: row.isTagged,
+                        accessibilityValueSelected: "Tagged",
+                        accessibilityValueUnselected: "Not tagged",
+                        onTap: { toggleTag(for: row) },
+                        leading: {
+                            TaggingSheetMarineLifeLeadingArt(
+                                featureImageURL: row.featureImageURL,
+                                featureImageResourceName: row.featureImageResourceName
+                            )
+                        }
                     )
-                    .equatable()
                 }
-                .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(
-                    top: AppTheme.Spacing.sm,
-                    leading: AppTheme.Spacing.lg,
-                    bottom: AppTheme.Spacing.sm,
-                    trailing: AppTheme.Spacing.lg
-                ))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .animation(nil, value: displayedRows.count)
+    }
+
+    private func marineLifeSubtitle(for row: DiveMarineLifeTagPickerPresentation.RowDisplayData) -> String? {
+        let parts = [row.detailLine, row.trailingLabel]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: "\n")
     }
 
     private var tagErrorPresented: Binding<Bool> {

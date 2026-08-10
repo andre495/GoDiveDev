@@ -13,8 +13,8 @@ extension View {
     }
 
     /// Opaque blue overview-panel modal (notes / buddies / tags / comments / dive conditions).
-    /// Opens at the activity overview **large** detent height (not system full-screen **`.large`**);
-    /// no grabber; dismiss only via toolbar actions.
+    /// System **`.large`** only so iOS 26 edge-attaches the sheet (partial-height detents float
+    /// with a bottom gap). No grabber; dismiss only via toolbar actions.
     func diveActivityOverviewPanelModalSheetPresentation() -> some View {
         modifier(DiveActivityOverviewPanelModalSheetPresentationModifier())
     }
@@ -25,11 +25,16 @@ extension View {
     }
 }
 
+/// Presentation tokens for blue overview-panel modals (comments, notes, buddies, …).
+enum DiveActivityOverviewPanelModalPresentation: Sendable {
+    /// System **`.large`** — edge-attached on iOS 26 (covers the bottom screen edge).
+    nonisolated static var presentationDetents: Set<PresentationDetent> { [.large] }
+}
+
 private struct DiveActivityOverviewPanelModalSheetPresentationModifier: ViewModifier {
     func body(content: Content) -> some View {
-        let largeDetent = DiveActivityOverviewDetent.overviewPanelModalLargePresentationDetent()
         content
-            .presentationDetents([largeDetent])
+            .presentationDetents(DiveActivityOverviewPanelModalPresentation.presentationDetents)
             .presentationDragIndicator(.hidden)
             .interactiveDismissDisabled()
             .presentationCornerRadius(AppTheme.Sheet.cornerRadius)

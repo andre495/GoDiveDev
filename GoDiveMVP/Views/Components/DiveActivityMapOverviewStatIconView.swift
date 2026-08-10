@@ -12,6 +12,8 @@ struct DiveActivityMapOverviewStatIconView: View {
                 DiveMapOverviewClockIcon(fontSize: size * 0.6)
             case .palmTree:
                 DiveMapOverviewPalmTreeIcon()
+            case .waterWaves:
+                DiveMapOverviewWaterWavesIcon(fontSize: size * 0.6)
             }
         }
         .frame(width: size, height: size)
@@ -73,6 +75,19 @@ private struct DiveMapOverviewClockIcon: View {
 
     var body: some View {
         Image(systemName: "clock.fill")
+            .font(.system(size: fontSize, weight: .semibold))
+            .foregroundStyle(AppTheme.Colors.accent)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Water waves
+
+private struct DiveMapOverviewWaterWavesIcon: View {
+    var fontSize: CGFloat = 34
+
+    var body: some View {
+        Image(systemName: "water.waves")
             .font(.system(size: fontSize, weight: .semibold))
             .foregroundStyle(AppTheme.Colors.accent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -172,6 +187,7 @@ private struct DiveMapOverviewPalmTreeIcon: View {
     VStack(spacing: 24) {
         HStack(spacing: 20) {
             DiveActivityMapOverviewStatIconView(icon: .clock)
+            DiveActivityMapOverviewStatIconView(icon: .waterWaves)
             DiveActivityMapOverviewStatIconView(icon: .palmTree)
         }
 

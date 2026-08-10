@@ -10,8 +10,11 @@ enum HomeMediaCarouselDebug: Sendable {
     /// Default **on** in DEBUG only — Release stays quiet (OWASP Phase 5).
     #if DEBUG
     nonisolated(unsafe) static var isEnabled = true
+    /// Temporary: pink wash over the featured-media **`ScrollView`** hit/swipe frame.
+    nonisolated(unsafe) static var showsMediaInteractionHitAreaOverlay = false
     #else
     nonisolated(unsafe) static var isEnabled = false
+    nonisolated(unsafe) static var showsMediaInteractionHitAreaOverlay = false
     #endif
 
     private static let logger = Logger(

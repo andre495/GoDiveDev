@@ -121,6 +121,47 @@ extension DiveBuddyDetailPresentation {
         media?.resolvedMediaKind == .video
     }
 
+    /// Stable **`.task(id:)`** token for deferred buddy-detail work.
+    ///
+    /// Omits owner-numbering row count so applying the dive index does not cancel and restart
+    /// the deferred map / content refresh (that restart loop stacked MainActor rebuilds).
+    nonisolated static func deferredContentTaskToken(
+        buddyID: UUID,
+        unitSystemRawValue: String,
+        automaticallyRenumberDives: Bool
+    ) -> String {
+        [
+            buddyID.uuidString,
+            unitSystemRawValue,
+            automaticallyRenumberDives ? "1" : "0",
+        ].joined(separator: "|")
+    }
+
+    /// Fingerprint for skipping no-op **`rebuildBuddyDetailContent`** calls on MainActor.
+    nonisolated static func contentRebuildFingerprint(
+        buddyID: UUID,
+        diveTagCount: Int,
+        mediaTagCount: Int,
+        ownerNumberingRowCount: Int,
+        unitSystemRawValue: String,
+        automaticallyRenumberDives: Bool,
+        includeSecondarySections: Bool,
+        includeTripRows: Bool,
+        includeMarineLifeEnrichment: Bool
+    ) -> String {
+        [
+            buddyID.uuidString,
+            "\(diveTagCount)",
+            "\(mediaTagCount)",
+            "\(ownerNumberingRowCount)",
+            unitSystemRawValue,
+            automaticallyRenumberDives ? "1" : "0",
+            includeSecondarySections ? "1" : "0",
+            includeTripRows ? "1" : "0",
+            includeMarineLifeEnrichment ? "1" : "0",
+        ].joined(separator: "|")
+    }
+
     /// Prefer live **`@Query`** rows; fall back to the pushed **`DiveBuddy`** relationship on the first frame.
     nonisolated static func effectiveDiveTags(
         queried: [DiveBuddyTag],

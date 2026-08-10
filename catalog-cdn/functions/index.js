@@ -1139,3 +1139,205 @@ exports.notifyBuddyActivityCommented = onDocumentWritten(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// Trip share invite push — notify recipient when invite doc is created.
+// ---------------------------------------------------------------------------
+
+const TRIP_SHARE_INVITE_NOTIFICATION_TYPE = "trip_share_invite";
+const TRIP_SHARE_INVITE_ACCEPTED_NOTIFICATION_TYPE = "trip_share_invite_accepted";
+
+exports.notifyTripShareInvite = onDocumentCreated(
+  {
+    document: "users/{uid}/tripShareInvites/{inviteId}",
+    timeoutSeconds: 60,
+  },
+  async (event) => {
+    const recipientUid = event.params.uid;
+    const inviteId = event.params.inviteId;
+    const data = event.data.data();
+    if (!data) return;
+
+    if (data.status !== "pending") {
+      console.log(`trip share invite push: skip non-pending status for ${inviteId}`);
+      return;
+    }
+
+    const sharerUid =
+      typeof data.sharerUid === "string" ? data.sharerUid.trim() : "";
+    const tripId = typeof data.tripId === "string" ? data.tripId.trim() : "";
+    if (!sharerUid || !tripId) {
+      console.warn(`trip share invite push: missing sharerUid/tripId for ${inviteId}`);
+      return;
+    }
+
+    const db = getFirestore();
+    const privateSnap = await db
+      .collection("users")
+      .doc(recipientUid)
+      .collection("private")
+      .get();
+
+    const tokens = [];
+    privateSnap.forEach((doc) => {
+      if (!doc.id.startsWith(FCM_DOC_PREFIX)) return;
+      const token = doc.data().fcmToken;
+      if (typeof token === "string" && token.length > 0) {
+        tokens.push(token);
+      }
+    });
+    if (tokens.length === 0) {
+      console.warn(`trip share invite push: no FCM tokens for recipient=${recipientUid}`);
+      return;
+    }
+
+    let sharerLabel = "A buddy";
+    if (typeof data.sharerDisplayName === "string" && data.sharerDisplayName.trim()) {
+      sharerLabel = data.sharerDisplayName.trim();
+    } else {
+      const profileSnap = await db.collection("users").doc(sharerUid).get();
+      if (profileSnap.exists) {
+        const displayName = (profileSnap.data().displayName || "").trim();
+        if (displayName) sharerLabel = displayName;
+      }
+    }
+
+    const tripTitle =
+      typeof data.title === "string" && data.title.trim()
+        ? data.title.trim()
+        : "a trip";
+    const title = "You're Invited";
+    const body = `${sharerLabel} invited you on ${tripTitle}!`;
+    const collapseId = `tshare_${inviteId}`.slice(0, 64);
+
+    const messaging = getMessaging();
+    const messages = tokens.map((token) => ({
+      token,
+      notification: { title, body },
+      data: {
+        type: TRIP_SHARE_INVITE_NOTIFICATION_TYPE,
+        inviteId,
+        sharerUid,
+        tripId,
+        title: tripTitle,
+      },
+      apns: {
+        headers: {
+          "apns-collapse-id": collapseId,
+        },
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    }));
+
+    const response = await messaging.sendEach(messages);
+    if (response.failureCount > 0) {
+      console.warn(
+        `trip share invite push: ${response.failureCount}/${messages.length} failures for recipient=${recipientUid}`
+      );
+      await deleteInvalidFcmTokens(db, messages, response.responses);
+    } else {
+      console.log(
+        `trip share invite push: sent ${response.successCount}/${messages.length} for invite=${inviteId}`
+      );
+    }
+  }
+);
+
+/**
+ * When a recipient accepts a trip-share invite, notify the sharer.
+ */
+exports.notifyTripShareInviteAccepted = onDocumentUpdated(
+  {
+    document: "users/{uid}/tripShareInvites/{inviteId}",
+    timeoutSeconds: 60,
+  },
+  async (event) => {
+    const recipientUid = event.params.uid;
+    const inviteId = event.params.inviteId;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    if (!before || !after) return;
+
+    if (after.status !== "accepted") return;
+    if (before.status === after.status) return;
+    if (before.status !== "pending") {
+      console.log(
+        `trip share accept push: skip non-pending→accepted for ${inviteId}`
+      );
+      return;
+    }
+
+    const sharerUid =
+      typeof after.sharerUid === "string" ? after.sharerUid.trim() : "";
+    const tripId = typeof after.tripId === "string" ? after.tripId.trim() : "";
+    if (!sharerUid || !tripId) {
+      console.warn(
+        `trip share accept push: missing sharerUid/tripId for ${inviteId}`
+      );
+      return;
+    }
+
+    const db = getFirestore();
+    const tokens = await collectFcmTokensForUser(db, sharerUid);
+    if (tokens.length === 0) {
+      console.warn(
+        `trip share accept push: no FCM tokens for sharer=${sharerUid}`
+      );
+      return;
+    }
+
+    let friendLabel = "A buddy";
+    const profileSnap = await db.collection("users").doc(recipientUid).get();
+    if (profileSnap.exists) {
+      const displayName = (profileSnap.data().displayName || "").trim();
+      if (displayName) friendLabel = displayName;
+    }
+
+    const tripTitle =
+      typeof after.title === "string" && after.title.trim()
+        ? after.title.trim()
+        : "your trip";
+    const title = "Trip buddy joined";
+    const body = `${friendLabel} joined ${tripTitle}!`;
+    const collapseId = `tshare_ok_${inviteId}`.slice(0, 64);
+
+    const messaging = getMessaging();
+    const messages = tokens.map((token) => ({
+      token,
+      notification: { title, body },
+      data: {
+        type: TRIP_SHARE_INVITE_ACCEPTED_NOTIFICATION_TYPE,
+        inviteId,
+        tripId,
+        friendUID: recipientUid,
+        title: tripTitle,
+      },
+      apns: {
+        headers: {
+          "apns-collapse-id": collapseId,
+        },
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    }));
+
+    const response = await messaging.sendEach(messages);
+    if (response.failureCount > 0) {
+      console.warn(
+        `trip share accept push: ${response.failureCount}/${messages.length} failures for sharer=${sharerUid}`
+      );
+      await deleteInvalidFcmTokens(db, messages, response.responses);
+    } else {
+      console.log(
+        `trip share accept push: sent ${response.successCount}/${messages.length} for invite=${inviteId}`
+      );
+    }
+  }
+);

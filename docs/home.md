@@ -6,9 +6,10 @@ The **Home** tab is your dashboard. It surfaces highlights from your logbook wit
 
 When you have dives with library photos or videos, Home shows a rotating carousel of up to three daily picks from your collection.
 
-- **Tap the hero** to open that dive on the **Media** tab with the same item selected.
+- **Tap the hero media** (anywhere that is not a control) to open that dive on the **Media** tab with the same item selected. **Swipe left/right** on the media to move through the carousel.
 - **Tap the dive link capsule** at the bottom of the hero (site name and dive number) to open the dive normally — you’ll feel a light tap haptic. When the dive is linked to a trip, the **trip name** appears beside the dive number in the same accent color used in Logbook.
 - **Fish and buddy chips** on the hero show tagged species and buddies from that highlight; tap a fish chip to open a species overlay on the carousel (fading feature image, common name, short catalog description, page dots when several species are tagged). While that overlay is open, the Home **bell** is replaced by **×** in the same top-left spot — tap **×** to close. Tap the species name to open the full Field Guide overview. Tap the **buddies** chip to fan tagged avatars out to the left; the dive link and fish chip hide while avatars are showing — tap the buddies chip again to collapse them and bring the other controls back. Tap an avatar to open that buddy’s detail.
+- **Bell** (top left) and **profile avatar** (top right) stay tappable even while fish or buddy overlays are open on the hero.
 
 If you have dives but no qualifying library media, Home keeps the same hero layout with a soft gradient behind bouncing photo/video ghost tiles and **Add Media to your Dives** under the animation (not a link).
 
@@ -48,7 +49,7 @@ A small blue dot on the bell means there is something new since you last opened 
 
 ## Profile and navigation
 
-- Tap your **avatar** (top of Home) to open **Profile** (buddy-style blue sheet with tagged media in the header). The sheet **Diver stats** page shows the same lifetime tiles as Home (without **Top buddies** and without the dive-count / bottom-time summary line — your dive count stays next to your name). The **Details** page shows your DAN insurance number and featured certification. Tap the blue **⋯** beside your name to edit your profile. Use the **menu (☰)** for Trips, certifications, gear, buddies, and Settings.
+- Tap your **avatar** (top of Home) to open **Profile** (buddy-style blue sheet with tagged media in the header). The sheet **Diver stats** page shows the same lifetime tiles as Home (without **Top buddies** and without the dive-count / bottom-time summary line — your dive count stays next to your name), plus certification tiles (name, agency, date, small card photo on the right) you can tap to open. Edit optional DAN insurance from **⋯ → Edit Profile**. Use the **menu (☰)** for Trips, certifications, gear, buddies, and Settings — **Invite a buddy** (QR) sits at the bottom of that menu.
 - Home participates in the same navigation stack as dive detail, buddy detail, site detail, Field Guide species, and trips — use the back chevron or swipe from the left edge to return.
 
 ## Tips

@@ -40,14 +40,12 @@ struct ExploreView: View {
     @State private var showsAddDiveSiteSheet = false
     @State private var appliedScopeCacheSyncToken: String?
 
+    /// Store is only read in appear / notification handlers — never in **`body`**.
     @Environment(RootTabSelectionStore.self) private var rootTabSelection
+    /// Local mirror so tab **`body`** does not observe **`RootTabSelectionStore.selected`**.
+    @State private var isExploreTabSelected = false
 
     private let ownerProfileID: UUID?
-
-    /// Live tab selection via **`RootTabSelectionStore`** (not a stale `Tab` init `let`).
-    private var isExploreTabSelected: Bool {
-        RootTabSelectionPresentation.isSelected(.explore, selected: rootTabSelection.selected)
-    }
 
     private var shouldMountLiveDiveQuery: Bool {
         RootTabOwnerDiveQueryPresentation.shouldMountLiveOwnerDiveQuery(
@@ -185,27 +183,31 @@ struct ExploreView: View {
             applyPreferredSiteScope(hasLoggedActivities: hasActivities)
         }
         .onAppear {
-            // Seed/rebuild even if RootTabSelectionStore lags UIKit (device: selected stuck
-            // on logbook while Explore is visible). Catalog bind is `.task` (once per mount).
+            // First select often posts selection **before** this body mounts — seed from store.
+            applyExploreTabSelection(
+                RootTabSelectionPresentation.localSelectionAfterMount(
+                    tab: .explore,
+                    storeSelected: rootTabSelection.selected
+                ),
+                source: "onAppear"
+            )
             CatalogTabLoadDiagnostics.note(
                 "explore.onAppear selected=\(isExploreTabSelected) display=\(displayedPlottableSites.count) inFlight=\(isScopeCacheRebuildInFlight)"
             )
-            primeLoggedActivityLatchFromKnownStateIfNeeded()
-            applyDefaultSiteScopeIfNeeded()
-            seedPinsFromSessionCacheIfNeeded()
-            rebuildScopeCacheOnAppearIfNeeded()
-            warmMapsIfExploreSelected()
         }
-        .onChange(of: rootTabSelection.selected) { _, tab in
-            CatalogTabLoadDiagnostics.note("explore.onChange.selected tab=\(tab)")
-            guard tab == .explore else { return }
-            primeLoggedActivityLatchFromKnownStateIfNeeded()
-            applyDefaultSiteScopeIfNeeded()
-            warmMapsIfExploreSelected()
-            // Sync seed from launch prewarm so the map mounts with pins (no empty flash).
-            // Skipped when My Sites is the preferred default (avoids All Sites → My Sites jump).
-            seedPinsFromSessionCacheIfNeeded()
-            rebuildScopeCacheOnAppearIfNeeded()
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabBarDidSelect)) { notification in
+            guard let selected = RootTabSelectionPresentation.localSelection(
+                tab: .explore,
+                from: notification
+            ) else { return }
+            applyExploreTabSelection(selected, source: "uitabbar")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabSelectionDidChange)) { notification in
+            guard let selected = RootTabSelectionPresentation.localSelection(
+                tab: .explore,
+                from: notification
+            ) else { return }
+            applyExploreTabSelection(selected, source: "selectionDidChange")
         }
         .background {
             if shouldMountLiveDiveQuery {
@@ -260,10 +262,7 @@ struct ExploreView: View {
             ZStack(alignment: .top) {
                 if viewMode == .list, !GoDiveUITestConfiguration.isActive {
                     WaterBubbleBackground(
-                        animationPaused: RootTabSelectionPresentation.shouldPauseBubbles(
-                            for: .explore,
-                            selected: rootTabSelection.selected
-                        ),
+                        animationPaused: !isExploreTabSelected,
                         diagnosticsLabel: "Explore"
                     )
                 }
@@ -637,29 +636,37 @@ struct ExploreView: View {
                 ownerProfileID: profileID
             )
         }
+        // Rebuild whenever the bridge delivers — first paint often raced an empty activity set.
+        scheduleScopeCacheRebuild()
         if wasFirstSnapshot {
-            scheduleScopeCacheRebuild()
             applyDefaultSiteScopeIfNeeded()
         } else {
             applyPreferredSiteScope(hasLoggedActivities: !activities.isEmpty)
         }
     }
 
-    /// Always builds off the main actor — synchronous `make()` of ~3k ODM sites on main
-    /// can watchdog-kill launch when Explore mounts early.
+    /// Soft-first reference pins off-main, then full catalog/user overlay also off-main
+    /// (background **`ModelContext`**). Never run ~3k-site `make()` on MainActor.
     private func scheduleScopeCacheRebuild() {
         // Do not require RootTabSelectionStore — iOS 26 can show Explore while selected lags.
         // Prefer live session profile; fall back to the tab's owner ID so logbook site IDs
         // are not wiped to [] when `currentProfile` is briefly nil.
         let profileID = accountSession.currentProfile?.id ?? ownerProfileID
-        let catalog = diveSites
-        let userSites = userDiveSites
+        let catalogPersistentIDs = diveSites.map(\.persistentModelID)
+        let userSitePersistentIDs = userDiveSites.map(\.persistentModelID)
         let activities = ownerDiveActivitiesForScope
         let logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
             ownerActivities: activities,
             ownerProfileID: profileID
         )
         let syncToken = scopeCacheSyncToken
+        let container = modelContext.container
+        // When the dive bridge has not delivered yet, background build can still resolve
+        // My Sites IDs from the owner profile (see **`ExploreSiteScopeCacheBackgroundBuild`**).
+        let ownerIDForLogbookFallback =
+            (logbookSiteIDs.isEmpty && (latchedHasLoggedActivities || prefersLogbookDefault))
+            ? profileID
+            : nil
         scopeCacheRebuildTask?.cancel()
         scopeCacheRebuildGeneration &+= 1
         let generation = scopeCacheRebuildGeneration
@@ -669,7 +676,7 @@ struct ExploreView: View {
             ExplorePinsDiagnostics.resetSession()
         }
         ExplorePinsDiagnostics.note(
-            "rebuild start gen=\(generation) cacheEmpty=\(scopeCache == .empty) catalog=\(catalog.count) userSites=\(userSites.count) logbookIDs=\(logbookSiteIDs.count)"
+            "rebuild start gen=\(generation) cacheEmpty=\(scopeCache == .empty) catalog=\(catalogPersistentIDs.count) userSites=\(userSitePersistentIDs.count) logbookIDs=\(logbookSiteIDs.count)"
         )
 
         scopeCacheRebuildTask = Task(priority: .userInitiated) {
@@ -685,7 +692,7 @@ struct ExploreView: View {
                     }
                 }
             }
-            // Reference-only off-main (Sendable). SwiftData catalog/user sites stay on main.
+            // Reference-only soft paint (no SwiftData) so the map is not blank while full build runs.
             let referenceSnapshot = await Task.detached(priority: .userInitiated) {
                 ExploreSiteScopeCache.make(
                     catalog: [],
@@ -704,11 +711,15 @@ struct ExploreView: View {
                 "rebuild reference gen=\(generation) allSites=\(referenceSnapshot.allSitesPlottableSites.count) display=\(displayedPlottableSites.count)"
             )
 
-            let fullSnapshot = ExploreSiteScopeCache.make(
-                catalog: catalog,
-                userSites: userSites,
-                logbookSiteIDs: logbookSiteIDs
-            )
+            let fullSnapshot = await Task.detached(priority: .userInitiated) {
+                ExploreSiteScopeCacheBackgroundBuild.makeSnapshot(
+                    container: container,
+                    catalogPersistentIDs: catalogPersistentIDs,
+                    userSitePersistentIDs: userSitePersistentIDs,
+                    logbookSiteIDs: logbookSiteIDs,
+                    ownerProfileID: ownerIDForLogbookFallback
+                )
+            }.value
             guard !Task.isCancelled else {
                 ExplorePinsDiagnostics.note("rebuild cancelled before full apply gen=\(generation)")
                 return
@@ -849,6 +860,21 @@ struct ExploreView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func applyExploreTabSelection(_ selected: Bool, source: String) {
+        let becameSelected = selected && !isExploreTabSelected
+        isExploreTabSelected = selected
+        CatalogTabLoadDiagnostics.note("explore.selection source=\(source) selected=\(selected)")
+        guard selected else { return }
+        // Always re-prime on select — first mount often races the dive bridge.
+        primeLoggedActivityLatchFromKnownStateIfNeeded()
+        applyDefaultSiteScopeIfNeeded()
+        warmMapsIfExploreSelected()
+        seedPinsFromSessionCacheIfNeeded()
+        if becameSelected || displayedPlottableSites.isEmpty || scopeCache.logbookPlottableSites.isEmpty {
+            rebuildScopeCacheOnAppearIfNeeded()
+        }
     }
 
     private func warmMapsIfExploreSelected() {

@@ -43,6 +43,7 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
         let catalogSpeciesNames: [String]
     }
 
+    /// Sync capture when buddy-tag / sighting models are already in hand (tests / small fixtures).
     @MainActor
     static func captureInput(
         activities: [DiveActivity],
@@ -51,6 +52,77 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
         ownerTrips: [DiveTrip],
         speciesCatalog: [MarineLife],
         ownerDiveActivityIDs: Set<UUID>
+    ) -> CaptureInput {
+        let speciesNameByUUID = Dictionary(
+            uniqueKeysWithValues: speciesCatalog.map { ($0.uuid, $0.commonName) }
+        )
+        let buddyTags = buddyMediaTags.compactMap { tag -> CaptureInput.BuddyTagRow? in
+            guard let activityID = tag.diveActivityID,
+                  ownerDiveActivityIDs.contains(activityID),
+                  let mediaPhotoID = tag.mediaPhotoID,
+                  let buddyName = tag.buddy?.displayName
+            else { return nil }
+            return CaptureInput.BuddyTagRow(
+                mediaPhotoID: mediaPhotoID,
+                diveActivityID: activityID,
+                buddyDisplayName: buddyName
+            )
+        }
+        let sightingRows = sightings.compactMap { sighting -> CaptureInput.SightingRow? in
+            guard let activityID = sighting.diveActivityID,
+                  ownerDiveActivityIDs.contains(activityID),
+                  let mediaPhotoID = sighting.mediaPhotoID,
+                  let speciesName = speciesNameByUUID[sighting.marineLifeUUID]
+            else { return nil }
+            return CaptureInput.SightingRow(
+                mediaPhotoID: mediaPhotoID,
+                diveActivityID: activityID,
+                speciesName: speciesName
+            )
+        }
+        return captureInput(
+            activities: activities,
+            buddyTagRows: buddyTags,
+            sightingRows: sightingRows,
+            ownerTrips: ownerTrips
+        )
+    }
+
+    /// Captures dive rows on MainActor, then loads owner-scoped tags/sightings off-main (no unscoped `@Query`).
+    @MainActor
+    static func captureInput(
+        activities: [DiveActivity],
+        ownerTrips: [DiveTrip],
+        speciesCatalog: [MarineLife],
+        ownerDiveActivityIDs: Set<UUID>,
+        container: ModelContainer
+    ) async -> (
+        input: CaptureInput,
+        scopedFetch: GlobalSearchOwnerScopedMediaIndexFetch.Result
+    ) {
+        let speciesNameByUUID = Dictionary(
+            uniqueKeysWithValues: speciesCatalog.map { ($0.uuid, $0.commonName) }
+        )
+        let scopedFetch = await GlobalSearchOwnerScopedMediaIndexFetch.fetch(
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            speciesNameByUUID: speciesNameByUUID,
+            container: container
+        )
+        let input = captureInput(
+            activities: activities,
+            buddyTagRows: scopedFetch.buddyTagRows,
+            sightingRows: scopedFetch.sightingRows,
+            ownerTrips: ownerTrips
+        )
+        return (input, scopedFetch)
+    }
+
+    @MainActor
+    static func captureInput(
+        activities: [DiveActivity],
+        buddyTagRows: [CaptureInput.BuddyTagRow],
+        sightingRows: [CaptureInput.SightingRow],
+        ownerTrips: [DiveTrip]
     ) -> CaptureInput {
         let tripTitleByID = Dictionary(uniqueKeysWithValues: ownerTrips.map { ($0.id, $0.displayTitle) })
 
@@ -76,40 +148,6 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
             )
         }
 
-        let speciesNameByUUID = Dictionary(
-            uniqueKeysWithValues: speciesCatalog.map { ($0.uuid, $0.commonName) }
-        )
-
-        let buddyTags = buddyMediaTags.compactMap { tag -> CaptureInput.BuddyTagRow? in
-            guard let activityID = tag.diveActivityID,
-                  ownerDiveActivityIDs.contains(activityID),
-                  let mediaPhotoID = tag.mediaPhotoID,
-                  let buddyName = tag.buddy?.displayName
-            else { return nil }
-            return CaptureInput.BuddyTagRow(
-                mediaPhotoID: mediaPhotoID,
-                diveActivityID: activityID,
-                buddyDisplayName: buddyName
-            )
-        }
-
-        let sightingRows = sightings.compactMap { sighting -> CaptureInput.SightingRow? in
-            guard let activityID = sighting.diveActivityID,
-                  ownerDiveActivityIDs.contains(activityID),
-                  let mediaPhotoID = sighting.mediaPhotoID
-            else { return nil }
-
-            guard let speciesName = speciesNameByUUID[sighting.marineLifeUUID] else {
-                return nil
-            }
-
-            return CaptureInput.SightingRow(
-                mediaPhotoID: mediaPhotoID,
-                diveActivityID: activityID,
-                speciesName: speciesName
-            )
-        }
-
         var seenTagNames = Set<String>()
         var catalogTagNames: [String] = []
         for dive in activities {
@@ -124,7 +162,7 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
 
         var seenBuddyNames = Set<String>()
         var catalogBuddyNames: [String] = []
-        for tag in buddyTags {
+        for tag in buddyTagRows {
             let trimmed = tag.buddyDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
             let normalized = DiveBuddyCatalog.normalizedNameKey(trimmed)
@@ -148,7 +186,7 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
 
         return CaptureInput(
             dives: dives,
-            buddyTags: buddyTags,
+            buddyTags: buddyTagRows,
             sightings: sightingRows,
             catalogTagNames: catalogTagNames.sorted {
                 $0.localizedCaseInsensitiveCompare($1) == .orderedAscending

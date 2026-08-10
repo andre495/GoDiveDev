@@ -9,6 +9,7 @@ struct HomeNotificationsView: View {
     let onOpenActivity: (LogbookBuddyFeedPresentation.Row) -> Void
     let onOpenOwnedActivity: (HomeNotificationsPresentation.OwnedActivityTarget) -> Void
     let onOpenMention: (HomeNotificationsPresentation.MentionTarget) -> Void
+    var onOpenTripShareInvite: (HomeNotificationsPresentation.TripShareInviteTarget) -> Void = { _ in }
 
     @Environment(\.modelContext) private var modelContext
     @State private var items: [HomeNotificationsPresentation.Item] = []
@@ -35,6 +36,7 @@ struct HomeNotificationsView: View {
                 onOpenActivity: onOpenActivity,
                 onOpenOwnedActivity: onOpenOwnedActivity,
                 onOpenMention: onOpenMention,
+                onOpenTripShareInvite: onOpenTripShareInvite,
                 onRefresh: { await loadItems() }
             )
         }
@@ -65,11 +67,34 @@ struct HomeNotificationsView: View {
         async let mentionTask = HomeNotificationsMentionSync.fetchEvents(feedRows: snapshot.rows)
         let ownedSocial = await ownedSocialTask
         let mentions = await mentionTask
+
+        var tripShareInvites: [GoDiveTripShareMapping.InviteSnapshot] = []
+        var localTripIDByInviteID: [String: UUID] = [:]
+        if let uid = GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID(),
+           let ownerProfileID,
+           let owner = try? modelContext.fetch(
+            FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == ownerProfileID })
+           ).first {
+            await GoDiveTripShareSync.reconcileIncoming(owner: owner, modelContext: modelContext)
+            tripShareInvites = (try? await GoDiveTripShareSync.fetchIncomingInvites(recipientUID: uid)) ?? []
+            let trips = (try? modelContext.fetch(FetchDescriptor<DiveTrip>()))?
+                .filter { $0.ownerProfileID == ownerProfileID } ?? []
+            for trip in trips {
+                if let inviteID = trip.tripShareInviteID?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                   !inviteID.isEmpty {
+                    localTripIDByInviteID[inviteID] = trip.id
+                }
+            }
+        }
+
         items = HomeNotificationsPresentation.items(
             friends: snapshot.friends,
             activityRows: snapshot.rows,
             ownedSocialEvents: ownedSocial,
             mentionEvents: mentions,
+            tripShareInvites: tripShareInvites,
+            localTripIDByInviteID: localTripIDByInviteID,
             currentFirebaseUID: GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID()
         )
         hasLoadedOnce = true
@@ -90,6 +115,7 @@ private struct HomeNotificationsListContent: View {
     let onOpenActivity: (LogbookBuddyFeedPresentation.Row) -> Void
     let onOpenOwnedActivity: (HomeNotificationsPresentation.OwnedActivityTarget) -> Void
     let onOpenMention: (HomeNotificationsPresentation.MentionTarget) -> Void
+    let onOpenTripShareInvite: (HomeNotificationsPresentation.TripShareInviteTarget) -> Void
     let onRefresh: () async -> Void
 
     private var sections: HomeNotificationsPresentation.Sections {
@@ -207,6 +233,8 @@ private struct HomeNotificationsListContent: View {
             onOpenOwnedActivity(target)
         case .buddyActivityMentioned(let target):
             onOpenMention(target)
+        case .tripShareInvite(let target):
+            onOpenTripShareInvite(target)
         }
     }
 

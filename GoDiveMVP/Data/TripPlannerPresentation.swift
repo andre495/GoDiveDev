@@ -23,6 +23,8 @@ struct TripPlannerListRowDisplayData: Equatable, Sendable {
     let countriesLine: String?
     let linkedDiveCountLabel: String?
     let previewMediaPhotoID: UUID?
+    /// Pending trip-share invite badge (invitee copies only).
+    let inviteBadgeTitle: String?
 
     var secondaryDetailLine: String {
         TripPlannerPresentation.listRowSecondaryDetail(
@@ -233,7 +235,10 @@ enum TripPlannerPresentation: Sendable {
             linkedDiveCountLabel: showsLinkedDiveCount(for: phase)
                 ? linkedDiveCountLabel(count: trip.activityLinks.count)
                 : nil,
-            previewMediaPhotoID: showsLinkedDiveCount(for: phase) ? previewMediaPhotoID : nil
+            previewMediaPhotoID: showsLinkedDiveCount(for: phase) ? previewMediaPhotoID : nil,
+            inviteBadgeTitle: DiveTripShareLineagePresentation.isPendingInvite(trip)
+                ? DiveTripShareInvitePresentation.pendingListBadgeTitle
+                : nil
         )
     }
 

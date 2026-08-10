@@ -4,8 +4,12 @@ import SwiftUI
 /// Category-aware minimalist search hit row. Renders from a precomputed **`GlobalSearchResultRowContent`**
 /// (built once per results change) so scrolling never re-resolves display data on the main actor — see
 /// **`GlobalSearchResultRowContent`** for the performance rationale.
-struct GlobalSearchResultRowView: View {
+struct GlobalSearchResultRowView: View, Equatable {
     let content: GlobalSearchResultRowContent
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.content == rhs.content
+    }
 
     var body: some View {
         switch content.kind {

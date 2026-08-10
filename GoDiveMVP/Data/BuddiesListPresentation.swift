@@ -12,6 +12,10 @@ enum BuddiesListPresentation: Sendable {
     nonisolated static let inviteAccessibilityLabel = "Invite to GoDive"
     nonisolated static let friendBadgeAccessibilityLabel = "GoDive user"
 
+    /// Minimum gap between **Buddies list appear** full friend-share republishes.
+    /// Navigation Profile ↔ Buddies must not stack MainActor republish of the whole logbook.
+    nonisolated static let listOpenRepublishMinimumInterval: TimeInterval = 60
+
     nonisolated static func showsGoDiveUserPin(isFriend: Bool) -> Bool {
         isFriend
     }
@@ -33,11 +37,12 @@ enum BuddiesListPresentation: Sendable {
     }
 
     nonisolated static func smsBody(inviteURL: URL, buddyDisplayName: String) -> String {
-        let name = buddyDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty {
+        let trimmed = buddyDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
             return "Connect with me on GoDive: \(inviteURL.absoluteString)"
         }
-        return "Hey \(name) — connect with me on GoDive: \(inviteURL.absoluteString)"
+        let firstName = DiveBuddyPresentation.firstName(from: trimmed)
+        return "Hey \(firstName) — connect with me on GoDive: \(inviteURL.absoluteString)"
     }
 
     /// Merges roster buddies with friend edges that have no linked roster row yet.
@@ -96,6 +101,29 @@ enum BuddiesListPresentation: Sendable {
     }
 }
 
+/// Gates incidental full republish from **Buddies** list open (not friend-graph / unfriend paths).
+@MainActor
+enum BuddiesListFriendShareRepublishGate {
+    private static var lastListOpenScheduleAt: Date?
+
+    /// Returns **`true`** when a list-open republish should be scheduled (and records the attempt).
+    static func consumeListOpenRepublishSlot(
+        now: Date = .now,
+        minimumInterval: TimeInterval = BuddiesListPresentation.listOpenRepublishMinimumInterval
+    ) -> Bool {
+        if let lastListOpenScheduleAt,
+           now.timeIntervalSince(lastListOpenScheduleAt) < minimumInterval {
+            return false
+        }
+        lastListOpenScheduleAt = now
+        return true
+    }
+
+    static func resetForTesting() {
+        lastListOpenScheduleAt = nil
+    }
+}
+
 struct BuddiesListRow: Identifiable {
     let id: String
     let displayName: String
@@ -138,7 +166,16 @@ struct BuddiesListRow: Identifiable {
 }
 
 /// **`nonisolated`** so **`LogbookRoute`** / tests can hash & equate without MainActor.
-nonisolated enum BuddiesListNavigationRoute: Hashable {
+nonisolated enum BuddiesListNavigationRoute: Hashable, Identifiable {
     case friend(GoDiveFriendGraphService.FriendEdge)
     case rosterBuddy(UUID)
+
+    var id: String {
+        switch self {
+        case .friend(let edge):
+            return "friend-\(edge.friendUID)"
+        case .rosterBuddy(let buddyID):
+            return "buddy-\(buddyID.uuidString)"
+        }
+    }
 }

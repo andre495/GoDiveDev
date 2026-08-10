@@ -42,7 +42,7 @@ enum SnorkelActivityOverviewPresentation {
                     titleLine1: "Swim",
                     titleLine2: "Distance",
                     displayValue: distanceDisplay,
-                    icon: nil
+                    icon: DiveActivityOverviewPresentation.MapOverviewStatIcon.waterWaves
                 ),
             ],
             depthStats: [

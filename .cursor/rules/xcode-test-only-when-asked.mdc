@@ -13,7 +13,7 @@ The user prefers **not** to wait on frequent test runs. **Author tests in code; 
 
 Run the Xcode workflow (**`.cursor/rules/xcode-run-test.mdc`**) **only** when:
 
-1. **Explicit test / build / run request** — the user asks to **run**, **launch**, **build**, **test**, **⌘U**, verify compile, rebuild on Dre's phone, or similar. Device runs use **`.cursor/rules/xcode-run-dres-phone.mdc`**.
+1. **Explicit test / build / run request** — the user asks to **run**, **launch**, **build**, **test**, **⌘U**, verify compile, rebuild on Dre's phone, or similar. Build/deploy behavior: **`.cursor/rules/xcode-build-deploy.mdc`**. Device runs: **`.cursor/rules/xcode-run-dres-phone.mdc`**.
 2. **Commit and/or push** — the user asks to **`git commit`**, **`git push`**, or ship / commit-and-push. **Before** staging or committing, run the pre-check on **iPhone 17 simulator** (`platform=iOS Simulator,name=iPhone 17,OS=latest` per **`xcode-run-test.mdc`**): **`clean`** → **`clean build-for-testing`** → **`test`**.
    - Fix compile errors, failing tests, regressions you introduced, and **all project build warnings** (**`xcode-fix-build-warnings.mdc`**); repeat until green.
    - **Do not commit or push** until **BUILD SUCCEEDED**, **all tests pass**, and **project warning count is 0**.

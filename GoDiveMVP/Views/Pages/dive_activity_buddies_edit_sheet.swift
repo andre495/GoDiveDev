@@ -15,6 +15,8 @@ struct DiveActivityBuddiesEditSheet: View {
     @State private var showsAddBuddySheet = false
     @State private var draftTaggedBuddyIDs: Set<UUID> = []
     @State private var draftRosterOverrides: [UUID: DiveBuddy] = [:]
+    @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
 
     init(activity: DiveActivity) {
         self._activity = Bindable(wrappedValue: activity)
@@ -33,10 +35,6 @@ struct DiveActivityBuddiesEditSheet: View {
         return map
     }
 
-    private var ownerProfileID: UUID? {
-        accountSession.currentProfile?.id
-    }
-
     /// GoDive friends (linked Firebase UID) first, then alphabetical.
     private var rosterBuddiesSorted: [DiveBuddy] {
         ownedBuddies.sorted { lhs, rhs in
@@ -47,78 +45,44 @@ struct DiveActivityBuddiesEditSheet: View {
         }
     }
 
+    private var filteredBuddies: [DiveBuddy] {
+        rosterBuddiesSorted.filter {
+            TaggingSheetSelectionPresentation.matchesSearchQuery($0.displayName, query: searchQuery)
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
+            VStack(spacing: 0) {
                 if ownedBuddies.isEmpty {
-                    Section {
-                        Text("No buddies in your roster yet. Tap + to add someone and tag them on this dive.")
-                            .font(.body)
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                            .accessibilityIdentifier("DiveBuddiesEditSheet.EmptyRoster")
-                            .listRowBackground(Color.clear)
-                    }
+                    emptyRoster
+                } else if filteredBuddies.isEmpty {
+                    ContentUnavailableView.search(text: searchQuery)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    Section {
-                        ForEach(rosterBuddiesSorted, id: \.id) { buddy in
-                            Button {
-                                toggleBuddyOnDive(buddy)
-                            } label: {
-                                DiveActivityBuddyRosterPickerRow(
-                                    buddy: buddy,
-                                    isTaggedOnDive: isBuddyTaggedOnDive(buddy)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .listRowInsets(EdgeInsets(
-                                top: 0,
-                                leading: AppTheme.Spacing.md,
-                                bottom: 0,
-                                trailing: AppTheme.Spacing.md
-                            ))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .accessibilityLabel(buddy.displayName)
-                            .accessibilityValue(
-                                isBuddyTaggedOnDive(buddy) ? "Tagged on this dive" : "Not on this dive"
-                            )
-                            .accessibilityIdentifier("DiveBuddiesEditSheet.RosterRow.\(buddy.id.uuidString)")
-                        }
-                    } header: {
-                        Text("Your buddies")
-                    } footer: {
-                        Text("Tap buddies to tag or remove them. Changes save when you tap Done. GoDive friends appear first.")
-                    }
+                    buddyList
                 }
+
+                TaggingSheetBottomSearchChrome(
+                    searchText: $searchQuery,
+                    isSearchFocused: $isSearchFocused,
+                    placeholder: "Search buddies",
+                    searchFieldAccessibilityIdentifier: "DiveBuddiesEditSheet.SearchField",
+                    cancelAccessibilityIdentifier: "DiveBuddiesEditSheet.SearchCancel"
+                )
             }
-            .listStyle(.plain)
-            .listRowSpacing(DiveActivityBuddyRosterPickerRowLayout.listRowSpacing)
-            .scrollContentBackground(.hidden)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    AppGlassToolbarCancelButton(
-                        action: { dismiss() },
-                        accessibilityIdentifier: "DiveBuddiesEditSheet.Cancel"
-                    )
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppSheetToolbarPlusButton(
-                        action: { showsAddBuddySheet = true },
-                        accessibilityIdentifier: "DiveBuddiesEditSheet.AddBuddy",
-                        accessibilityLabel: "Add buddy"
-                    )
-                }
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .confirmationAction) {
-                    AppGlassProminentDoneButton(
-                        action: {
-                            commitDraftTaggedBuddies()
-                            dismiss()
-                        },
-                        accessibilityIdentifier: "DiveBuddiesEditSheet.Done"
-                    )
-                }
-            }
+            .taggingSheetToolbar(
+                cancelAccessibilityIdentifier: "DiveBuddiesEditSheet.Cancel",
+                doneAccessibilityIdentifier: "DiveBuddiesEditSheet.Done",
+                plusAccessibilityIdentifier: "DiveBuddiesEditSheet.AddBuddy",
+                plusAccessibilityLabel: "Add buddy",
+                onCancel: { dismiss() },
+                onDone: {
+                    commitDraftTaggedBuddies()
+                    dismiss()
+                },
+                onPlus: { showsAddBuddySheet = true }
+            )
         }
         .diveActivityOverviewPanelModalSheetPresentation()
         .onAppear(perform: reloadDraftTaggedBuddyIDs)
@@ -133,6 +97,42 @@ struct DiveActivityBuddiesEditSheet: View {
             )
         }
         .accessibilityIdentifier("DiveBuddiesEditSheet.Root")
+    }
+
+    private var emptyRoster: some View {
+        Text("No buddies in your roster yet. Tap + to add someone and tag them on this dive.")
+            .font(.body)
+            .foregroundStyle(AppTheme.Colors.tabUnselected)
+            .multilineTextAlignment(.center)
+            .padding(AppTheme.Spacing.lg)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("DiveBuddiesEditSheet.EmptyRoster")
+    }
+
+    private var buddyList: some View {
+        TaggingSheetListChrome {
+            ForEach(Array(filteredBuddies.enumerated()), id: \.element.id) { index, buddy in
+                TaggingSheetListRowContainer(showsDivider: index < filteredBuddies.count - 1) {
+                    TaggingSheetSelectionRow(
+                        title: buddy.displayName,
+                        subtitle: buddy.linkedFirebaseUID != nil ? "GoDive friend" : nil,
+                        isSelected: isBuddyTaggedOnDive(buddy),
+                        accessibilityValueSelected: "Tagged on this dive",
+                        accessibilityValueUnselected: "Not on this dive",
+                        onTap: { toggleBuddyOnDive(buddy) },
+                        leading: {
+                            ProfileAvatarView(
+                                profilePhoto: buddy.profilePhoto,
+                                diameter: TaggingSheetSelectionPresentation.leadingArtDiameter,
+                                iconFont: .callout,
+                                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
+                            )
+                        }
+                    )
+                    .accessibilityIdentifier("DiveBuddiesEditSheet.RosterRow.\(buddy.id.uuidString)")
+                }
+            }
+        }
     }
 
     private func reloadDraftTaggedBuddyIDs() {
@@ -159,70 +159,5 @@ struct DiveActivityBuddiesEditSheet: View {
             modelContext: modelContext
         )
         try? modelContext.save()
-    }
-}
-
-// MARK: - Roster row
-
-private enum DiveActivityBuddyRosterPickerRowLayout {
-    static let avatarDiameter: CGFloat = 36
-    static let rowPadding = EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
-    static let listRowSpacing: CGFloat = 6
-    static let cornerRadius: CGFloat = 10
-}
-
-private struct DiveActivityBuddyRosterPickerRow: View {
-    let buddy: DiveBuddy
-    let isTaggedOnDive: Bool
-
-    var body: some View {
-        HStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: buddy.profilePhoto,
-                diameter: DiveActivityBuddyRosterPickerRowLayout.avatarDiameter,
-                iconFont: .callout,
-                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
-            )
-
-            Text(buddy.displayName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if buddy.linkedFirebaseUID != nil {
-                Image(systemName: "person.crop.circle.badge.checkmark")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.accent)
-                    .accessibilityLabel("GoDive friend")
-            }
-
-            if isTaggedOnDive {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityHidden(true)
-            }
-        }
-        .padding(DiveActivityBuddyRosterPickerRowLayout.rowPadding)
-        .background(rowBackground)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: DiveActivityBuddyRosterPickerRowLayout.cornerRadius, style: .continuous)
-            .fill(
-                isTaggedOnDive
-                    ? AppTheme.Colors.tabSelected.opacity(0.14)
-                    : AppTheme.Colors.surfaceElevated
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: DiveActivityBuddyRosterPickerRowLayout.cornerRadius, style: .continuous)
-                    .stroke(
-                        isTaggedOnDive ? AppTheme.Colors.tabSelected.opacity(0.55) : Color.clear,
-                        lineWidth: 1.5
-                    )
-            }
     }
 }

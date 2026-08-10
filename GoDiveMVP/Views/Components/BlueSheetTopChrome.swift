@@ -53,25 +53,24 @@ struct BlueSheetHomeTopChrome<Leading: View, Trailing: View>: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
+        // Fade is a non-hittable background — do not ZStack it as a taller sibling or the
+        // feather band becomes a dead zone over featured media under the wordmark.
+        AppHeader(
+            title: title,
+            showsBackButton: false,
+            statusBarSafeAreaTop: safeTop,
+            blocksHitsInEmptyChrome: BlueSheetTopChromePresentation.homeHeaderBlocksHitsInEmptyChrome,
+            trailingContent: { trailingContent() },
+            leadingContent: { leadingContent() }
+        )
+        .frame(maxWidth: .infinity, alignment: .top)
+        .background(alignment: .top) {
             BlueSheetTopChromeFadeLayer(
                 safeTop: safeTop,
                 topInset: topInset,
                 style: .homeHero
             )
-
-            AppHeader(
-                title: title,
-                showsBackButton: false,
-                statusBarSafeAreaTop: safeTop,
-                blocksHitsInEmptyChrome: BlueSheetTopChromePresentation.homeHeaderBlocksHitsInEmptyChrome,
-                trailingContent: { trailingContent() },
-                leadingContent: { leadingContent() }
-            )
-            .frame(maxWidth: .infinity, alignment: .top)
-            .zIndex(1)
         }
-        // Hug header height — parent blue-sheet ZStack proposes full-screen height.
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .top)
     }

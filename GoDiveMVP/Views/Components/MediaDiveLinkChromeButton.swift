@@ -51,6 +51,8 @@ struct MediaDiveLinkChromeButton: View {
             .padding(.horizontal, AppTheme.Spacing.md)
             .frame(height: HomeMediaCarouselPresentation.slideChromeControlHeight)
             .appLiquidGlassSearchFieldChrome()
+            // Match the capsule — avoid a wider invisible hit strip beside the label.
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.impact(weight: .light), trigger: openDiveHapticTick)

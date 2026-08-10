@@ -153,6 +153,20 @@ struct ContentView: View {
         }
         .onReceive(
             NotificationCenter.default.publisher(
+                for: GoDiveTripSharePushPresentation.openTripShareInviteNotification
+            )
+        ) { _ in
+            openPendingTripShareInviteFromPushIfNeeded()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: GoDiveTripShareInviteAcceptedPushPresentation.openTripShareAcceptedNotification
+            )
+        ) { _ in
+            openPendingTripShareAcceptedFromPushIfNeeded()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
                 for: GoDiveFriendInvitePostRedeemNavigation.openFriendProfileNotification
             )
         ) { _ in
@@ -173,10 +187,18 @@ struct ContentView: View {
     }
 
     private func applyRootTabSelection(_ tab: RootTab, source: String) {
-        rootTabSelectionStore.selected = tab
+        let previous = rootTabSelectionStore.selected
+        let shouldPublish = RootTabSelectionPresentation.shouldPublishSelectionChange(
+            previous: previous,
+            next: tab
+        )
+        if shouldPublish {
+            rootTabSelectionStore.selected = tab
+            RootTabBarSelectionSync.postSelectionDidChange(tab)
+        }
         CrashBreadcrumbTrail.noteRootTab(tab)
         #if DEBUG
-        print("[WaterBubbles] root_tab_selected=\(tab) source=\(source)")
+        print("[WaterBubbles] root_tab_selected=\(tab) source=\(source) published=\(shouldPublish)")
         #endif
     }
 
@@ -205,6 +227,8 @@ struct ContentView: View {
         openPendingMentionFromPushIfNeeded()
         openPendingEquipmentDetailFromReminderIfNeeded()
         openPendingTripDetailFromReminderIfNeeded()
+        openPendingTripShareInviteFromPushIfNeeded()
+        openPendingTripShareAcceptedFromPushIfNeeded()
     }
 
     private func openPendingBuddySharedActivityFromPushIfNeeded() {
@@ -264,6 +288,45 @@ struct ContentView: View {
         pendingHomeRoute = .tripDetail(tripID)
     }
 
+    private func openPendingTripShareInviteFromPushIfNeeded() {
+        guard canOpenPendingPushDeepLinks else { return }
+        guard let target = GoDiveTripSharePushNavigationStore.shared.consumePending() else { return }
+        guard let owner = accountSession.currentProfile else {
+            GoDiveTripSharePushNavigationStore.shared.setPending(target)
+            return
+        }
+        Task { @MainActor in
+            let localTripID = await GoDiveTripShareSync.ensureMaterializedTrip(
+                inviteID: target.inviteID,
+                sharerUID: target.sharerUID,
+                tripID: target.tripID,
+                owner: owner,
+                modelContext: modelContext
+            )
+            guard let localTripID else { return }
+            selectedTab = .home
+            pendingHomeRoute = .tripDetail(localTripID)
+        }
+    }
+
+    private func openPendingTripShareAcceptedFromPushIfNeeded() {
+        guard canOpenPendingPushDeepLinks else { return }
+        guard let target = GoDiveTripShareInviteAcceptedPushNavigationStore.shared.consumePending()
+        else { return }
+        guard let owner = accountSession.currentProfile else {
+            GoDiveTripShareInviteAcceptedPushNavigationStore.shared.setPending(target)
+            return
+        }
+        _ = GoDiveTripShareSync.applyAcceptedPush(
+            tripID: target.tripID,
+            friendUID: target.friendUID,
+            ownerProfileID: owner.id,
+            modelContext: modelContext
+        )
+        selectedTab = .home
+        pendingHomeRoute = .tripDetail(target.tripID)
+    }
+
     private func openPendingFriendProfileAfterInviteRedeemIfNeeded() {
         guard canOpenPendingPushDeepLinks else { return }
         guard let friend = GoDiveFriendInvitePostRedeemNavigationStore.shared.consumePendingFriend() else {
@@ -291,6 +354,18 @@ struct ContentView: View {
                 ownerProfileID: ownerID,
                 modelContext: modelContext
             )
+        }
+        if let profile = accountSession.currentProfile {
+            Task { @MainActor in
+                await GoDiveTripShareSync.reconcileIncoming(
+                    owner: profile,
+                    modelContext: modelContext
+                )
+                await GoDiveTripShareSync.reconcileOutgoingAcceptances(
+                    owner: profile,
+                    modelContext: modelContext
+                )
+            }
         }
     }
 }

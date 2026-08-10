@@ -61,6 +61,38 @@ final class DiveTrip {
     @Relationship
     var owner: UserProfile?
 
+    /// Firebase `sharedTrips` doc id (sender’s trip UUID string) when this row is an invitee copy.
+    var sharedTripSourceID: String?
+    /// Sharer Firebase UID when this row is an invitee copy.
+    var sharedFromFirebaseUID: String?
+    /// Incoming invite doc id under the recipient’s `tripShareInvites` collection.
+    var tripShareInviteID: String?
+    /// `pending` / `accepted` for invitee copies; nil for ordinary local trips.
+    var tripShareStatusRaw: String?
+    /// JSON list of friend Firebase UIDs the owner has shared this trip with (sender-side).
+    var sharedWithFriendUIDsData: Data?
+    /// JSON list of friend Firebase UIDs who accepted the share (sender-side).
+    var tripShareAcceptedFriendUIDsData: Data?
+    /// Last applied owner-sync fingerprint (invitee copies) to skip no-op patches.
+    var tripShareSyncedFingerprint: String?
+
+    /// Friend UIDs this owner has invited to the trip (sender-side tracking).
+    @Transient
+    var sharedWithFriendUIDs: [String] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeStringList(sharedWithFriendUIDsData) }
+        set { sharedWithFriendUIDsData = AppSwiftDataCloudKitArrayStorage.encodeStringList(newValue) }
+    }
+
+    /// Friend UIDs who accepted the trip-share invite (sender-side).
+    @Transient
+    var tripShareAcceptedFriendUIDs: [String] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeStringList(tripShareAcceptedFriendUIDsData) }
+        set {
+            tripShareAcceptedFriendUIDsData =
+                AppSwiftDataCloudKitArrayStorage.encodeStringList(newValue)
+        }
+    }
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
@@ -73,6 +105,13 @@ final class DiveTrip {
         plannedSiteIDs: [UUID] = [],
         ownerProfileID: UUID? = nil,
         owner: UserProfile? = nil,
+        sharedTripSourceID: String? = nil,
+        sharedFromFirebaseUID: String? = nil,
+        tripShareInviteID: String? = nil,
+        tripShareStatusRaw: String? = nil,
+        sharedWithFriendUIDs: [String] = [],
+        tripShareAcceptedFriendUIDs: [String] = [],
+        tripShareSyncedFingerprint: String? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -84,6 +123,13 @@ final class DiveTrip {
         self.plannedSiteIDs = plannedSiteIDs
         self.ownerProfileID = owner?.id ?? ownerProfileID
         self.owner = owner
+        self.sharedTripSourceID = sharedTripSourceID
+        self.sharedFromFirebaseUID = sharedFromFirebaseUID
+        self.tripShareInviteID = tripShareInviteID
+        self.tripShareStatusRaw = tripShareStatusRaw
+        self.sharedWithFriendUIDs = sharedWithFriendUIDs
+        self.tripShareAcceptedFriendUIDs = tripShareAcceptedFriendUIDs
+        self.tripShareSyncedFingerprint = tripShareSyncedFingerprint
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

@@ -8,10 +8,6 @@ struct GlobalSearchMediaResultsView: View {
     @Environment(\.modelContext) private var modelContext
 
     @Query private var ownerDiveActivities: [DiveActivity]
-    @Query(sort: [SortDescriptor(\DiveMediaBuddyTag.id, order: .forward)])
-    private var buddyMediaTags: [DiveMediaBuddyTag]
-    @Query(sort: [SortDescriptor(\SightingInstance.sightingDateTime, order: .reverse)])
-    private var sightings: [SightingInstance]
     @Query private var ownerTrips: [DiveTrip]
 
     @Binding var query: String
@@ -22,6 +18,10 @@ struct GlobalSearchMediaResultsView: View {
     @State private var gallerySelectedMediaID: UUID?
     @State private var fullscreenMediaSelection: FullscreenMediaSelection?
     @State private var speciesCatalog: [MarineLife] = []
+    /// Owner-scoped sightings for fullscreen tag overview (background fetch — not unscoped `@Query`).
+    @State private var scopedSightings: [SightingInstance] = []
+    @State private var scopedBuddyMediaTagCount = 0
+    @State private var scopedSightingCount = 0
     @State private var indexRebuildTask: Task<Void, Never>?
     @State private var filterTask: Task<Void, Never>?
     /// Count-title opacity derived from scroll position. Stored as the *derived* value (not the raw
@@ -124,7 +124,7 @@ struct GlobalSearchMediaResultsView: View {
         let visibleIDs = Set(filteredMediaIDs)
         guard !visibleIDs.isEmpty else { return [] }
         let ownerActivityIDs = ownerDiveActivityIDs
-        return sightings.filter { sighting in
+        return scopedSightings.filter { sighting in
             guard let activityID = sighting.diveActivityID,
                   ownerActivityIDs.contains(activityID),
                   let mediaPhotoID = sighting.mediaPhotoID
@@ -134,7 +134,7 @@ struct GlobalSearchMediaResultsView: View {
     }
 
     private var indexRefreshToken: String {
-        "\(ownerDiveActivities.count)|\(buddyMediaTags.count)|\(sightings.count)|\(ownerTrips.count)|\(speciesCatalog.count)"
+        "\(ownerDiveActivities.count)|\(scopedBuddyMediaTagCount)|\(scopedSightingCount)|\(ownerTrips.count)|\(speciesCatalog.count)"
     }
 
     private var countTitle: String {
@@ -364,20 +364,20 @@ struct GlobalSearchMediaResultsView: View {
 
         if applyPrewarmedSnapshotIfCurrent() { return }
 
-        let dataToken = indexRefreshToken
         indexRebuildTask = Task { @MainActor in
             await Task.yield()
-            let input = GlobalSearchMediaIndexSnapshotBuilder.captureInput(
+            let captured = await GlobalSearchMediaIndexSnapshotBuilder.captureInput(
                 activities: ownerDiveActivities,
-                buddyMediaTags: buddyMediaTags,
-                sightings: sightings,
                 ownerTrips: ownerTrips,
                 speciesCatalog: speciesCatalog,
-                ownerDiveActivityIDs: ownerDiveActivityIDs
+                ownerDiveActivityIDs: ownerDiveActivityIDs,
+                container: modelContext.container
             )
+            applyScopedMediaIndexFetch(captured.scopedFetch)
+            let dataToken = indexRefreshToken
             let filter = GlobalSearchMediaBrowsePresentation.resolveFilter(from: query)
             let built = await Task.detached {
-                GlobalSearchMediaBrowsePresentation.displayCache(from: input, filter: filter)
+                GlobalSearchMediaBrowsePresentation.displayCache(from: captured.input, filter: filter)
             }.value
             guard !Task.isCancelled else { return }
             applyDisplayCache(built)
@@ -385,6 +385,17 @@ struct GlobalSearchMediaResultsView: View {
             snapshotStore.displayCache = built
             snapshotStore.dataToken = dataToken
         }
+    }
+
+    private func applyScopedMediaIndexFetch(
+        _ fetched: GlobalSearchOwnerScopedMediaIndexFetch.Result
+    ) {
+        scopedBuddyMediaTagCount = fetched.buddyTagCount
+        scopedSightingCount = fetched.sightingCount
+        scopedSightings = GlobalSearchOwnerScopedMediaIndexFetch.bindSightings(
+            persistentIDs: fetched.sightingPersistentIDs,
+            modelContext: modelContext
+        )
     }
 
     /// Paints from the warmer-prebuilt snapshot when the underlying data is unchanged, skipping the

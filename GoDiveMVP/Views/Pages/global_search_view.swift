@@ -14,9 +14,8 @@ struct GlobalSearchView: View {
 
     let ownerProfileID: UUID?
 
-    private var isSearchTabSelected: Bool {
-        RootTabSelectionPresentation.isSelected(.search, selected: rootTabSelection.selected)
-    }
+    /// Local mirror — avoid observing **`RootTabSelectionStore.selected`** in **`body`**.
+    @State private var isSearchTabSelected = false
 
     @State private var path: [GlobalSearchPresentation.Destination] = []
     @State private var displayedResults = GlobalSearchPresentation.Results(query: "", sections: [])
@@ -114,6 +113,10 @@ struct GlobalSearchView: View {
             )
         }
         .onAppear {
+            isSearchTabSelected = RootTabSelectionPresentation.localSelectionAfterMount(
+                tab: .search,
+                storeSelected: rootTabSelection.selected
+            )
             syncResultsPanelVisibility(isActive: isSearchActive)
             if RootTabOwnerDiveQueryPresentation.shouldScheduleSearchIndexMount(
                 isSearchTabSelected: isSearchTabSelected,
@@ -122,6 +125,22 @@ struct GlobalSearchView: View {
                 scheduleDeferredSearchIndexMount()
             }
             scheduleIdleBubbleResume()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabBarDidSelect)) { notification in
+            if let selected = RootTabSelectionPresentation.localSelection(
+                tab: .search,
+                from: notification
+            ) {
+                isSearchTabSelected = selected
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabSelectionDidChange)) { notification in
+            if let selected = RootTabSelectionPresentation.localSelection(
+                tab: .search,
+                from: notification
+            ) {
+                isSearchTabSelected = selected
+            }
         }
         .onChange(of: isSearchTabSelected) { _, selected in
             if selected {
@@ -230,7 +249,9 @@ struct GlobalSearchView: View {
         if isSearchIndexMounted, !nonMediaResultsActive {
             GlobalSearchSearchIndexLayer(
                 ownerProfileID: ownerProfileID,
-                query: query,
+                // Warmer must not track the live searchable text — keystrokes would invalidate this
+                // @Query-heavy layer while the keyboard is open.
+                query: .constant(""),
                 activeContextTokens: activeContextTokens,
                 displayedResults: $displayedResults,
                 searchTask: $searchTask,
@@ -313,7 +334,7 @@ struct GlobalSearchView: View {
             } else if isSearchIndexMounted {
                 GlobalSearchSearchIndexLayer(
                     ownerProfileID: ownerProfileID,
-                    query: query,
+                    query: $query,
                     activeContextTokens: activeContextTokens,
                     displayedResults: $displayedResults,
                     searchTask: $searchTask,
@@ -559,9 +580,8 @@ private enum GlobalSearchIndexQueryOwnerID {
 }
 
 /// Shared, main-actor cache for the built search **`Catalog`** so the hidden warmer (mounted after the
-/// tab morph) and the visible results layer reuse one index. Building the catalog indexes every dive
-/// plus the full bundled OpenDiveMap reference (thousands of sites) on the main actor, so warming it
-/// during idle time keeps the first scoped browse (a category tile tap) instant.
+/// tab morph) and the visible results layer reuse one index. Capture stays on MainActor; the heavy
+/// index assemble (dives + ~3k OpenDiveMap sites) runs off-main via **`ensureCatalogAsync`**.
 @MainActor
 final class GlobalSearchCatalogStore {
     var catalog: GlobalSearchPresentation.Catalog?
@@ -609,8 +629,7 @@ enum GlobalSearchCatalogWarming {
         ].joined(separator: "|")
     }
 
-    /// Returns the cached catalog when the data fingerprint is unchanged, otherwise builds it once and
-    /// stores it. Only the first call for a given fingerprint pays the (expensive) index build.
+    /// Sync path for tests / tiny fixtures. UI warm + search refresh should use **`ensureCatalogAsync`**.
     @discardableResult
     static func ensureCatalog(
         store: GlobalSearchCatalogStore,
@@ -657,6 +676,60 @@ enum GlobalSearchCatalogWarming {
         store.fingerprint = fingerprint
         return catalog
     }
+
+    /// Capture on MainActor, assemble the index off-main, then write the shared store once.
+    @discardableResult
+    static func ensureCatalogAsync(
+        store: GlobalSearchCatalogStore,
+        ownerProfileID: UUID?,
+        dives: [DiveActivity],
+        snorkels: [SnorkelActivity],
+        diveSites: [DiveSite],
+        speciesCatalog: [MarineLife],
+        buddies: [DiveBuddy],
+        tags: [ActivityTag],
+        trips: [DiveTrip],
+        equipment: [EquipmentItem],
+        certifications: [Certification],
+        unitSystem: DiveDisplayUnitSystem
+    ) async -> GlobalSearchPresentation.Catalog {
+        let fingerprint = fingerprint(
+            ownerProfileID: ownerProfileID,
+            dives: dives,
+            snorkels: snorkels,
+            diveSites: diveSites,
+            speciesCatalog: speciesCatalog,
+            buddies: buddies,
+            tags: tags,
+            trips: trips,
+            equipment: equipment,
+            certifications: certifications
+        )
+        if let cached = store.catalog, store.fingerprint == fingerprint {
+            return cached
+        }
+        _ = unitSystem
+        let input = GlobalSearchCatalogCapture.capture(
+            dives: dives,
+            snorkels: snorkels,
+            diveSites: diveSites,
+            speciesCatalog: speciesCatalog,
+            buddies: buddies,
+            tags: tags,
+            trips: trips,
+            equipment: equipment,
+            certifications: certifications
+        )
+        let catalog = await Task.detached(priority: .utility) {
+            GlobalSearchCatalogBuild.build(from: input)
+        }.value
+        if let cached = store.catalog, store.fingerprint == fingerprint {
+            return cached
+        }
+        store.catalog = catalog
+        store.fingerprint = fingerprint
+        return catalog
+    }
 }
 
 /// SwiftData-backed search results surface — mounted after the tab morph so the first frame stays light.
@@ -665,7 +738,8 @@ private struct GlobalSearchSearchIndexLayer: View {
     @Environment(\.modelContext) private var modelContext
 
     let ownerProfileID: UUID?
-    let query: String
+    /// Live searchable text — observed only for scheduling refresh, not for painting results body.
+    @Binding var query: String
     let activeContextTokens: [GlobalSearchPresentation.ContextToken]
     @Binding var displayedResults: GlobalSearchPresentation.Results
     @Binding var searchTask: Task<Void, Never>?
@@ -695,14 +769,18 @@ private struct GlobalSearchSearchIndexLayer: View {
     @Query private var ownerEquipment: [EquipmentItem]
     @Query private var ownerCertifications: [Certification]
     @Query private var ownerActivityTags: [ActivityTag]
-    @Query(sort: [SortDescriptor(\DiveMediaBuddyTag.id, order: .forward)])
-    private var buddyMediaTags: [DiveMediaBuddyTag]
-    @Query(sort: [SortDescriptor(\SightingInstance.sightingDateTime, order: .reverse)])
-    private var sightings: [SightingInstance]
 
     @State private var diveSites: [DiveSite] = []
     @State private var speciesCatalog: [MarineLife] = []
     @State private var hasLoadedSearchCatalogs = false
+    /// Debounced query the results UI paints from — keeps keystrokes from re-driving media/empty-state
+    /// body paths until the search task applies.
+    @State private var resultsQuery = ""
+    /// Owner-scoped media tags / sightings (background fetch — not an unscoped `@Query`).
+    @State private var scopedBuddyMediaTags: [DiveMediaBuddyTag] = []
+    @State private var scopedSightings: [SightingInstance] = []
+    @State private var scopedBuddyMediaTagCount = 0
+    @State private var scopedSightingCount = 0
     @State private var mediaDisplayCache: GlobalSearchMediaBrowsePresentation.DisplayCache?
     @State private var mediaIndexRebuildTask: Task<Void, Never>?
     @State private var mediaFilterTask: Task<Void, Never>?
@@ -710,6 +788,13 @@ private struct GlobalSearchSearchIndexLayer: View {
     /// Data token the cached media snapshot was captured from, so we can reuse the snapshot across
     /// query/token changes and only re-capture on the main actor when the underlying data changes.
     @State private var mediaSnapshotToken = ""
+    /// Cached general-search media strip models — rebuilt when filtered IDs change, not every body pass.
+    @State private var cachedMediaSectionItems: [DiveMediaPhoto] = []
+    @State private var cachedMediaSectionLinkedItems: [TripDetailLinkedMediaItem] = []
+    @State private var cachedMediaSectionTimeZoneOffsets: [UUID: Int?] = [:]
+    @State private var cachedMediaSectionSightings: [SightingInstance] = []
+    @State private var cachedMediaSectionBuddyTaggedIDs: Set<UUID> = []
+    @State private var cachedMediaSectionToken = ""
     /// Scroll position of the flat scoped list — fades the back-row count title out as the user scrolls.
     @State private var scopedResultsScrollOffset: CGFloat = 0
     /// Precomputed row content (built once per results change) so scrolling renders cheap `Equatable`
@@ -719,7 +804,7 @@ private struct GlobalSearchSearchIndexLayer: View {
 
     init(
         ownerProfileID: UUID?,
-        query: String,
+        query: Binding<String>,
         activeContextTokens: [GlobalSearchPresentation.ContextToken],
         displayedResults: Binding<GlobalSearchPresentation.Results>,
         searchTask: Binding<Task<Void, Never>?>,
@@ -737,7 +822,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         isResultsDismissDragActive: Binding<Bool>
     ) {
         self.ownerProfileID = ownerProfileID
-        self.query = query
+        _query = query
         self.activeContextTokens = activeContextTokens
         _displayedResults = displayedResults
         _searchTask = searchTask
@@ -818,8 +903,9 @@ private struct GlobalSearchSearchIndexLayer: View {
 
     /// Media only surfaces in the multi-category (general, unscoped) results — not while a single
     /// category scope is active (which uses the flat list or the dedicated media grid).
+    /// Uses **`resultsQuery`** (debounced) so keystrokes do not flip the media strip on every character.
     private var isGeneralMediaSearchContext: Bool {
-        activeContextTokens.isEmpty && GlobalSearchPresentation.isFiltering(query: query)
+        activeContextTokens.isEmpty && GlobalSearchPresentation.isFiltering(query: resultsQuery)
     }
 
     private var filteredMediaIDs: [UUID] {
@@ -835,52 +921,31 @@ private struct GlobalSearchSearchIndexLayer: View {
     }
 
     private var mediaSectionItems: [DiveMediaPhoto] {
-        let photoByID = Dictionary(
-            uniqueKeysWithValues: ownerDiveActivities.flatMap(\.mediaPhotos).map { ($0.id, $0) }
-        )
-        return filteredMediaIDs.compactMap { photoByID[$0] }
+        cachedMediaSectionItems
     }
 
     private var mediaSectionLinkedItems: [TripDetailLinkedMediaItem] {
-        let visibleIDs = Set(filteredMediaIDs)
-        return TripDetailMediaPresentation.linkedMediaItems(from: ownerDiveActivities)
-            .filter { visibleIDs.contains($0.id) }
+        cachedMediaSectionLinkedItems
     }
 
     private var mediaSectionTimeZoneOffsets: [UUID: Int?] {
-        TripDetailMediaPresentation.timeZoneOffsetByMediaID(
-            from: ownerDiveActivities,
-            itemIDs: mediaSectionLinkedItems
-        )
+        cachedMediaSectionTimeZoneOffsets
     }
 
     private var mediaSectionSightings: [SightingInstance] {
-        let visibleIDs = Set(filteredMediaIDs)
-        guard !visibleIDs.isEmpty else { return [] }
-        let ownerActivityIDs = ownerDiveActivityIDs
-        return sightings.filter { sighting in
-            guard let activityID = sighting.diveActivityID,
-                  ownerActivityIDs.contains(activityID),
-                  let mediaPhotoID = sighting.mediaPhotoID
-            else { return false }
-            return visibleIDs.contains(mediaPhotoID)
-        }
+        cachedMediaSectionSightings
     }
 
     private var mediaSectionBuddyTaggedMediaIDs: Set<UUID> {
-        let visibleIDs = Set(filteredMediaIDs)
-        guard !visibleIDs.isEmpty else { return [] }
-        return Set(
-            buddyMediaTags.compactMap { tag -> UUID? in
-                guard let mediaPhotoID = tag.mediaPhotoID,
-                      visibleIDs.contains(mediaPhotoID) else { return nil }
-                return mediaPhotoID
-            }
-        )
+        cachedMediaSectionBuddyTaggedIDs
     }
 
     private var mediaIndexRefreshToken: String {
-        "\(ownerDiveActivities.count)|\(buddyMediaTags.count)|\(sightings.count)|\(ownerTrips.count)|\(speciesCatalog.count)"
+        "\(ownerDiveActivities.count)|\(scopedBuddyMediaTagCount)|\(scopedSightingCount)|\(ownerTrips.count)|\(speciesCatalog.count)"
+    }
+
+    private var ownerDiveActivityIDsFingerprint: String {
+        ownerDiveActivities.map(\.id.uuidString).sorted().joined(separator: ",")
     }
 
     var body: some View {
@@ -899,7 +964,12 @@ private struct GlobalSearchSearchIndexLayer: View {
                 await warmMediaSnapshotIfNeeded()
             }
         }
+        .task(id: ownerDiveActivityIDsFingerprint) {
+            await refreshOwnerScopedMediaIndexRows()
+        }
         .task(id: mediaIndexRefreshToken) {
+            // Wait until the owner-scoped tag/sighting pass has populated counts (or confirmed empty).
+            guard hasLoadedSearchCatalogs else { return }
             if rendersResultsBody {
                 scheduleMediaIndexRebuild()
             } else {
@@ -921,7 +991,9 @@ private struct GlobalSearchSearchIndexLayer: View {
             // fresh per-instance state and `onChange(of: displayedResults)` will not fire when the
             // refresh returns an equal value — rebuild rows now so preserved hits paint immediately.
             if !displayedResults.isEmpty {
+                resultsQuery = displayedResults.query
                 rebuildRowContents()
+                refreshMediaSectionCacheIfNeeded(force: true)
             }
             // Tapping a category tile is a discrete action — run the scoped browse immediately
             // (no keystroke debounce) so results return without the extra delay.
@@ -929,8 +1001,9 @@ private struct GlobalSearchSearchIndexLayer: View {
         }
         .onChange(of: query) { _, _ in
             guard rendersResultsBody else { return }
+            // Media filter is scheduled after the debounced search apply — avoid dual MainActor
+            // work per keystroke (search + media) fighting the keyboard.
             scheduleSearchRefresh()
-            scheduleMediaFilterRebuild()
         }
         .onChange(of: activeContextTokens) { _, _ in
             scopedResultsScrollOffset = 0
@@ -973,7 +1046,7 @@ private struct GlobalSearchSearchIndexLayer: View {
             Group {
                 if displayedResults.isEmpty && !showsMediaSection {
                     Group {
-                        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        if resultsQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             GlobalSearchEmptyResultsView(
                                 title: "No Results",
                                 systemImage: "magnifyingglass",
@@ -983,7 +1056,7 @@ private struct GlobalSearchSearchIndexLayer: View {
                             GlobalSearchEmptyResultsView(
                                 title: "No Results",
                                 systemImage: "magnifyingglass",
-                                description: "No matches for \"\(query)\"."
+                                description: "No matches for \"\(resultsQuery)\"."
                             )
                         }
                     }
@@ -1141,6 +1214,7 @@ private struct GlobalSearchSearchIndexLayer: View {
             onPushDestination(content.destination)
         } label: {
             GlobalSearchResultRowView(content: content)
+                .equatable()
         }
         .buttonStyle(.plain)
         .disabled(blocksResultsRowSelection)
@@ -1152,6 +1226,20 @@ private struct GlobalSearchSearchIndexLayer: View {
     /// so scrolling renders cheap value types instead of re-resolving each row on the main actor.
     private func rebuildRowContents() {
         let hits = displayedResults.sections.flatMap(\.hits)
+        if GlobalSearchIndexLayerPresentation.canPatchRowContentsMatchReasonsOnly(
+            existingIDs: scopedRowContents.map(\.id),
+            hits: hits
+        ) {
+            let patched = zip(scopedRowContents, hits).map { content, hit in
+                content.replacingMatchReasons(hit.matchReasons)
+            }
+            scopedRowContents = patched
+            rowContentByID = Dictionary(
+                patched.map { ($0.id, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            return
+        }
         let contents = GlobalSearchResultRowContentBuilder.rowContents(
             hits: hits,
             ownerProfileID: ownerProfileID,
@@ -1182,24 +1270,33 @@ private struct GlobalSearchSearchIndexLayer: View {
             if GlobalSearchIndexLayerPresentation.shouldClearResultsForInactiveSearch(
                 preservesResultsSessionForDetailPush: preservesDetailPushResultsSession
             ) {
+                resultsQuery = trimmedQuery
                 displayedResults = GlobalSearchPresentation.Results(query: trimmedQuery, sections: [])
             }
             return
         }
 
-        catalogSyncToken = catalogFingerprint
-
         searchTask = Task {
             if !immediate {
-                try? await Task.sleep(nanoseconds: CatalogSearchPresentation.debounceNanoseconds)
+                try? await Task.sleep(
+                    nanoseconds: GlobalSearchIndexLayerPresentation.keystrokeDebounceNanoseconds
+                )
                 guard !Task.isCancelled else { return }
             }
+            // Fingerprint / store sync after debounce so keystrokes do not write parent state first.
+            catalogSyncToken = catalogFingerprint
             if diveSites.isEmpty || speciesCatalog.isEmpty {
                 await loadSearchCatalogsIfNeeded()
             }
             guard !Task.isCancelled else { return }
-            // Reuse the cached catalog across keystrokes / taps; only the off-main `search()` runs per query.
-            let catalog = ensureBuiltCatalog()
+            // Prefer the already-warmed catalog; avoid MainActor capture on the keystroke path.
+            let catalog: GlobalSearchPresentation.Catalog
+            if let cached = catalogStore.catalog, catalogStore.fingerprint == catalogFingerprint {
+                catalog = cached
+            } else {
+                catalog = await ensureBuiltCatalog()
+            }
+            guard !Task.isCancelled else { return }
             let results = await Task.detached {
                 GlobalSearchPresentation.search(
                     catalog: catalog,
@@ -1209,7 +1306,12 @@ private struct GlobalSearchSearchIndexLayer: View {
             }.value
             guard !Task.isCancelled else { return }
             let resultsUnchanged = displayedResults == results
+            resultsQuery = trimmedQuery
             displayedResults = results
+            // Media strip follows the debounced query; schedule filter after apply (not on every key).
+            if activeContextTokens.isEmpty {
+                scheduleMediaFilterRebuild()
+            }
             // `onChange(of: displayedResults)` skips equal values — after a remount (pop from detail)
             // the per-instance row caches still need a rebuild with the loaded catalogs.
             if resultsUnchanged {
@@ -1218,11 +1320,11 @@ private struct GlobalSearchSearchIndexLayer: View {
         }
     }
 
-    /// Returns the cached Sendable catalog from the shared store, rebuilding on the main actor only
-    /// when the underlying data fingerprint changes. Query keystrokes / repeat taps hit the cache and
-    /// skip the expensive index build (all dives + the full OpenDiveMap reference site index).
-    private func ensureBuiltCatalog() -> GlobalSearchPresentation.Catalog {
-        GlobalSearchCatalogWarming.ensureCatalog(
+    /// Returns the cached Sendable catalog from the shared store, capturing on MainActor and assembling
+    /// off-main when the fingerprint changes. Query keystrokes / repeat taps hit the cache and skip
+    /// the expensive index build (all dives + the full OpenDiveMap reference site index).
+    private func ensureBuiltCatalog() async -> GlobalSearchPresentation.Catalog {
+        await GlobalSearchCatalogWarming.ensureCatalogAsync(
             store: catalogStore,
             ownerProfileID: ownerProfileID,
             dives: ownerDives,
@@ -1245,36 +1347,38 @@ private struct GlobalSearchSearchIndexLayer: View {
         mediaFilterTask?.cancel()
         // Keep the cached snapshot when leaving general context (display is gated by
         // `showsMediaSection`), so re-entering a general search reuses it instead of re-capturing.
-        guard isGeneralMediaSearchContext else { return }
+        guard activeContextTokens.isEmpty else { return }
         // Reuse an existing snapshot when the underlying data is unchanged — only re-filter.
         if mediaDisplayCache?.snapshot != nil, mediaSnapshotToken == mediaIndexRefreshToken {
             scheduleMediaFilterRebuild()
             return
         }
-        let dataToken = mediaIndexRefreshToken
         mediaIndexRebuildTask = Task { @MainActor in
             await Task.yield()
             guard !Task.isCancelled else { return }
-            let input = GlobalSearchMediaIndexSnapshotBuilder.captureInput(
+            let captured = await GlobalSearchMediaIndexSnapshotBuilder.captureInput(
                 activities: ownerDiveActivities,
-                buddyMediaTags: buddyMediaTags,
-                sightings: sightings,
                 ownerTrips: ownerTrips,
                 speciesCatalog: speciesCatalog,
-                ownerDiveActivityIDs: ownerDiveActivityIDs
+                ownerDiveActivityIDs: ownerDiveActivityIDs,
+                container: modelContext.container
             )
-            let filter = GlobalSearchMediaBrowsePresentation.resolveFilter(from: query)
+            applyScopedMediaIndexFetch(captured.scopedFetch)
+            let dataToken = mediaIndexRefreshToken
+            let filterQuery = resultsQuery.isEmpty ? query : resultsQuery
+            let filter = GlobalSearchMediaBrowsePresentation.resolveFilter(from: filterQuery)
             let built = await Task.detached {
-                GlobalSearchMediaBrowsePresentation.displayCache(from: input, filter: filter)
+                GlobalSearchMediaBrowsePresentation.displayCache(from: captured.input, filter: filter)
             }.value
             guard !Task.isCancelled else { return }
             mediaDisplayCache = built
             mediaSnapshotToken = dataToken
+            refreshMediaSectionCacheIfNeeded(force: true)
         }
     }
 
     private func scheduleMediaFilterRebuild() {
-        guard isGeneralMediaSearchContext else {
+        guard activeContextTokens.isEmpty else {
             mediaFilterTask?.cancel()
             return
         }
@@ -1284,20 +1388,73 @@ private struct GlobalSearchSearchIndexLayer: View {
             scheduleMediaIndexRebuild()
             return
         }
-        let filter = GlobalSearchMediaBrowsePresentation.resolveFilter(from: query)
+        let filterQuery = resultsQuery.isEmpty ? query : resultsQuery
+        let filter = GlobalSearchMediaBrowsePresentation.resolveFilter(from: filterQuery)
         if mediaDisplayCache?.filterFingerprint == GlobalSearchMediaBrowsePresentation.filterFingerprint(filter) {
+            refreshMediaSectionCacheIfNeeded()
             return
         }
         mediaFilterTask?.cancel()
         mediaFilterTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 80_000_000)
-            guard !Task.isCancelled else { return }
             let built = await Task.detached {
                 GlobalSearchMediaBrowsePresentation.displayCache(snapshot: snapshot, filter: filter)
             }.value
             guard !Task.isCancelled else { return }
             mediaDisplayCache = built
+            refreshMediaSectionCacheIfNeeded(force: true)
         }
+    }
+
+    /// Resolves SwiftData media models for the general-search strip once per filtered-ID set.
+    private func refreshMediaSectionCacheIfNeeded(force: Bool = false) {
+        let ids = filteredMediaIDs
+        let token = ids.map(\.uuidString).joined(separator: ",")
+        guard force || token != cachedMediaSectionToken else { return }
+        cachedMediaSectionToken = token
+        guard !ids.isEmpty else {
+            cachedMediaSectionItems = []
+            cachedMediaSectionLinkedItems = []
+            cachedMediaSectionTimeZoneOffsets = [:]
+            cachedMediaSectionSightings = []
+            cachedMediaSectionBuddyTaggedIDs = []
+            return
+        }
+        let photoByID = Dictionary(
+            uniqueKeysWithValues: ownerDiveActivities.flatMap(\.mediaPhotos).map { ($0.id, $0) }
+        )
+        let items = ids.compactMap { photoByID[$0] }
+        let visibleIDs = Set(ids)
+        let linked = TripDetailMediaPresentation.linkedMediaItems(from: ownerDiveActivities)
+            .filter { visibleIDs.contains($0.id) }
+        let offsets = TripDetailMediaPresentation.timeZoneOffsetByMediaID(
+            from: ownerDiveActivities,
+            itemIDs: linked
+        )
+        let ownerActivityIDs = ownerDiveActivityIDs
+        let sightings = scopedSightings.filter { sighting in
+            guard let activityID = sighting.diveActivityID,
+                  ownerActivityIDs.contains(activityID),
+                  let mediaPhotoID = sighting.mediaPhotoID
+            else { return false }
+            return visibleIDs.contains(mediaPhotoID)
+        }
+        let buddyTagged: Set<UUID>
+        if let cached = mediaDisplayCache?.buddyTaggedMediaIDs {
+            buddyTagged = cached.intersection(visibleIDs)
+        } else {
+            buddyTagged = Set(
+                scopedBuddyMediaTags.compactMap { tag -> UUID? in
+                    guard let mediaPhotoID = tag.mediaPhotoID,
+                          visibleIDs.contains(mediaPhotoID) else { return nil }
+                    return mediaPhotoID
+                }
+            )
+        }
+        cachedMediaSectionItems = items
+        cachedMediaSectionLinkedItems = linked
+        cachedMediaSectionTimeZoneOffsets = offsets
+        cachedMediaSectionSightings = sightings
+        cachedMediaSectionBuddyTaggedIDs = buddyTagged
     }
 
     /// Builds and caches the catalog once after data loads (deferred a frame) so the first search /
@@ -1311,7 +1468,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         }.value
         await Task.yield()
         guard !Task.isCancelled else { return }
-        _ = ensureBuiltCatalog()
+        _ = await ensureBuiltCatalog()
     }
 
     /// Hidden-warmer counterpart of `scheduleMediaIndexRebuild`: prebuilds the **Search → Media**
@@ -1319,27 +1476,56 @@ private struct GlobalSearchSearchIndexLayer: View {
     /// cache instead of walking every dive/photo/tag on the main actor during the panel slide-in.
     private func warmMediaSnapshotIfNeeded() async {
         guard hasLoadedSearchCatalogs else { return }
-        let dataToken = mediaIndexRefreshToken
-        guard mediaSnapshotStore.dataToken != dataToken else { return }
         await Task.yield()
         guard !Task.isCancelled else { return }
-        let input = GlobalSearchMediaIndexSnapshotBuilder.captureInput(
+        let captured = await GlobalSearchMediaIndexSnapshotBuilder.captureInput(
             activities: ownerDiveActivities,
-            buddyMediaTags: buddyMediaTags,
-            sightings: sightings,
             ownerTrips: ownerTrips,
             speciesCatalog: speciesCatalog,
-            ownerDiveActivityIDs: ownerDiveActivityIDs
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            container: modelContext.container
         )
+        applyScopedMediaIndexFetch(captured.scopedFetch)
+        let dataToken = mediaIndexRefreshToken
+        guard mediaSnapshotStore.dataToken != dataToken else { return }
         // Build the empty filter on the main actor — `ResolvedFilter()` is main-actor isolated
         // under the module's default isolation, so constructing it inside `Task.detached` warns.
         let emptyFilter = GlobalSearchMediaBrowsePresentation.ResolvedFilter()
         let built = await Task.detached {
-            GlobalSearchMediaBrowsePresentation.displayCache(from: input, filter: emptyFilter)
+            GlobalSearchMediaBrowsePresentation.displayCache(from: captured.input, filter: emptyFilter)
         }.value
         guard !Task.isCancelled else { return }
         mediaSnapshotStore.displayCache = built
         mediaSnapshotStore.dataToken = dataToken
+    }
+
+    private func refreshOwnerScopedMediaIndexRows() async {
+        let activityIDs = ownerDiveActivityIDs
+        let speciesNameByUUID = Dictionary(
+            uniqueKeysWithValues: speciesCatalog.map { ($0.uuid, $0.commonName) }
+        )
+        let fetched = await GlobalSearchOwnerScopedMediaIndexFetch.fetch(
+            ownerDiveActivityIDs: activityIDs,
+            speciesNameByUUID: speciesNameByUUID,
+            container: modelContext.container
+        )
+        guard !Task.isCancelled else { return }
+        applyScopedMediaIndexFetch(fetched)
+    }
+
+    private func applyScopedMediaIndexFetch(
+        _ fetched: GlobalSearchOwnerScopedMediaIndexFetch.Result
+    ) {
+        scopedBuddyMediaTagCount = fetched.buddyTagCount
+        scopedSightingCount = fetched.sightingCount
+        scopedBuddyMediaTags = GlobalSearchOwnerScopedMediaIndexFetch.bindBuddyTags(
+            persistentIDs: fetched.buddyTagPersistentIDs,
+            modelContext: modelContext
+        )
+        scopedSightings = GlobalSearchOwnerScopedMediaIndexFetch.bindSightings(
+            persistentIDs: fetched.sightingPersistentIDs,
+            modelContext: modelContext
+        )
     }
 
     private func loadSearchCatalogsIfNeeded(force: Bool = false) async {

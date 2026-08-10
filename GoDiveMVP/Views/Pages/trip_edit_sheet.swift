@@ -29,6 +29,8 @@ struct TripEditSheetView: View {
     @State private var saveErrorMessage: String?
     @State private var deleteErrorMessage: String?
     @State private var showsDeleteConfirmation = false
+    @State private var shareOfferQueue = DiveTripShareOfferQueue()
+    @State private var buddyIDsAtOpen: Set<UUID> = []
     @FocusState private var isTitleFocused: Bool
 
     init(trip: DiveTrip, onSaved: @escaping () -> Void = {}, onDeleted: @escaping () -> Void = {}) {
@@ -108,7 +110,7 @@ struct TripEditSheetView: View {
                     AppGlassProminentDoneButton(
                         action: saveChanges,
                         accessibilityIdentifier: TripPlannerPresentation.editTripDoneAccessibilityIdentifier,
-                        isEnabled: canSaveTrip
+                        isEnabled: canSaveTrip && canEditSharedDetails
                     )
                 }
             }
@@ -133,8 +135,30 @@ struct TripEditSheetView: View {
             } message: {
                 Text(TripPlannerPresentation.deleteTripConfirmationMessage(displayTitle: trip.displayTitle))
             }
+            .alert(
+                shareOfferQueue.current.map {
+                    DiveTripShareOfferPresentation.confirmationTitle(displayName: $0.displayName)
+                } ?? "",
+                isPresented: DiveTripShareOfferAlertModifier.alertBinding(queue: shareOfferQueue)
+            ) {
+                Button(DiveTripShareOfferPresentation.shareButtonTitle) {
+                    shareOfferQueue.share(modelContext: modelContext) {
+                        finishAfterSave()
+                    }
+                }
+                Button(DiveTripShareOfferPresentation.declineButtonTitle, role: .cancel) {
+                    shareOfferQueue.decline {
+                        finishAfterSave()
+                    }
+                }
+            } message: {
+                Text(DiveTripShareOfferPresentation.confirmationMessage)
+            }
         }
         .diveActivityOverviewPanelModalSheetPresentation()
+        .onAppear {
+            buddyIDsAtOpen = DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip)
+        }
         .sheet(isPresented: $showsCountryPicker) {
             TripCountryPickerSheet(selectedCountries: $form.selectedCountries)
         }
@@ -145,6 +169,10 @@ struct TripEditSheetView: View {
             )
         }
         .accessibilityIdentifier("TripEditSheet.Root")
+    }
+
+    private var canEditSharedDetails: Bool {
+        DiveTripShareLineagePresentation.canEditSharedDetails(trip)
     }
 
     private var saveErrorBinding: Binding<Bool> {
@@ -164,12 +192,17 @@ struct TripEditSheetView: View {
     private func saveChanges() {
         isTitleFocused = false
         guard canSaveTrip else { return }
+        guard canEditSharedDetails else {
+            saveErrorMessage = DiveTripShareInvitePresentation.inviteeCannotEditMessage
+            return
+        }
 
         if let conflict = form.overlappingTrip(among: ownerTrips, excludingTripID: trip.id) {
             saveErrorMessage = DiveTripPresentation.overlappingTripMessage(displayTitle: conflict.displayTitle)
             return
         }
 
+        let previousBuddyIDs = buddyIDsAtOpen
         form.apply(to: trip)
 
         DiveTripPlannedBuddyDraftPresentation.apply(
@@ -194,23 +227,61 @@ struct TripEditSheetView: View {
             try modelContext.save()
             DiveTripLogbookSync.notifyGroupingDidChange()
             let savedTrip = trip
+            let removedFriendUIDs: [String] = previousBuddyIDs.subtracting(selectedBuddyIDs).compactMap { buddyID in
+                guard let buddy = rosterByID[buddyID] else { return nil }
+                return DiveBuddyFriendLinkPresentation.linkedFirebaseUID(for: buddy)
+            }
             Task { @MainActor in
                 await DiveTripReminderScheduler.reschedule(for: savedTrip)
+                if !removedFriendUIDs.isEmpty {
+                    await GoDiveTripShareSync.revokeShares(for: savedTrip, friendUIDs: removedFriendUIDs)
+                    try? modelContext.save()
+                }
+                await GoDiveTripShareSync.republishIfShared(savedTrip, modelContext: modelContext)
             }
-            onSaved()
-            dismiss()
+            let candidates = DiveTripShareOfferPresentation.candidates(
+                previousBuddyIDs: previousBuddyIDs,
+                newBuddyIDs: selectedBuddyIDs,
+                rosterByID: rosterByID,
+                trip: trip
+            )
+            if candidates.isEmpty {
+                finishAfterSave()
+            } else {
+                shareOfferQueue.enqueue(candidates: candidates, for: trip)
+            }
         } catch {
             saveErrorMessage = error.localizedDescription
         }
     }
 
+    private func finishAfterSave() {
+        onSaved()
+        dismiss()
+    }
+
     private func deleteTrip() {
-        do {
-            try DiveTripDeletion.deletePermanently(trip, modelContext: modelContext)
+        let tripToDelete = trip
+        Task { @MainActor in
+            if DiveTripShareLineagePresentation.isSharedInviteeCopy(tripToDelete) {
+                try? await GoDiveTripShareSync.declineInvite(
+                    for: tripToDelete,
+                    modelContext: modelContext
+                )
+            } else {
+                await GoDiveTripShareSync.revokeShares(
+                    for: tripToDelete,
+                    deleteSharedTripDocument: true
+                )
+                do {
+                    try DiveTripDeletion.deletePermanently(tripToDelete, modelContext: modelContext)
+                } catch {
+                    deleteErrorMessage = error.localizedDescription
+                    return
+                }
+            }
             onDeleted()
             dismiss()
-        } catch {
-            deleteErrorMessage = error.localizedDescription
         }
     }
 }

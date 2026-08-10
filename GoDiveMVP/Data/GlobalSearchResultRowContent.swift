@@ -28,6 +28,19 @@ struct GlobalSearchResultRowContent: Identifiable, Equatable {
         case avatar(profilePhoto: Data?, initials: String, showsGoDiveUserPin: Bool)
         case photo(data: Data?, placeholder: String)
     }
+
+    /// Keeps title/artwork/dive row data; updates only the “why it matched” lines for a new query.
+    nonisolated func replacingMatchReasons(
+        _ matchReasons: [GlobalSearchPresentation.MatchReason]
+    ) -> GlobalSearchResultRowContent {
+        GlobalSearchResultRowContent(
+            id: id,
+            destination: destination,
+            accessibilityIdentifier: accessibilityIdentifier,
+            matchReasons: matchReasons,
+            kind: kind
+        )
+    }
 }
 
 /// Builds **`GlobalSearchResultRowContent`** for a set of hits in a single pass. Runs on the main actor

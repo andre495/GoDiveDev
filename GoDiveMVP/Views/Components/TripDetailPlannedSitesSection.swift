@@ -63,19 +63,21 @@ struct TripDetailPlannedSitesSection: View {
                         sortedSites.isEmpty ? "TripDetail.PlannedSites.Empty" : "TripDetail.PlannedSites.Subtitle"
                     )
 
-                Button {
-                    selectedSiteIDs = Set(trip.plannedSiteIDs)
-                    showsSitePicker = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.accent)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
+                if DiveTripShareLineagePresentation.canEditSharedDetails(trip) {
+                    Button {
+                        selectedSiteIDs = Set(trip.plannedSiteIDs)
+                        showsSitePicker = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.accent)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(DiveTripPresentation.addPlannedSiteAccessibilityLabel)
+                    .accessibilityIdentifier("TripDetail.PlannedSites.Add")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(DiveTripPresentation.addPlannedSiteAccessibilityLabel)
-                .accessibilityIdentifier("TripDetail.PlannedSites.Add")
             }
 
             if sortedSites.isEmpty {
@@ -126,6 +128,7 @@ struct TripDetailPlannedSitesSection: View {
     }
 
     private func applySelectedPlannedSites() {
+        guard DiveTripShareLineagePresentation.canEditSharedDetails(trip) else { return }
         let selected = diveSiteCatalog
             .filter { selectedSiteIDs.contains($0.id) }
             .sorted {
@@ -134,5 +137,9 @@ struct TripDetailPlannedSitesSection: View {
         trip.plannedSiteIDs = selected.map(\.id)
         trip.updatedAt = .now
         try? modelContext.save()
+        let savedTrip = trip
+        Task { @MainActor in
+            await GoDiveTripShareSync.republishIfShared(savedTrip, modelContext: modelContext)
+        }
     }
 }

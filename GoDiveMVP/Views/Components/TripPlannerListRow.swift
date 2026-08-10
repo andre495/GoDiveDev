@@ -15,11 +15,26 @@ struct TripPlannerListRow: View, Equatable {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: LogbookActivityRowLayout.contentSpacing) {
-                Text(data.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    Text(data.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+
+                    if let inviteBadgeTitle = data.inviteBadgeTitle {
+                        Text(inviteBadgeTitle)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.accent)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(AppTheme.Colors.accent.opacity(0.14))
+                            )
+                            .accessibilityIdentifier("TripPlanner.InviteBadge")
+                    }
+                }
 
                 if let linkedDiveCountLabel = data.linkedDiveCountLabel {
                     Text(linkedDiveCountLabel)

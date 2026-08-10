@@ -49,14 +49,11 @@ struct LogbookView: View {
     }
 
     @Environment(RootTabSelectionStore.self) private var rootTabSelection
+    /// Local mirror — avoid observing **`RootTabSelectionStore.selected`** in **`body`**.
+    @State private var isLogbookTabSelected = false
 
     private let ownerProfileID: UUID?
     private let logbookTabSelectionGeneration: Int
-
-    /// Live tab selection via **`RootTabSelectionStore`** (not a stale `Tab` init `let`).
-    private var isLogbookTabSelected: Bool {
-        RootTabSelectionPresentation.isSelected(.logbook, selected: rootTabSelection.selected)
-    }
 
     private var isLogbookNavigationStackAtRoot: Bool {
         RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
@@ -110,16 +107,11 @@ struct LogbookView: View {
         visibleActivities.count + visibleSnorkelActivities.count
     }
 
+    /// Cheap MainActor capture of dive/snorkel seeds (no sort / filter — those run off-main).
     @MainActor
-    private func mergedLogbookActivitySeeds() -> [LogbookActivitySnapshotSeed] {
-        let merged = LogbookActivitySnapshotSeeding.mergedActivitySeeds(
-            dives: visibleActivities,
-            snorkels: visibleSnorkelActivities
-        )
-        return LogbookMyActivitiesKindFilterPresentation.filteredSeeds(
-            merged,
-            filter: myActivitiesKindFilter
-        )
+    private func capturedLogbookActivitySeeds() -> [LogbookActivitySnapshotSeed] {
+        LogbookActivitySnapshotSeeding.seeds(from: visibleActivities)
+            + LogbookActivitySnapshotSeeding.snorkelSeeds(from: visibleSnorkelActivities)
     }
 
     private var logbookUpcomingTripBanner: LogbookUpcomingTripBannerData? {
@@ -191,7 +183,14 @@ struct LogbookView: View {
 
     private func attachLogbookActivitySnapshotObservers<Content: View>(to content: Content) -> some View {
         content
-            .onAppear(perform: handleLogbookRootAppear)
+            .onAppear {
+                // First select often posts selection before Logbook mounts — seed from store.
+                isLogbookTabSelected = RootTabSelectionPresentation.localSelectionAfterMount(
+                    tab: .logbook,
+                    storeSelected: rootTabSelection.selected
+                )
+                handleLogbookRootAppear()
+            }
             .task(id: ownerProfileID) {
                 diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
             }
@@ -232,6 +231,22 @@ struct LogbookView: View {
             .onChange(of: isLogbookTabSelected) { _, isSelected in
                 if isSelected {
                     performDeferredLogbookCacheBuildIfNeeded()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .rootTabBarDidSelect)) { notification in
+                if let selected = RootTabSelectionPresentation.localSelection(
+                    tab: .logbook,
+                    from: notification
+                ) {
+                    isLogbookTabSelected = selected
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .rootTabSelectionDidChange)) { notification in
+                if let selected = RootTabSelectionPresentation.localSelection(
+                    tab: .logbook,
+                    from: notification
+                ) {
+                    isLogbookTabSelected = selected
                 }
             }
     }
@@ -591,11 +606,8 @@ struct LogbookView: View {
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
-            // UIKit `didSelect` keeps RootTabSelectionStore current — pause off-tab display links.
-            bubbleAnimationPaused: RootTabSelectionPresentation.shouldPauseBubbles(
-                for: .logbook,
-                selected: rootTabSelection.selected
-            ),
+            // Local selection mirror (from **`rootTabSelectionDidChange`**) — pause off-tab links.
+            bubbleAnimationPaused: !isLogbookTabSelected,
             scrollToTopNonce: listScrollToTopNonce,
             buddyFeedAvatarLookup: buddyFeedAvatarLookup,
             onSelectMediaPreview: openActivityMediaPreview,
@@ -910,7 +922,8 @@ struct LogbookView: View {
     ) async {
         logbookCacheRefreshGeneration += 1
         let generation = logbookCacheRefreshGeneration
-        let seeds = mergedLogbookActivitySeeds()
+        let capturedSeeds = capturedLogbookActivitySeeds()
+        let kindFilter = myActivitiesKindFilter
         let tripSeeds = LogbookTripSnapshotSeeding.tripSeeds(
             from: visibleActivities,
             ownerTrips: ownerTrips
@@ -919,7 +932,11 @@ struct LogbookView: View {
         let useChronologicalNumbers = automaticallyRenumberDives
 
         let result = await Task.detached(priority: priority) {
-            LogbookDisplayCacheBuilder.build(
+            let seeds = LogbookMyActivitiesKindFilterPresentation.filteredSeeds(
+                LogbookActivitySnapshotSeeding.sortedMergedSeeds(capturedSeeds),
+                filter: kindFilter
+            )
+            return LogbookDisplayCacheBuilder.build(
                 visibleSeeds: seeds,
                 tripSeeds: tripSeeds,
                 siteSearchQuery: "",
@@ -957,13 +974,15 @@ struct LogbookView: View {
                         DiveDisplayUnitSystem,
                         Bool,
                         [LogbookActivitySnapshotSeed],
+                        LogbookMyActivitiesKindFilter,
                         [LogbookTripSnapshotSeed],
                         Int
                     ) in
                     (
                         diveDisplayUnitSystem,
                         automaticallyRenumberDives,
-                        mergedLogbookActivitySeeds(),
+                        capturedLogbookActivitySeeds(),
+                        myActivitiesKindFilter,
                         LogbookTripSnapshotSeeding.tripSeeds(
                             from: visibleActivities,
                             ownerTrips: ownerTrips
@@ -972,9 +991,13 @@ struct LogbookView: View {
                     )
                 }
                 let result = await Task.detached(priority: priority) {
-                    LogbookDisplayCacheBuilder.build(
-                        visibleSeeds: inputs.2,
-                        tripSeeds: inputs.3,
+                    let seeds = LogbookMyActivitiesKindFilterPresentation.filteredSeeds(
+                        LogbookActivitySnapshotSeeding.sortedMergedSeeds(inputs.2),
+                        filter: inputs.3
+                    )
+                    return LogbookDisplayCacheBuilder.build(
+                        visibleSeeds: seeds,
+                        tripSeeds: inputs.4,
                         siteSearchQuery: "",
                         confirmedTagName: nil,
                         confirmedBuddyName: nil,

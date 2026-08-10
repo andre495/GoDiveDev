@@ -77,9 +77,11 @@ Add or extend rules as later OWASP phases land (import caps, crash scrubbing, et
 | `users/{uid}/sharedDives/{diveId}` | Owner or **active friend** | Owner only (cannot change CF-owned `likeCount` / `commentCount`) |
 | `users/{uid}/sharedDives/{diveId}/likes/{likerUid}` | Owner, liker, or **active friend** | Liker create/delete own doc only (validated `displayName` + `createdAt`); no update |
 | `users/{uid}/sharedDives/{diveId}/comments/{commentId}` | Owner or **active friend** | Owner or friend create (validated `authorUid` + `displayName` + `text` + `createdAt` + optional `mentionedUids` ≤10); author delete only; no update |
+| `users/{uid}/sharedTrips/{tripId}` | Owner or **active friend** | Owner only (canonical shared trip details for invitees) |
+| `users/{uid}/tripShareInvites/{inviteId}` | Recipient, or sharer (`sharerUid`) | Sharer create (`pending` + friendship); recipient update `pending`→`accepted`/`declined` or `accepted`→`declined` (leave); sharer update →`revoked`; recipient or sharer delete |
 | `users/{uid}/ontologySightingContributions/{sightingUUID}` | Owner only | Owner only (Settings opt-in community graph) |
 | `users/{uid}/ontologySiteReportContributions/{activityUUID}` | Owner only | Owner only (Settings opt-in; 1:1 SiteReport per activity) |
-| `friendInvites/{token}` | Any authenticated (token must be known) | Creator create/revoke; redeeming user may mark redeemed |
+| `friendInvites/{token}` | Any authenticated (token must be known) | Creator create; unused invites expire via **`expiresAt`** (24h); redeeming user may mark redeemed |
 | `friendships/{sortedPair}` | Members | Create via valid open invite; members may delete |
 | `communitySightings/{contributionId}` | Any authenticated | **Deny** (Admin SDK / ingest Cloud Function only) |
 | `communitySiteReports/{contributionId}` | Any authenticated | **Deny** (Admin SDK / ingest Cloud Function only) |

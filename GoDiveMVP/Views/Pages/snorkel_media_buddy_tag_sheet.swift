@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Roster picker to add a buddy tag on dive media.
+/// Roster picker to add a buddy tag on snorkel media.
 struct SnorkelMediaBuddyTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -19,6 +19,8 @@ struct SnorkelMediaBuddyTagPickerSheet: View {
     @State private var selfBuddyID: UUID?
     @State private var tagErrorMessage: String?
     @State private var showsAddBuddySheet = false
+    @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
 
     init(
         media: SnorkelMediaPhoto,
@@ -50,118 +52,58 @@ struct SnorkelMediaBuddyTagPickerSheet: View {
         return map
     }
 
-    private var ownerProfileID: UUID? {
-        accountSession.currentProfile?.id
-    }
-
     private var rosterBuddiesExcludingSelf: [DiveBuddy] {
         guard let owner = accountSession.currentProfile else { return ownedBuddies }
         return ownedBuddies.filter { !DiveBuddySelfRepresentation.isSelfBuddy($0, owner: owner) }
+    }
+
+    private var filteredBuddies: [DiveBuddy] {
+        rosterBuddiesExcludingSelf.filter {
+            TaggingSheetSelectionPresentation.matchesSearchQuery($0.displayName, query: searchQuery)
+        }
     }
 
     private var isSelfTaggedOnMedia: Bool {
         draftState.isSelfTagged(selfBuddyID: selfBuddyID)
     }
 
+    private var showsSelfRow: Bool {
+        guard accountSession.currentProfile != nil else { return false }
+        let title = DiveBuddySelfRepresentation.pickerRowTitle
+        let subtitle = selfSubtitle ?? ""
+        return TaggingSheetSelectionPresentation.matchesSearchQuery(title, query: searchQuery)
+            || TaggingSheetSelectionPresentation.matchesSearchQuery(subtitle, query: searchQuery)
+    }
+
+    private var selfSubtitle: String? {
+        guard let owner = accountSession.currentProfile else { return nil }
+        let name = owner.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.caseInsensitiveCompare("Diver") != .orderedSame else { return nil }
+        return name
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                if let owner = accountSession.currentProfile {
-                    Section {
-                        Button {
-                            toggleSelfTag(owner: owner)
-                        } label: {
-                            SnorkelMediaBuddySelfTagPickerRow(
-                                owner: owner,
-                                isTaggedOnMedia: isSelfTaggedOnMedia
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .listRowInsets(EdgeInsets(
-                            top: 0,
-                            leading: AppTheme.Spacing.md,
-                            bottom: 0,
-                            trailing: AppTheme.Spacing.md
-                        ))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .accessibilityLabel(DiveBuddySelfRepresentation.pickerRowTitle)
-                        .accessibilityValue(
-                            isSelfTaggedOnMedia
-                                ? "Tagged on this photo"
-                                : "Not tagged on this photo"
-                        )
-                        .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.Self")
-                    } header: {
-                        Text(DiveBuddySelfRepresentation.pickerRowTitle)
-                    }
-                }
-
-                if rosterBuddiesExcludingSelf.isEmpty {
-                    Section {
-                        Text("No other buddies in your roster yet. Tap + to add someone and tag them on this photo.")
-                            .font(.body)
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                            .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.EmptyRoster")
-                    }
-                } else {
-                    Section {
-                        ForEach(rosterBuddiesExcludingSelf, id: \.id) { buddy in
-                            Button {
-                                toggleTag(buddy)
-                            } label: {
-                                SnorkelMediaBuddyTagPickerRow(
-                                    buddy: buddy,
-                                    isTaggedOnMedia: taggedBuddyIDs.contains(buddy.id)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .listRowInsets(EdgeInsets(
-                                top: 0,
-                                leading: AppTheme.Spacing.md,
-                                bottom: 0,
-                                trailing: AppTheme.Spacing.md
-                            ))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .accessibilityLabel(buddy.displayName)
-                            .accessibilityValue(
-                                taggedBuddyIDs.contains(buddy.id)
-                                    ? "Tagged on this photo"
-                                    : "Not tagged on this photo"
-                            )
-                            .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.Row.\(buddy.id.uuidString)")
-                        }
-                    }
-                }
+            VStack(spacing: 0) {
+                pickerBody
+                TaggingSheetBottomSearchChrome(
+                    searchText: $searchQuery,
+                    isSearchFocused: $isSearchFocused,
+                    placeholder: "Search buddies",
+                    searchFieldAccessibilityIdentifier: "SnorkelMediaBuddyTagPicker.SearchField",
+                    cancelAccessibilityIdentifier: "SnorkelMediaBuddyTagPicker.SearchCancel"
+                )
             }
-            .listStyle(.plain)
-            .listRowSpacing(SnorkelMediaBuddyTagPickerRowLayout.listRowSpacing)
-            .scrollContentBackground(.hidden)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    AppGlassToolbarCancelButton(
-                        action: discardDraftAndDismiss,
-                        accessibilityIdentifier: DiveMediaBuddyTagPresentation.cancelAccessibilityIdentifier
-                    )
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppSheetToolbarPlusButton(
-                        action: { showsAddBuddySheet = true },
-                        accessibilityIdentifier: DiveMediaBuddyTagPresentation.addBuddyAccessibilityIdentifier,
-                        accessibilityLabel: DiveMediaBuddyTagPresentation.addBuddyAccessibilityLabel
-                    )
-                }
-                // Keep **+** and **Done** as separate Liquid Glass borders (not one shared capsule).
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .confirmationAction) {
-                    AppGlassProminentDoneButton(
-                        action: commitDraftTags,
-                        accessibilityIdentifier: DiveMediaBuddyTagPresentation.doneAccessibilityIdentifier,
-                        title: DiveMediaBuddyTagPresentation.doneButtonTitle
-                    )
-                }
-            }
+            .taggingSheetToolbar(
+                cancelAccessibilityIdentifier: DiveMediaBuddyTagPresentation.cancelAccessibilityIdentifier,
+                doneAccessibilityIdentifier: DiveMediaBuddyTagPresentation.doneAccessibilityIdentifier,
+                doneTitle: DiveMediaBuddyTagPresentation.doneButtonTitle,
+                plusAccessibilityIdentifier: DiveMediaBuddyTagPresentation.addBuddyAccessibilityIdentifier,
+                plusAccessibilityLabel: DiveMediaBuddyTagPresentation.addBuddyAccessibilityLabel,
+                onCancel: discardDraftAndDismiss,
+                onDone: commitDraftTags,
+                onPlus: { showsAddBuddySheet = true }
+            )
             .sheet(isPresented: $showsAddBuddySheet) {
                 DiveActivityAddBuddySheet { buddy in
                     taggedBuddyIDs.insert(buddy.id)
@@ -175,6 +117,80 @@ struct SnorkelMediaBuddyTagPickerSheet: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(tagErrorMessage ?? "Try again.")
+        }
+    }
+
+    @ViewBuilder
+    private var pickerBody: some View {
+        if rosterBuddiesExcludingSelf.isEmpty, accountSession.currentProfile == nil {
+            Text("No buddies in your roster yet. Tap + to add someone and tag them on this photo.")
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+                .multilineTextAlignment(.center)
+                .padding(AppTheme.Spacing.lg)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.EmptyRoster")
+        } else if !showsSelfRow, filteredBuddies.isEmpty {
+            if rosterBuddiesExcludingSelf.isEmpty {
+                Text("No other buddies in your roster yet. Tap + to add someone and tag them on this photo.")
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .multilineTextAlignment(.center)
+                    .padding(AppTheme.Spacing.lg)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.EmptyRoster")
+            } else {
+                ContentUnavailableView.search(text: searchQuery)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        } else {
+            buddyList
+        }
+    }
+
+    private var buddyList: some View {
+        TaggingSheetListChrome {
+            if showsSelfRow, let owner = accountSession.currentProfile {
+                TaggingSheetListRowContainer(showsDivider: !filteredBuddies.isEmpty) {
+                    TaggingSheetSelectionRow(
+                        title: DiveBuddySelfRepresentation.pickerRowTitle,
+                        subtitle: selfSubtitle,
+                        isSelected: isSelfTaggedOnMedia,
+                        accessibilityValueSelected: "Tagged on this photo",
+                        accessibilityValueUnselected: "Not tagged on this photo",
+                        onTap: { toggleSelfTag(owner: owner) },
+                        leading: {
+                            ProfileAvatarView(
+                                profilePhoto: owner.profilePhoto,
+                                diameter: TaggingSheetSelectionPresentation.leadingArtDiameter,
+                                iconFont: .callout
+                            )
+                        }
+                    )
+                    .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.Self")
+                }
+            }
+
+            ForEach(Array(filteredBuddies.enumerated()), id: \.element.id) { index, buddy in
+                TaggingSheetListRowContainer(showsDivider: index < filteredBuddies.count - 1) {
+                    TaggingSheetSelectionRow(
+                        title: buddy.displayName,
+                        isSelected: taggedBuddyIDs.contains(buddy.id),
+                        accessibilityValueSelected: "Tagged on this photo",
+                        accessibilityValueUnselected: "Not tagged on this photo",
+                        onTap: { toggleTag(buddy) },
+                        leading: {
+                            ProfileAvatarView(
+                                profilePhoto: buddy.profilePhoto,
+                                diameter: TaggingSheetSelectionPresentation.leadingArtDiameter,
+                                iconFont: .callout,
+                                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
+                            )
+                        }
+                    )
+                    .accessibilityIdentifier("SnorkelMediaBuddyTagPicker.Row.\(buddy.id.uuidString)")
+                }
+            }
         }
     }
 
@@ -236,124 +252,5 @@ struct SnorkelMediaBuddyTagPickerSheet: View {
         } catch {
             tagErrorMessage = error.localizedDescription
         }
-    }
-}
-
-// MARK: - Rows
-
-private enum SnorkelMediaBuddyTagPickerRowLayout {
-    static let avatarDiameter: CGFloat = 36
-    static let rowPadding = EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
-    static let listRowSpacing: CGFloat = 6
-    static let cornerRadius: CGFloat = 10
-}
-
-private struct SnorkelMediaBuddySelfTagPickerRow: View {
-    let owner: UserProfile
-    let isTaggedOnMedia: Bool
-
-    var body: some View {
-        HStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: owner.profilePhoto,
-                diameter: SnorkelMediaBuddyTagPickerRowLayout.avatarDiameter,
-                iconFont: .callout
-            )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(DiveBuddySelfRepresentation.pickerRowTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isTaggedOnMedia {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityHidden(true)
-            }
-        }
-        .padding(SnorkelMediaBuddyTagPickerRowLayout.rowPadding)
-        .background(rowBackground)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var subtitle: String? {
-        let name = owner.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, name.caseInsensitiveCompare("Diver") != .orderedSame else { return nil }
-        return name
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: SnorkelMediaBuddyTagPickerRowLayout.cornerRadius, style: .continuous)
-            .fill(
-                isTaggedOnMedia
-                    ? AppTheme.Colors.tabSelected.opacity(0.14)
-                    : AppTheme.Colors.surfaceElevated
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: SnorkelMediaBuddyTagPickerRowLayout.cornerRadius, style: .continuous)
-                    .stroke(
-                        isTaggedOnMedia ? AppTheme.Colors.tabSelected.opacity(0.55) : Color.clear,
-                        lineWidth: 1.5
-                    )
-            }
-    }
-}
-
-private struct SnorkelMediaBuddyTagPickerRow: View {
-    let buddy: DiveBuddy
-    let isTaggedOnMedia: Bool
-
-    var body: some View {
-        HStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: buddy.profilePhoto,
-                diameter: SnorkelMediaBuddyTagPickerRowLayout.avatarDiameter,
-                iconFont: .callout,
-                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
-            )
-
-            Text(buddy.displayName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isTaggedOnMedia {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityHidden(true)
-            }
-        }
-        .padding(SnorkelMediaBuddyTagPickerRowLayout.rowPadding)
-        .background(rowBackground)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: SnorkelMediaBuddyTagPickerRowLayout.cornerRadius, style: .continuous)
-            .fill(
-                isTaggedOnMedia
-                    ? AppTheme.Colors.tabSelected.opacity(0.14)
-                    : AppTheme.Colors.surfaceElevated
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: SnorkelMediaBuddyTagPickerRowLayout.cornerRadius, style: .continuous)
-                    .stroke(
-                        isTaggedOnMedia ? AppTheme.Colors.tabSelected.opacity(0.55) : Color.clear,
-                        lineWidth: 1.5
-                    )
-            }
     }
 }

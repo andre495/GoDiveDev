@@ -7,7 +7,10 @@ enum TripDetailContentPage: Hashable, Sendable, Identifiable {
     case buddies
     case stats
     case marineLife
+    /// Owner’s linked logbook activities for this trip.
     case activities
+    /// GoDive buddies’ shared activities that fall inside the trip dates.
+    case tripActivities
     case media
 
     var id: Self { self }
@@ -18,7 +21,7 @@ enum TripDetailContentPagerPresentation: Sendable {
     /// **`false`** before the trip start day — planned sites + buddies only.
     nonisolated static func pages(hasStarted: Bool) -> [TripDetailContentPage] {
         if hasStarted {
-            [.stats, .activities, .marineLife, .buddies, .media]
+            [.stats, .activities, .tripActivities, .marineLife, .buddies, .media]
         } else {
             [.plannedSites, .buddies]
         }
@@ -49,7 +52,8 @@ enum TripDetailContentPagerPresentation: Sendable {
         case .buddies: "TripDetail.ContentPager.Buddies"
         case .stats: "TripDetail.ContentPager.Stats"
         case .marineLife: "TripDetail.ContentPager.MarineLife"
-        case .activities: "TripDetail.ContentPager.Activities"
+        case .activities: "TripDetail.ContentPager.MyActivities"
+        case .tripActivities: "TripDetail.ContentPager.TripActivities"
         case .media: "TripDetail.ContentPager.Media"
         }
     }
@@ -59,7 +63,7 @@ enum TripDetailContentPagerPresentation: Sendable {
         switch page {
         case .stats:
             true
-        case .plannedSites, .buddies, .marineLife, .activities, .media:
+        case .plannedSites, .buddies, .marineLife, .activities, .tripActivities, .media:
             false
         }
     }
@@ -70,7 +74,7 @@ enum TripDetailContentPagerPresentation: Sendable {
         case .stats:
             // Top-align so the in-page title sits with the tiles (same chrome as other blue sheets).
             return .top
-        case .media, .plannedSites, .buddies, .marineLife, .activities:
+        case .media, .plannedSites, .buddies, .marineLife, .activities, .tripActivities:
             return .top
         }
     }
@@ -87,7 +91,9 @@ enum TripDetailContentPagerPresentation: Sendable {
         case .marineLife:
             return "Marine Life"
         case .activities:
-            return "Activities"
+            return "My Activities"
+        case .tripActivities:
+            return "Trip Activities"
         case .media:
             return "Media"
         }
@@ -104,7 +110,9 @@ enum TripDetailContentPagerPresentation: Sendable {
         case .marineLife:
             return "TripDetail.MarineLife.Subtitle"
         case .activities:
-            return "TripDetail.Activities.Subtitle"
+            return "TripDetail.MyActivities.Subtitle"
+        case .tripActivities:
+            return "TripDetail.TripActivities.Subtitle"
         case .media:
             return "TripDetail.Media.Subtitle"
         }

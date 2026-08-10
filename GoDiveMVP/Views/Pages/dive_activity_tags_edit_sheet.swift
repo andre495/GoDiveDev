@@ -14,99 +14,36 @@ struct DiveActivityTagsEditSheet: View {
     @State private var loadErrorMessage: String?
     @State private var showsCreateTagSheet = false
     @State private var draftAppliedTagIDs: Set<UUID> = []
+    @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
+
+    private var filteredTags: [ActivityTag] {
+        ownerTags.filter {
+            TaggingSheetSelectionPresentation.matchesSearchQuery($0.name, query: searchQuery)
+        }
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let loadErrorMessage {
-                    Section {
-                        Text(loadErrorMessage)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                    }
-                    .listRowBackground(Color.clear)
-                }
-
-                Section("On this dive") {
-                    let applied = draftAppliedTags
-                    if applied.isEmpty {
-                        Text("No tags on this dive yet.")
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                            .listRowBackground(Color.clear)
-                    } else {
-                        DiveActivityTagChipFlow(tagNames: applied.map(\.name))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .listRowInsets(EdgeInsets(
-                                top: AppTheme.Spacing.sm,
-                                leading: 0,
-                                bottom: AppTheme.Spacing.sm,
-                                trailing: 0
-                            ))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                    }
-                }
-
-                Section {
-                    if ownerTags.isEmpty {
-                        Text("Tap + to create a tag, or add one from your roster below.")
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                            .accessibilityIdentifier("DiveTagsEditSheet.EmptyRoster")
-                            .listRowBackground(Color.clear)
-                    } else {
-                        ForEach(ownerTags, id: \.id) { tag in
-                            Button {
-                                toggleDraftApplied(tag)
-                            } label: {
-                                HStack {
-                                    Text(tag.name)
-                                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                                    Spacer(minLength: AppTheme.Spacing.sm)
-                                    if isDraftApplied(tag) {
-                                        Image(systemName: "checkmark")
-                                            .font(.body.weight(.semibold))
-                                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .listRowBackground(Color.clear)
-                            .accessibilityLabel(tag.name)
-                            .accessibilityValue(
-                                isDraftApplied(tag) ? "On this dive" : "Not on this dive"
-                            )
-                        }
-                    }
-                } header: {
-                    Text("Your tags")
-                } footer: {
-                    Text("Tags are saved to your account and can be reused on other dives.")
-                }
+            VStack(spacing: 0) {
+                pickerBody
+                TaggingSheetBottomSearchChrome(
+                    searchText: $searchQuery,
+                    isSearchFocused: $isSearchFocused,
+                    placeholder: "Search tags",
+                    searchFieldAccessibilityIdentifier: "DiveTagsEditSheet.SearchField",
+                    cancelAccessibilityIdentifier: "DiveTagsEditSheet.SearchCancel"
+                )
             }
-            .scrollContentBackground(.hidden)
-            .listStyle(.plain)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    AppGlassToolbarCancelButton(
-                        action: { dismiss() },
-                        accessibilityIdentifier: "DiveTagsEditSheet.Cancel"
-                    )
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppSheetToolbarPlusButton(
-                        action: { showsCreateTagSheet = true },
-                        accessibilityIdentifier: "DiveTagsEditSheet.CreateTag",
-                        accessibilityLabel: "Create tag"
-                    )
-                }
-
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .confirmationAction) {
-                    AppGlassProminentDoneButton(
-                        action: commitDraftTagsAndDismiss,
-                        accessibilityIdentifier: "DiveTagsEditSheet.Done"
-                    )
-                }
-            }
+            .taggingSheetToolbar(
+                cancelAccessibilityIdentifier: "DiveTagsEditSheet.Cancel",
+                doneAccessibilityIdentifier: "DiveTagsEditSheet.Done",
+                plusAccessibilityIdentifier: "DiveTagsEditSheet.CreateTag",
+                plusAccessibilityLabel: "Create tag",
+                onCancel: { dismiss() },
+                onDone: commitDraftTagsAndDismiss,
+                onPlus: { showsCreateTagSheet = true }
+            )
             .task(id: ownerProfileID) {
                 await reloadOwnerTags()
             }
@@ -120,12 +57,46 @@ struct DiveActivityTagsEditSheet: View {
         .accessibilityIdentifier("DiveTagsEditSheet.Root")
     }
 
-    private var draftAppliedTags: [ActivityTag] {
-        ownerTags
-            .filter { draftAppliedTagIDs.contains($0.id) }
-            .sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+    @ViewBuilder
+    private var pickerBody: some View {
+        if let loadErrorMessage {
+            Text(loadErrorMessage)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(AppTheme.Spacing.lg)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if ownerTags.isEmpty {
+            Text("Tap + to create a tag, or add one from your roster below.")
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+                .multilineTextAlignment(.center)
+                .padding(AppTheme.Spacing.lg)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("DiveTagsEditSheet.EmptyRoster")
+        } else if filteredTags.isEmpty {
+            ContentUnavailableView.search(text: searchQuery)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            TaggingSheetListChrome {
+                ForEach(Array(filteredTags.enumerated()), id: \.element.id) { index, tag in
+                    TaggingSheetListRowContainer(showsDivider: index < filteredTags.count - 1) {
+                        TaggingSheetSelectionRow(
+                            title: tag.name,
+                            isSelected: isDraftApplied(tag),
+                            accessibilityValueSelected: "On this dive",
+                            accessibilityValueUnselected: "Not on this dive",
+                            onTap: { toggleDraftApplied(tag) },
+                            leading: {
+                                TaggingSheetSymbolLeadingArt(
+                                    systemName: TaggingSheetSelectionPresentation.tagPlaceholderSystemName
+                                )
+                            }
+                        )
+                        .accessibilityIdentifier("DiveTagsEditSheet.Row.\(tag.id.uuidString)")
+                    }
+                }
             }
+        }
     }
 
     private func isDraftApplied(_ tag: ActivityTag) -> Bool {

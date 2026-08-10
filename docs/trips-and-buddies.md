@@ -35,6 +35,18 @@ Upcoming trips get local reminders **1 month** before (*Almost there!*), **1 wee
 
 Add **planned dive sites** on the trip detail page after saving (and you can still add or change buddies there). Tap **+** on planned sites to open the full-height blue picker (no grabber): **Cancel** discards changes; **Done** saves the selection. **Add buddy** on trip detail opens the same blue roster picker.
 
+### Share a trip with a GoDive buddy
+
+When you add a roster buddy who is already a **GoDive friend** (pin on their avatar) to a trip, GoDive asks whether to **share this trip** with them. If you share:
+
+- They get a **push** and a Home **Notifications** row  
+- Opening it shows a copy of the trip in their planner as an **Invite**  
+- They **Accept** to keep it or **Decline** to remove it (your trip is unchanged)  
+- When they **Accept**, you get a **Trip buddy joined** push  
+- On your trip’s buddies grid: **You** (yourself); GoDive friends show **Invited**, **Joined**, or an **Invite** button (if you skipped sharing earlier); local-only buddies have no status label  
+
+You remain the owner of trip details. If you change the **name, dates, countries, or planned dive sites**, their copy stays updated. They cannot edit those shared details on their copy.
+
 ### Trip detail
 
 Each trip opens a map-forward overview:
@@ -51,12 +63,13 @@ Each trip opens a map-forward overview:
 === "After the trip starts"
 
     - Stats tiles  
-    - Linked **activities** (dives)  
+    - **My activities** — your linked dives/snorkels for this trip  
+    - **Trip activities** — shared dives/snorkels from GoDive buddies on this trip whose dates fall inside the trip window (tap to open the shared activity)  
     - **Marine life** spotted on linked dives  
     - **Buddies** with dive counts  
     - **Trip media** gallery  
 
-Use **Edit** (⋯ menu) to change the trip name, countries, dates, and buddies — same blue sheet as **New trip** (**Cancel** / **Done**; **Delete trip** at the bottom). **Share** exports a share card image with map, buddies, and species highlights.
+Use **Edit** (⋯ menu) to change the trip name, countries, dates, and buddies — same blue sheet as **New trip** (**Cancel** / **Done**; **Delete trip** at the bottom). **Share** exports a share card image with map, buddies, and species highlights (separate from sharing a trip copy with a GoDive friend).
 
 ### Linking dives to trips
 
@@ -81,6 +94,8 @@ Tap a buddy for:
 - Hero **media** or **map** of shared dive sites (toggle when sites exist)  
 - Stats panel with avatar and dives-together count  
 - Pager: **Dives together**, **Trips together**, **Your tagged photos**  
+
+On a buddy who is **not** already a GoDive friend, a blue **+** sits on the lower-right of their avatar (slightly overlapping the circle). Tap it to create a share link and open Messages — if that buddy is linked to a phone contact, the message goes to their number; otherwise the recipient field stays empty so you can pick who to send it to.
 
 Tap a dive or photo to open dive detail or full-screen media. In full-screen media, the Home-style dive chip (lower left) opens the dive; **buddy** and **fish** share one glass control (lower right) and turn blue when that media is tagged. Tap **⋯** (upper right) to edit the buddy — change name and photo, **Connect to Contact** / **Change contact**, or **Disconnect contact**.
 
@@ -107,7 +122,7 @@ From buddy **⋯** → edit sheet, **Delete buddy** removes them from the roster
 
 ## Certifications (related)
 
-**Profile → menu (☰) → Certifications** stores training cards with photos, agency, number, and date. Tap **+** to open the full-height blue **New certification** sheet (**Cancel** / **Done**). When you add a **PADI card photo** (digital eCard front, physical front, or physical back) while creating or editing a certification, GoDive reads the card on your device and can suggest the agency, certification name, number, date, instructor, dive shop, and shop identification number — review and edit before saving. The certifications list uses the same collapsible large-title header; each row shows the card photo, name with a certification/specialty badge, agency and **#**cert number, and the date attained. Open a card to see the photo header (switch **Front** / **Back** when both sides are saved), certification details including how many of your logged dives fall on or after the date you earned it, and instructor/shop info on a second page. Your newest certification-type card can appear on Profile when you have added one.
+**Profile → menu (☰) → Certifications** stores training cards with photos, agency, number, and date. Tap **+** to open the full-height blue **New certification** sheet (**Cancel** / **Done**). When you add a **PADI card photo** (digital eCard front, physical front, or physical back) while creating or editing a certification, GoDive reads the card on your device and can suggest the agency, certification name, number, date, instructor, dive shop, and shop identification number — review and edit before saving. The certifications list uses the same collapsible large-title header; each row shows the card photo, name with a certification/specialty badge, agency and **#**cert number, and the date attained. Open a card to see the photo header (switch **Front** / **Back** when both sides are saved), certification details including how many of your logged dives fall on or after the date you earned it, and instructor/shop info on a second page. On Profile **Diver stats**, your cards also appear as tiles (name, agency, date, and a small card-front photo on the right) that open the same detail page.
 
 ## Tagged media (related)
 

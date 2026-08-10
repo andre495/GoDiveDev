@@ -134,8 +134,14 @@ enum LogbookActivitySnapshotSeeding {
         dives: [DiveActivity],
         snorkels: [SnorkelActivity]
     ) -> [LogbookActivitySnapshotSeed] {
-        let combined = seeds(from: dives) + snorkelSeeds(from: snorkels)
-        return combined.sorted { lhs, rhs in
+        sortedMergedSeeds(seeds(from: dives) + snorkelSeeds(from: snorkels))
+    }
+
+    /// Sort / merge already-captured seeds off the main actor.
+    nonisolated static func sortedMergedSeeds(
+        _ combined: [LogbookActivitySnapshotSeed]
+    ) -> [LogbookActivitySnapshotSeed] {
+        combined.sorted { lhs, rhs in
             if lhs.startTime != rhs.startTime {
                 return lhs.startTime > rhs.startTime
             }

@@ -1,0 +1,62 @@
+---
+description: Scope limits, iteration caps, and stop conditions for agent execution.
+alwaysApply: true
+---
+
+# Agent execution guardrails
+
+Keep work focused, bounded, and proportional to the user's request.
+
+## Scope
+
+- Work only on the task explicitly requested by the user.
+- Do not proactively fix unrelated bugs, warnings, failing tests, or code quality issues.
+- Do not expand the scope of a task based on issues discovered while working.
+
+## Iteration limits
+
+- Never enter an open-ended fix → test → retest loop.
+- After **2 consecutive fix → test cycles**, stop and report the current state.
+- If the **same failure persists after 2 attempts**, stop rather than trying additional approaches.
+- If a **new, unrelated failure** appears, stop and report it rather than fixing it.
+
+## Before making changes
+
+- First identify the files and code paths relevant to the requested task.
+- Prefer the smallest change that addresses the request.
+- Do not refactor surrounding code unless explicitly requested.
+
+## Testing
+
+- Run the **smallest relevant test** first.
+- Do not automatically run the entire test suite after every change.
+- If a test reveals an unrelated failure, do not fix it.
+- If a test produces a large amount of output, inspect or filter the output rather than repeatedly loading the entire log into context.
+
+## Escalation
+
+Stop and ask the user when:
+
+- The task requires more than 2 fix/test iterations.
+- The correct solution is ambiguous.
+- A failure appears unrelated to the requested change.
+- Fixing one problem causes a new class of problems.
+- The requested change would require a significant architectural change.
+
+## Completion
+
+- When the requested task works, **stop**.
+- Do not continue looking for additional improvements.
+
+## Overrides (explicit user requests)
+
+These guardrails are the default. A **direct user request** takes precedence for that workflow:
+
+| User asks for | Follow instead |
+|---|---|
+| **Commit / push / ship** | **`xcode-run-test.mdc`** preflight (full **`clean build-for-testing`** + **`test`**); fix errors, failures, and project warnings per **`xcode-fix-build-warnings.mdc`** until green — iteration cap does not apply to that preflight. |
+| **Run / build / test / launch** | **`xcode-build-deploy.mdc`** (focused build/deploy); **`xcode-run-test.mdc`** / **`xcode-run-dres-phone.mdc`** for destinations and device install; prefer the smallest relevant test when the user names a specific target. |
+| **Fix a specific bug or warning** | That issue is in scope; iteration limits apply to that fix only. |
+| **Changelog / docs / user guide** | **`changelog-app-summary-sync.mdc`** / **`github-pages-user-guide-sync.mdc`** when the batch or commit requires them — not optional scope creep on unrelated tasks. |
+
+Outside those explicit workflows: **author** tests per **`code-changes-require-tests.mdc`** when behavior changes, but **do not execute** **`xcodebuild`** unless the user asks or commit/push requires preflight (**`xcode-test-only-when-asked.mdc`**).

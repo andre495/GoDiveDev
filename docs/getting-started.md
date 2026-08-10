@@ -111,9 +111,8 @@ From **Home**, tap your avatar (top of the screen) to open **Profile**:
 
 - Buddy-style blue sheet: your tagged media in the header, photo on the seam  
 - Name and dive count beside your avatar  
-- Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies** or the dive-count / bottom-time summary line)  
-- Sheet **Details** page: DAN insurance number and featured certification (tap the cert to open it; **View all certifications** when you have more than one)  
-- Tap the blue **⋯** beside your name to **Edit Profile**. Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, and **Settings**. **Buddies** is your local roster plus GoDive friends — use the **QR** button to invite. **Sign Out** is under **Settings → Advanced**.  
+- Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies** or the dive-count / bottom-time summary line), plus certification tiles (name, agency, date, and a small card-front photo on the right — tap to open a card)  
+- Tap the blue **⋯** beside your name to **Edit Profile** (including optional DAN insurance). Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, and **Settings**. At the bottom of the menu, **Invite a buddy** (QR) opens a shareable invite. **Buddies** is your local roster plus GoDive friends — the list also has a **QR** button. **Sign Out** is under **Settings → Advanced**.  
 - Change your photo by tapping the avatar on Profile
 
 ## Permissions GoDive may ask for

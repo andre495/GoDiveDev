@@ -385,15 +385,7 @@ struct HomeMediaCarouselSection: View {
                         ),
                         playbackResumeToken: pagePlaybackActive ? playbackResumeToken : 0,
                         playbackAllowed: isPlaybackAllowed,
-                        showsBottomChrome: !showsMarineLifeOverlay,
-                        onSlideFinished: { finishSlide(at: pagerIndex) },
-                        onOpenDive: { onOpenDive(highlight.diveActivityID) },
-                        onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
-                        taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
-                        isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
-                        onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
-                        selfBuddyID: selfBuddyID,
-                        onOpenBuddy: onOpenBuddy
+                        onSlideFinished: { finishSlide(at: pagerIndex) }
                     )
                 } else {
                     Color.black
@@ -439,6 +431,13 @@ struct HomeMediaCarouselSection: View {
             .frame(width: containerWidth, height: resolvedCarouselContentHeight)
             .clipped()
             .overlay {
+                if HomeMediaCarouselDebug.showsMediaInteractionHitAreaOverlay {
+                    Color.pink.opacity(0.38)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
+            .overlay {
                 #if canImport(UIKit)
                 if HomeMediaCarouselScrollInteractionPresentation.usesUIKitScrollViewTapInstaller {
                     HomeMediaCarouselScrollTapInstaller {
@@ -448,6 +447,24 @@ struct HomeMediaCarouselSection: View {
                     .accessibilityHidden(true)
                 }
                 #endif
+            }
+            // Dive-link / fish / buddy above the media surface (not inside pager pages).
+            .overlay(alignment: .bottom) {
+                if !showsMarineLifeOverlay,
+                   highlights.indices.contains(activeLogicalSlideIndex) {
+                    let highlight = highlights[activeLogicalSlideIndex]
+                    HomeMediaCarouselSlideBottomChrome(
+                        highlight: highlight,
+                        containerWidth: containerWidth,
+                        onOpenDive: { onOpenDive(highlight.diveActivityID) },
+                        onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
+                        taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
+                        isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
+                        onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
+                        selfBuddyID: selfBuddyID,
+                        onOpenBuddy: onOpenBuddy
+                    )
+                }
             }
             .modifier(HomeMediaCarouselScrollViewOpenMediaTapModifier(
                 usesUIKitInstaller: HomeMediaCarouselScrollInteractionPresentation.usesUIKitScrollViewTapInstaller,
@@ -757,53 +774,27 @@ private struct HomeMediaCarouselPage: View {
     var loopsSlidePlayback: Bool = false
     var playbackResumeToken: Int = 0
     var playbackAllowed: Bool = true
-    var showsBottomChrome: Bool = true
     let onSlideFinished: () -> Void
-    let onOpenDive: () -> Void
-    let onShowTaggedSpecies: () -> Void
-    let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
-    let isBuddyListExpanded: Bool
-    let onToggleBuddyList: () -> Void
-    let selfBuddyID: UUID?
-    let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
-        // No per-page tap/Button — open-media lives on the paging **`ScrollView`** so pans stay clean.
-        ZStack(alignment: .bottom) {
-            HomeMediaCarouselMediaView(
-                media: media,
-                slideIndex: slideIndex,
-                slideCount: slideCount,
-                containerWidth: pageWidth,
-                containerHeight: pageHeight,
-                isVideoPlaybackActive: isVideoPlaybackActive,
-                shouldPrepareVideo: shouldPrepareVideo,
-                isAutoAdvanceActive: isAutoAdvanceActive,
-                loopsSlidePlayback: loopsSlidePlayback,
-                playbackResumeToken: playbackResumeToken,
-                playbackAllowed: playbackAllowed,
-                onSlideFinished: onSlideFinished
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .clipped()
-
-            if showsBottomChrome {
-                HomeMediaCarouselSlideBottomChrome(
-                    highlight: highlight,
-                    containerWidth: pageWidth,
-                    onOpenDive: onOpenDive,
-                    onShowTaggedSpecies: onShowTaggedSpecies,
-                    taggedBuddies: taggedBuddies,
-                    isBuddyListExpanded: isBuddyListExpanded,
-                    onToggleBuddyList: onToggleBuddyList,
-                    selfBuddyID: selfBuddyID,
-                    onOpenBuddy: onOpenBuddy
-                )
-                .frame(maxWidth: .infinity)
-            }
-        }
+        // Media only — dive-link / fish / buddy sit in a sibling overlay above this pager.
+        HomeMediaCarouselMediaView(
+            media: media,
+            slideIndex: slideIndex,
+            slideCount: slideCount,
+            containerWidth: pageWidth,
+            containerHeight: pageHeight,
+            isVideoPlaybackActive: isVideoPlaybackActive,
+            shouldPrepareVideo: shouldPrepareVideo,
+            isAutoAdvanceActive: isAutoAdvanceActive,
+            loopsSlidePlayback: loopsSlidePlayback,
+            playbackResumeToken: playbackResumeToken,
+            playbackAllowed: playbackAllowed,
+            onSlideFinished: onSlideFinished
+        )
         .frame(maxWidth: .infinity)
         .frame(height: pageHeight)
+        .clipped()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dive media at \(highlight.siteDisplayName)")
         .accessibilityHint("Opens this media on the dive")
@@ -848,8 +839,8 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
     }
 
     var body: some View {
-        // Position controls without a full-bleed hit target — empty chrome band must pass
-        // horizontal pans through to the media **`ScrollView`**.
+        // Gradient is display-only. Controls are siblings (not under `allowsHitTesting(false)`)
+        // so dive link / fish / buddy keep solid hits; empty band passes pans / open-media through.
         ZStack(alignment: .bottom) {
             HomeMediaCarouselFooterGradient(height: Layout.gradientHeight)
                 .frame(maxWidth: .infinity)
@@ -875,7 +866,6 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
             .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
         }
         .animation(buddyChromeAnimation, value: isBuddyListExpanded)
-        // Hug control-row height — a full-page chrome ZStack left only the Spacer swipeable.
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .bottomLeading)
         .accessibilityIdentifier("Home.MediaCarousel.Overlay")
@@ -1770,6 +1760,26 @@ private enum HomeSheetContainerDebug {
     static let showsLayoutGuides = false
 }
 
+/// Hit region for **`HomeLifetimeStatsPanel`** — excludes the top overlap band so featured-media
+/// dive-link / fish / buddy (and media pans in that band) are not swallowed by the sheet fill.
+struct HomeLifetimeStatsPanelMediaChromePassThroughHitShape: Shape {
+    var passThroughTop: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let inset = min(max(0, passThroughTop), rect.height)
+        path.addRect(
+            CGRect(
+                x: rect.minX,
+                y: rect.minY + inset,
+                width: rect.width,
+                height: max(0, rect.height - inset)
+            )
+        )
+        return path
+    }
+}
+
 /// Sheet-style chrome for Home lifetime stats — rounded top, opaque fill, optional hero overlap.
 struct HomeLifetimeStatsPanel<Content: View>: View {
     var overlapsMedia: Bool
@@ -1782,6 +1792,12 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
     /// Profile sheet fill — rising bubbles + **`profileBubbleScrim`** instead of opaque overview blue.
     var usesProfileBubbleBackground: Bool = false
     @ViewBuilder var content: () -> Content
+
+    private var mediaChromeHitPassThroughTop: CGFloat {
+        overlapsMedia
+            ? HomeMediaCarouselPresentation.slideChromePanelHitPassThroughHeight()
+            : 0
+    }
 
     var body: some View {
         panelContent
@@ -1807,8 +1823,15 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
                     }
                 }
                 .ignoresSafeArea(edges: .bottom)
+                // Visual fill only — hit shape below excludes the media-chrome overlap band.
+                .allowsHitTesting(false)
             }
             .clipShape(panelShape)
+            .contentShape(
+                HomeLifetimeStatsPanelMediaChromePassThroughHitShape(
+                    passThroughTop: mediaChromeHitPassThroughTop
+                )
+            )
             .overlay {
                 if usesHomeDebugPanelTint, HomeSheetContainerDebug.showsLayoutGuides {
                     HomeLifetimeStatsPanelOuterLayoutGuides(

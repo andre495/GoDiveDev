@@ -9,6 +9,7 @@ struct ManualDiveEntrySitePickerSheet: View {
     let sites: [DiveSite]
 
     @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
 
     private var filteredSites: [DiveSite] {
         ExploreDiveSiteListSearch.filtering(sites, query: searchQuery)
@@ -20,42 +21,51 @@ struct ManualDiveEntrySitePickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
                 if sites.isEmpty {
                     ContentUnavailableView(
                         "No dive sites",
                         systemImage: "mappin.and.ellipse",
                         description: Text("Dive sites from the catalog will appear here.")
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if filteredSiteRows.isEmpty {
+                    ContentUnavailableView.search(text: searchQuery)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List {
-                        ForEach(filteredSiteRows) { row in
-                            Button {
-                                selectedSiteID = row.id
-                                dismiss()
-                            } label: {
-                                HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-                                    ExploreDiveSiteRow(data: row)
-                                        .equatable()
-
-                                    if selectedSiteID == row.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(AppTheme.Colors.tabSelected)
+                    TaggingSheetListChrome {
+                        ForEach(Array(filteredSiteRows.enumerated()), id: \.element.id) { index, row in
+                            TaggingSheetListRowContainer(showsDivider: index < filteredSiteRows.count - 1) {
+                                TaggingSheetSelectionRow(
+                                    title: row.displayName,
+                                    subtitle: siteSubtitle(for: row),
+                                    isSelected: selectedSiteID == row.id,
+                                    accessibilityValueSelected: "Selected",
+                                    accessibilityValueUnselected: "Not selected",
+                                    onTap: {
+                                        selectedSiteID = row.id
+                                        dismiss()
+                                    },
+                                    leading: {
+                                        TaggingSheetSymbolLeadingArt(
+                                            systemName: TaggingSheetSelectionPresentation.sitePlaceholderSystemName
+                                        )
                                     }
-                                }
+                                )
+                                .accessibilityIdentifier("ManualDiveEntrySitePicker.Row.\(row.id.uuidString)")
                             }
-                            .buttonStyle(.plain)
-                            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .accessibilityIdentifier("ManualDiveEntrySitePicker.Row.\(row.id.uuidString)")
                         }
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                 }
+
+                TaggingSheetBottomSearchChrome(
+                    searchText: $searchQuery,
+                    isSearchFocused: $isSearchFocused,
+                    placeholder: "Search dive sites",
+                    searchFieldAccessibilityIdentifier: "ManualDiveEntrySitePicker.SearchField",
+                    cancelAccessibilityIdentifier: "ManualDiveEntrySitePicker.SearchCancel"
+                )
             }
-            .searchable(text: $searchQuery, prompt: "Search dive sites")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     AppGlassToolbarCancelButton(
@@ -67,5 +77,13 @@ struct ManualDiveEntrySitePickerSheet: View {
         }
         .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("ManualDiveEntrySitePicker.Root")
+    }
+
+    private func siteSubtitle(for row: ExploreDiveSiteRowDisplayData) -> String? {
+        let parts = [row.coordinateLine, row.placeLine]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: "\n")
     }
 }

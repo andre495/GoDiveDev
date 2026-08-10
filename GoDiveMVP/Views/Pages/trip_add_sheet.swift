@@ -17,6 +17,7 @@ struct TripAddSheetView: View {
     @State private var showsBuddyPicker = false
     @State private var showsCountryPicker = false
     @State private var saveErrorMessage: String?
+    @State private var shareOfferQueue = DiveTripShareOfferQueue()
     @FocusState private var isTitleFocused: Bool
 
     init(ownerProfileID: UUID? = nil, onSaved: @escaping () -> Void = {}) {
@@ -92,6 +93,25 @@ struct TripAddSheetView: View {
             } message: {
                 Text(saveErrorMessage ?? "Try again.")
             }
+            .alert(
+                shareOfferQueue.current.map {
+                    DiveTripShareOfferPresentation.confirmationTitle(displayName: $0.displayName)
+                } ?? "",
+                isPresented: DiveTripShareOfferAlertModifier.alertBinding(queue: shareOfferQueue)
+            ) {
+                Button(DiveTripShareOfferPresentation.shareButtonTitle) {
+                    shareOfferQueue.share(modelContext: modelContext) {
+                        finishAfterSave()
+                    }
+                }
+                Button(DiveTripShareOfferPresentation.declineButtonTitle, role: .cancel) {
+                    shareOfferQueue.decline {
+                        finishAfterSave()
+                    }
+                }
+            } message: {
+                Text(DiveTripShareOfferPresentation.confirmationMessage)
+            }
         }
         .diveActivityOverviewPanelModalSheetPresentation()
         .sheet(isPresented: $showsCountryPicker) {
@@ -153,11 +173,25 @@ struct TripAddSheetView: View {
             Task { @MainActor in
                 await DiveTripReminderScheduler.reschedule(for: savedTrip)
             }
-            onSaved()
-            dismiss()
+            let candidates = DiveTripShareOfferPresentation.candidates(
+                previousBuddyIDs: [],
+                newBuddyIDs: selectedBuddyIDs,
+                rosterByID: rosterByID,
+                trip: trip
+            )
+            if candidates.isEmpty {
+                finishAfterSave()
+            } else {
+                shareOfferQueue.enqueue(candidates: candidates, for: trip)
+            }
         } catch {
             saveErrorMessage = error.localizedDescription
         }
+    }
+
+    private func finishAfterSave() {
+        onSaved()
+        dismiss()
     }
 }
 

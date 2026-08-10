@@ -14,6 +14,7 @@ Source of truth for the hybrid architecture on `feature/icloud-hybrid-sync` (Pha
 | App catalogs | Local catalog cache | GoDive CDN (**Firebase Hosting / Storage**) | **Phase 4 / 4b — live** (optional secrets) |
 | Social directory + friends | Firestore `users/{uid}`, `friendInvites`, `friendships` | **Firebase Auth + Firestore** | **Friends graph — live** |
 | Friend-visible dive projections | Firestore `users/{uid}/sharedDives` (+ opt-in Storage previews) | **Firebase** (friends-only read) | **Friends share — live** |
+| Trip share invites (duplicate + owner sync) | Firestore `users/{uid}/sharedTrips` + `users/{uid}/tripShareInvites` → each party owns a local `DiveTrip` | **Firebase** handoff; **private CloudKit** per user | **Live** |
 | Community sighting contributions (opt-out) | SwiftData `SightingInstance` + activity SiteReport (1:1) | Firestore private staging → anonymized `communitySiteReports` + `communitySightings` (with `siteReportId`) + derived CDN similarity | **Live (default on)** |
 | Crash reports | Local diagnostics rows | GoDive CloudKit **public** database (opt-in) | Existing |
 
@@ -127,6 +128,8 @@ Setup notes in **`cursor/firebase_user_profiles.md`**.
 | Friend invites | `friendInvites/{token}` | Creator write; signed-in read by token; redeem updates status |
 | Friendships | `friendships/{sortedUidPair}` | Members read/delete; create via open invite |
 | Friend-visible dives | `users/{uid}/sharedDives/{diveId}` | Owner write; owner or **active friend** read |
+| Shared trip details | `users/{uid}/sharedTrips/{tripId}` | Owner write; owner or **active friend** read (invitee materializes a **new** owned `DiveTrip`) |
+| Trip share invites | `users/{uid}/tripShareInvites/{inviteId}` | Recipient read; sharer create (`pending` + friendship); recipient accept/decline; sharer revoke |
 | Shared media previews | Storage `users/{uid}/sharedMedia/...` | Owner write; public download URL when opted in |
 | Ontology sighting staging | `users/{uid}/ontologySightingContributions/{sightingUUID}` | Owner read/write only (Settings opt-in) |
 | Ontology SiteReport staging | `users/{uid}/ontologySiteReportContributions/{activityUUID}` | Owner read/write only (Settings opt-in; 1:1 with dive/snorkel) |
@@ -139,8 +142,9 @@ Public profile fields: `displayName`, `handle` (reserved, empty), `photoURL`, `i
 
 - Sign in with Apple still drives **`AccountSession`** / CloudKit `UserProfile`.
 - Same Apple credential also signs into **Firebase Auth**; soft-fail if Firebase is unavailable.
-- **Friends:** QR / shareable link invites only (no directory search). Soft cap **50** friends; invites expire in **7** days.
+- **Friends:** QR / shareable link invites only (no directory search). Soft cap **50** friends; invites expire in **24** hours.
 - Friend-visible dive projections: when **Share dives with friends** is on and the user has ≥1 friend, the owner’s app mirrors structured dive details to Firestore for friends to read. **Notes** and **media previews** are **opt-in**. Local edits that touch shared dive fields debounce-upsert the affected dive(s) via **`GoDiveFriendShareRefreshCoordinator`** (SwiftData **`didSave`**). The owner’s SwiftData + private CloudKit remain source of truth. FIT/UDDF originals and full Photos libraries are never uploaded.
+- **Trip share invites:** sharing a trip with a GoDive friend writes **`sharedTrips`** + **`tripShareInvites`**; the recipient materializes a **new** owned **`DiveTrip`** (Accept/Decline). Synced fields (title, dates, countries, planned site ids) stay owner-authored — not CloudKit Sharing / co-edit.
 - **Community sightings (default on, user can opt out):** when **Contribute sightings to community** is on and Firebase Auth is available, each created/imported dive or snorkel mints a **SiteReport** staging doc (`SiteReportGraphExport` + `OntologySiteReportContributionSync`, 1:1 with the activity). Tag add/remove upserts sighting staging (`SightingGraphExport` schema v3 with opaque **`siteReportId`**) after refreshing that report. Cloud Functions mirror into **`communitySiteReports`** and **`communitySightings`** (species, site ids, depth, time-of-day, date, dive|snorkel, siteReportId — **no** Firebase UID, profile ID, media, notes, or GPS). A **scheduled** Function rebuilds **`species_similarity.json`** (including **sameSiteReport**); the app merges CDN **`sightingScore`** with on-device biology on catalog refresh. Opt-out / activity delete marks staging deleted so ingest Functions remove public rows.
 - **Delete account** also wipes invites, friendships, shared dives, shared media, and private ontology contribution staging (public community rows cleaned via Admin ingest).
 - `ownerProfileID` for dive rows remains the CloudKit / SwiftData UUID — not the Firebase UID.

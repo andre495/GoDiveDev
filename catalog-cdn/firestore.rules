@@ -127,6 +127,67 @@ service cloud.firestore {
         allow delete: if signedIn() && request.auth.uid == userId;
         allow update: if false;
       }
+
+      // Shared trip details — owner writes canonical title/dates/countries/sites;
+      // active friends (or owner) may read so invitees can materialize / stay in sync.
+      match /sharedTrips/{tripId} {
+        allow read: if signedIn()
+          && (request.auth.uid == userId || areFriends(request.auth.uid, userId));
+        allow create, update, delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Incoming trip-share invites — recipient inbox; sharer creates when friends.
+      match /tripShareInvites/{inviteId} {
+        allow read: if signedIn()
+          && (
+            request.auth.uid == userId
+            || (
+              'sharerUid' in resource.data
+              && request.auth.uid == resource.data.sharerUid
+            )
+          );
+        allow create: if signedIn()
+          && request.auth.uid == request.resource.data.sharerUid
+          && request.auth.uid != userId
+          && areFriends(request.auth.uid, userId)
+          && request.resource.data.status == 'pending'
+          && request.resource.data.tripId is string
+          && request.resource.data.tripId.size() > 0
+          && request.resource.data.tripId.size() <= 80
+          && request.resource.data.createdAt == request.time;
+        allow update: if signedIn() && (
+          (
+            request.auth.uid == userId
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+            && (
+              (
+                resource.data.status == 'pending'
+                && request.resource.data.status in ['accepted', 'declined']
+              )
+              || (
+                resource.data.status == 'accepted'
+                && request.resource.data.status == 'declined'
+              )
+            )
+          )
+          || (
+            'sharerUid' in resource.data
+            && request.auth.uid == resource.data.sharerUid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+            && request.resource.data.status == 'revoked'
+          )
+        );
+        allow delete: if signedIn()
+          && (
+            request.auth.uid == userId
+            || (
+              'sharerUid' in resource.data
+              && request.auth.uid == resource.data.sharerUid
+            )
+          );
+      }
     }
 
     // QR / link invites — creator writes; any signed-in user can read by token; redeem updates status.

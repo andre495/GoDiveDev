@@ -8,22 +8,44 @@ enum ExploreDiveSiteListSearch {
     }
 
     nonisolated static func searchHaystacks(for site: DiveSite) -> [String] {
-        let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
-        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+        searchHaystacks(
+            siteName: site.siteName,
+            country: site.country,
+            region: site.region,
+            bodyOfWater: site.bodyOfWater,
+            siteTags: site.siteTags
+        )
+    }
+
+    /// Same haystacks as the **`DiveSite`** overload, for Sendable site seeds (off-main search index).
+    nonisolated static func searchHaystacks(
+        siteName: String,
+        country: String,
+        region: String,
+        bodyOfWater: String,
+        siteTags: [String],
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> [String] {
+        let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(
+            siteName: siteName,
+            siteTags: siteTags,
+            reference: reference
+        ) ?? siteName
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: country)
         return [
             displayName,
-            site.siteName,
+            siteName,
             ExploreDiveSiteListDisplay.placeSummary(
                 country: canonicalCountry,
-                region: site.region,
-                bodyOfWater: site.bodyOfWater
+                region: region,
+                bodyOfWater: bodyOfWater
             ),
             ExploreDiveSiteListDisplay.cityCountryLine(
                 country: canonicalCountry,
-                region: site.region
+                region: region
             ),
-        ] + DiveSiteCountryPresentation.searchTerms(for: site.country)
-            + [site.region, site.bodyOfWater]
+        ] + DiveSiteCountryPresentation.searchTerms(for: country)
+            + [region, bodyOfWater]
     }
 
     nonisolated static func matches(_ site: DiveSite, query: String) -> Bool {

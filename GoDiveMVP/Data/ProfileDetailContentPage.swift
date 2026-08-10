@@ -4,7 +4,6 @@ import SwiftUI
 /// Horizontal pager pages on **`ProfileView`** (below the identity row).
 enum ProfileDetailContentPage: Hashable, Sendable, Identifiable {
     case diverStats
-    case details
     case taggedMedia
 
     var id: Self { self }
@@ -13,7 +12,6 @@ enum ProfileDetailContentPage: Hashable, Sendable, Identifiable {
 enum ProfileDetailContentPagerPresentation: Sendable {
     nonisolated static let pages: [ProfileDetailContentPage] = [
         .diverStats,
-        .details,
         .taggedMedia,
     ]
 
@@ -28,17 +26,6 @@ enum ProfileDetailContentPagerPresentation: Sendable {
     nonisolated static let showsLifetimeSummaryOnDiverStats = false
 
     nonisolated static let diverStatsPageTitle = "Diver stats"
-    nonisolated static let detailsPageTitle = "Details"
-    nonisolated static let danSectionTitle = "DAN insurance"
-    nonisolated static let danMemberNumberLabel = "Member number"
-    nonisolated static let danWebsiteLinkAccessibilityHint = "Opens DAN website"
-    nonisolated static let certificationSectionTitle = "Certification"
-    nonisolated static let certificationNameLabel = "Name"
-    nonisolated static let certificationNumberLabel = "Number"
-    nonisolated static let certificationDateAttainedLabel = "Date attained"
-    nonisolated static let emptyDanMessage = "No DAN insurance number on file."
-    nonisolated static let emptyCertificationMessage = "No certification cards yet."
-    nonisolated static let viewAllCertificationsTitle = "View all certifications"
 
     /// Horizontal inset is applied once by **`BlueSheetDetailPage`** — pager page bodies must not add **`AppTheme.Spacing.lg`** again.
     nonisolated static let usesBlueSheetDetailHorizontalPaddingOnly = true
@@ -58,8 +45,6 @@ enum ProfileDetailContentPagerPresentation: Sendable {
         switch page {
         case .diverStats:
             return diverStatsPageTitle
-        case .details:
-            return detailsPageTitle
         case .taggedMedia:
             return DiveBuddyTaggedMediaPresentation.sectionTitle
         }
@@ -68,8 +53,6 @@ enum ProfileDetailContentPagerPresentation: Sendable {
     nonisolated static func emptyStateMessage(for page: ProfileDetailContentPage) -> String {
         switch page {
         case .diverStats:
-            return ""
-        case .details:
             return ""
         case .taggedMedia:
             return "No photos or videos tagged with you yet."
@@ -80,8 +63,6 @@ enum ProfileDetailContentPagerPresentation: Sendable {
         switch page {
         case .diverStats:
             return "Profile.ContentPager.DiverStats"
-        case .details:
-            return "Profile.ContentPager.Details"
         case .taggedMedia:
             return "Profile.ContentPager.TaggedMedia"
         }
@@ -90,11 +71,10 @@ enum ProfileDetailContentPagerPresentation: Sendable {
     /// Extra clearance above the home indicator for the native page dots (**`TabView`**).
     nonisolated static let pageIndicatorClearance: CGFloat = 28
 
+    /// **Diver stats** scrolls when certification tiles sit below the lifetime grid.
     nonisolated static func usesStaticPagerLayout(for page: ProfileDetailContentPage) -> Bool {
         switch page {
-        case .diverStats, .details:
-            return true
-        case .taggedMedia:
+        case .diverStats, .taggedMedia:
             return false
         }
     }

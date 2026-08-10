@@ -61,6 +61,8 @@ struct AppStatusBarEdgeScrim: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder
@@ -167,13 +169,16 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
                     safeAreaTop: statusBarSafeAreaTop,
                     usesListChromeFeather: statusBarUsesListChromeFeather
                 )
-                    .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea(edges: .top)
             }
         }
         .background {
             GeometryReader { proxy in
-                Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
+                Color.clear
+                    .preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
+                    .allowsHitTesting(false)
             }
+            .allowsHitTesting(false)
         }
     }
 

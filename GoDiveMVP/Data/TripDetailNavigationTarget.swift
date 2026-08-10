@@ -4,6 +4,7 @@ import Foundation
 enum TripDetailNavigationTarget: Hashable {
     case linkedDive(UUID)
     case diveMedia(diveID: UUID, mediaID: UUID)
+    case buddySharedActivity(LogbookBuddyFeedPresentation.Row)
 
     init?(mediaNavigation target: TripDetailMediaNavigationTarget) {
         self = .diveMedia(diveID: target.diveID, mediaID: target.mediaID)

@@ -1,15 +1,7 @@
-import SwiftUI
+import Foundation
 
-/// Friend invite QR share sheet — detent + layout tokens.
+/// Friend invite QR share sheet — layout tokens.
 enum FriendInviteShareSheetPresentation: Sendable {
     nonisolated static let qrDisplaySize: CGFloat = 196
-}
-
-extension View {
-    /// Invite QR sheet: fixed **medium** detent (full half-sheet height, not content-sized).
-    func friendInviteShareSheetPresentation() -> some View {
-        appSheetPresentationChrome()
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-    }
+    nonisolated static let cancelAccessibilityIdentifier = "FriendInviteShare.Cancel"
 }

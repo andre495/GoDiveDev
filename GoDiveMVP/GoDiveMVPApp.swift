@@ -111,6 +111,24 @@ private struct ProductionAppRoot: View {
                                 ownerProfileID: ownerID,
                                 modelContext: ModelContext(container)
                             )
+                            if let profile = accountSession.currentProfile {
+                                let tripShareContext = ModelContext(container)
+                                // Must use an owner registered in this context — cross-context
+                                // DiveTripBuddyLink relationships fatalError (SwiftData).
+                                if let ownerInContext = GoDiveTripShareMaterializer.ownerInSameContext(
+                                    profile,
+                                    modelContext: tripShareContext
+                                ) {
+                                    await GoDiveTripShareSync.reconcileIncoming(
+                                        owner: ownerInContext,
+                                        modelContext: tripShareContext
+                                    )
+                                    await GoDiveTripShareSync.reconcileOutgoingAcceptances(
+                                        owner: ownerInContext,
+                                        modelContext: tripShareContext
+                                    )
+                                }
+                            }
                         }
                     }
                 }

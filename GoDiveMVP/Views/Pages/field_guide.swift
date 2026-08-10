@@ -30,15 +30,13 @@ struct FieldGuideView: View {
     @State private var showsAddSpeciesSheet = false
 
     @Environment(RootTabSelectionStore.self) private var rootTabSelection
+    /// Local mirror — avoid observing **`RootTabSelectionStore.selected`** in **`body`**.
+    @State private var isFieldGuideTabSelected = false
 
     private let ownerProfileID: UUID?
 
     init(ownerProfileID: UUID?) {
         self.ownerProfileID = ownerProfileID
-    }
-
-    private var isFieldGuideTabSelected: Bool {
-        RootTabSelectionPresentation.isSelected(.fieldGuide, selected: rootTabSelection.selected)
     }
 
     private var showsFieldGuideRootTabBar: Bool {
@@ -61,24 +59,15 @@ struct FieldGuideView: View {
     }
 
     private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
-        if catalogSnapshots.isEmpty, !marineLifeCatalog.isEmpty {
-            return marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
-        }
-        return catalogSnapshots
+        catalogSnapshots
     }
 
     private var resolvedCategorySummaries: [FieldGuideCatalogIndex.CategorySummary] {
-        if categorySummaries.isEmpty, !resolvedCatalogSnapshots.isEmpty {
-            return FieldGuideCatalogIndex.summaries(for: resolvedCatalogSnapshots)
-        }
-        return categorySummaries
+        categorySummaries
     }
 
     private var resolvedSubcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex {
-        if subcategorySpeciesIndex.isEmpty, !resolvedCatalogSnapshots.isEmpty {
-            return FieldGuideCatalogIndex.subcategorySpeciesIndex(for: resolvedCatalogSnapshots)
-        }
-        return subcategorySpeciesIndex
+        subcategorySpeciesIndex
     }
 
     private var showsFieldGuideHubChrome: Bool {
@@ -104,10 +93,7 @@ struct FieldGuideView: View {
         ZStack {
             if showsFieldGuideBubbleBackground, !GoDiveUITestConfiguration.isActive {
                 WaterBubbleBackground(
-                    animationPaused: RootTabSelectionPresentation.shouldPauseBubbles(
-                        for: .fieldGuide,
-                        selected: rootTabSelection.selected
-                    ),
+                    animationPaused: !isFieldGuideTabSelected,
                     diagnosticsLabel: "FieldGuide"
                 )
             }
@@ -256,6 +242,28 @@ struct FieldGuideView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fieldGuideTabReselected)) { _ in
             handleFieldGuideTabReselect()
         }
+        .onAppear {
+            isFieldGuideTabSelected = RootTabSelectionPresentation.localSelectionAfterMount(
+                tab: .fieldGuide,
+                storeSelected: rootTabSelection.selected
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabBarDidSelect)) { notification in
+            if let selected = RootTabSelectionPresentation.localSelection(
+                tab: .fieldGuide,
+                from: notification
+            ) {
+                isFieldGuideTabSelected = selected
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rootTabSelectionDidChange)) { notification in
+            if let selected = RootTabSelectionPresentation.localSelection(
+                tab: .fieldGuide,
+                from: notification
+            ) {
+                isFieldGuideTabSelected = selected
+            }
+        }
         // Idle bind waits for Home chrome + quiet window; opening Field Guide binds now.
         .task {
             CatalogTabLoadDiagnostics.note(
@@ -272,7 +280,7 @@ struct FieldGuideView: View {
             await reloadFieldGuideCatalogsIfNeeded()
         }
         .onChange(of: marineLifeCatalog.count) { _, _ in
-            syncCatalogCache()
+            syncCatalogCacheFromBoundCatalogs()
         }
         .sheet(isPresented: $showsAddSpeciesSheet) {
             FieldGuideMarineLifeAddSheet { marineLifeUUID in
@@ -327,8 +335,24 @@ struct FieldGuideView: View {
         CatalogTabLoadDiagnostics.note(
             "fieldGuide.reload.done boundMarine=\(marineLifeCatalog.count) storeMarine=\(storeMarineCount) userMarine=\(userMarineLifeCatalog.count) diveSites=\(diveSiteCatalog.count) hasLoaded=true"
         )
-        syncCatalogCache()
+        syncCatalogCacheFromBoundCatalogs()
         scheduleEmptyCatalogRetryIfNeeded()
+    }
+
+    /// Snapshot bound rows once and index immediately (no second SwiftData fetch).
+    /// Hub paint stays synchronous so Field Guide never sits on a spinner after bind.
+    private func syncCatalogCacheFromBoundCatalogs() {
+        let nextSnapshots =
+            marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
+            + userMarineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
+        guard nextSnapshots != catalogSnapshots else { return }
+        let built = FieldGuideCatalogCacheBuild.make(snapshots: nextSnapshots)
+        catalogSnapshots = built.snapshots
+        categorySummaries = built.categorySummaries
+        subcategorySpeciesIndex = built.subcategorySpeciesIndex
+        CatalogTabLoadDiagnostics.note(
+            "fieldGuide.cache synced snapshots=\(built.snapshots.count) categories=\(built.categorySummaries.count)"
+        )
     }
 
     /// Launch marine-life seed may finish after the first empty bind — one catch-up only.
@@ -347,19 +371,6 @@ struct FieldGuideView: View {
             CatalogTabLoadDiagnostics.note("fieldGuide.emptyRetry.fire")
             await reloadFieldGuideCatalogsIfNeeded(force: true)
         }
-    }
-
-    private func syncCatalogCache() {
-        let nextSnapshots = (try? MarineLifeSpeciesResolver.allCatalogSnapshots(modelContext: modelContext))
-            ?? (marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
-                + userMarineLifeCatalog.map(\.fieldGuideCatalogSnapshot))
-        guard nextSnapshots != catalogSnapshots else { return }
-        catalogSnapshots = nextSnapshots
-        categorySummaries = FieldGuideCatalogIndex.summaries(for: nextSnapshots)
-        subcategorySpeciesIndex = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: nextSnapshots)
-        CatalogTabLoadDiagnostics.note(
-            "fieldGuide.cache synced snapshots=\(nextSnapshots.count) categories=\(categorySummaries.count)"
-        )
     }
 
     @ViewBuilder

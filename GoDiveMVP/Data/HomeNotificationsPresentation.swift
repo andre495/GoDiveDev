@@ -7,7 +7,7 @@ enum HomeNotificationsPresentation: Sendable {
     nonisolated static let pageTitle = "Notifications"
     nonisolated static let maxItems = 100
     nonisolated static let emptyStateMessage =
-        "No notifications yet. When buddies connect, share activities, like and comment on your posts, or mention you, they show up here."
+        "No notifications yet. When buddies connect, share trips or activities, like and comment on your posts, or mention you, they show up here."
     nonisolated static let newSectionTitle = "New"
     nonisolated static let olderSectionTitle = "Older"
     nonisolated static let noNewNotificationsMessage = "You have no new notifications"
@@ -42,6 +42,14 @@ enum HomeNotificationsPresentation: Sendable {
         var destination: Destination
     }
 
+    /// Tap target for an incoming trip-share invite (local materialized trip).
+    struct TripShareInviteTarget: Equatable, Sendable, Hashable {
+        var localTripID: UUID
+        var inviteID: String
+        var sharerUID: String
+        var sourceTripID: String
+    }
+
     struct Item: Identifiable, Equatable, Sendable {
         enum Kind: Equatable, Sendable {
             case friendConnected(GoDiveFriendGraphService.FriendEdge)
@@ -50,6 +58,7 @@ enum HomeNotificationsPresentation: Sendable {
             case buddyActivityLiked(OwnedActivityTarget)
             case buddyActivityCommented(OwnedActivityTarget)
             case buddyActivityMentioned(MentionTarget)
+            case tripShareInvite(TripShareInviteTarget)
         }
 
         var id: String
@@ -68,11 +77,17 @@ enum HomeNotificationsPresentation: Sendable {
         activityRows: [LogbookBuddyFeedPresentation.Row],
         ownedSocialEvents: [HomeNotificationsOwnedSocialSync.Event] = [],
         mentionEvents: [HomeNotificationsMentionSync.Event] = [],
+        tripShareInvites: [GoDiveTripShareMapping.InviteSnapshot] = [],
+        localTripIDByInviteID: [String: UUID] = [:],
         currentFirebaseUID: String? = nil
     ) -> [Item] {
         var merged: [Item] = []
         merged.reserveCapacity(
-            friends.count + activityRows.count * 2 + ownedSocialEvents.count + mentionEvents.count
+            friends.count
+                + activityRows.count * 2
+                + ownedSocialEvents.count
+                + mentionEvents.count
+                + tripShareInvites.count
         )
 
         let photoURLByUID = friendPhotoURLByUID(friends)
@@ -139,6 +154,32 @@ enum HomeNotificationsPresentation: Sendable {
             }
         }
 
+        for invite in tripShareInvites {
+            guard invite.status == .pending || invite.status == .accepted,
+                  let localTripID = localTripIDByInviteID[invite.inviteID]
+            else { continue }
+            let name = invite.sharerDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "A buddy"
+            let photoURL = photoURLByUID[invite.sharerUID]
+            merged.append(
+                Item(
+                    id: "trip-share-\(invite.inviteID)",
+                    kind: .tripShareInvite(
+                        TripShareInviteTarget(
+                            localTripID: localTripID,
+                            inviteID: invite.inviteID,
+                            sharerUID: invite.sharerUID,
+                            sourceTripID: invite.tripID
+                        )
+                    ),
+                    date: invite.updatedAt ?? invite.createdAt,
+                    friendDisplayName: name.isEmpty ? "A buddy" : name,
+                    friendPhotoURL: photoURL,
+                    message: tripShareInviteMessage(displayName: name),
+                    detail: trimmedNonEmpty(invite.title)
+                )
+            )
+        }
+
         let sorted = merged.sorted { lhs, rhs in
             if lhs.date != rhs.date { return lhs.date > rhs.date }
             let lhsRank = sortRank(for: lhs.kind)
@@ -147,6 +188,10 @@ enum HomeNotificationsPresentation: Sendable {
             return lhs.id < rhs.id
         }
         return Array(sorted.prefix(maxItems))
+    }
+
+    nonisolated static func tripShareInviteMessage(displayName: String) -> String {
+        "\(nonEmptyName(displayName)) shared a trip with you"
     }
 
     nonisolated static func item(
@@ -286,12 +331,13 @@ enum HomeNotificationsPresentation: Sendable {
 
     nonisolated private static func sortRank(for kind: Item.Kind) -> Int {
         switch kind {
-        case .buddyActivityMentioned: return 0
-        case .buddyActivityCommented: return 1
-        case .buddyActivityLiked: return 2
-        case .buddyActivityTaggedYou: return 3
-        case .buddyActivityShared: return 4
-        case .friendConnected: return 5
+        case .tripShareInvite: return 0
+        case .buddyActivityMentioned: return 1
+        case .buddyActivityCommented: return 2
+        case .buddyActivityLiked: return 3
+        case .buddyActivityTaggedYou: return 4
+        case .buddyActivityShared: return 5
+        case .friendConnected: return 6
         }
     }
 

@@ -227,6 +227,24 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
             NotificationCenter.default.post(name: openActivityFromMentionNotification, object: nil)
             return
         }
+        if let tripShareTarget = GoDiveTripSharePushPresentation.target(fromUserInfo: userInfo) {
+            GoDiveTripSharePushNavigationStore.shared.setPending(tripShareTarget)
+            NotificationCenter.default.post(
+                name: GoDiveTripSharePushPresentation.openTripShareInviteNotification,
+                object: nil
+            )
+            return
+        }
+        if let acceptedTarget = GoDiveTripShareInviteAcceptedPushPresentation.target(
+            fromUserInfo: userInfo
+        ) {
+            GoDiveTripShareInviteAcceptedPushNavigationStore.shared.setPending(acceptedTarget)
+            NotificationCenter.default.post(
+                name: GoDiveTripShareInviteAcceptedPushPresentation.openTripShareAcceptedNotification,
+                object: nil
+            )
+            return
+        }
         guard let type = userInfo["type"] as? String,
               type == GoDiveFriendInvitePushPresentation.notificationType
         else { return }

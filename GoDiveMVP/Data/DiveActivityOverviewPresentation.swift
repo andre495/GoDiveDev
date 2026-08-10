@@ -6,10 +6,11 @@ import SwiftData
 enum DiveActivityMapOverviewStatIcon: Sendable, Equatable {
     case clock
     case palmTree
+    case waterWaves
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.clock, .clock), (.palmTree, .palmTree):
+        case (.clock, .clock), (.palmTree, .palmTree), (.waterWaves, .waterWaves):
             return true
         default:
             return false

@@ -12,6 +12,7 @@ import CoreGraphics
 import CoreLocation
 import Foundation
 import MapKit
+import os
 import SwiftUI
 #if canImport(Photos)
 import Photos
@@ -486,6 +487,133 @@ struct GoDiveMVPTests {
         )
         #expect(scoped == [sharedDiveID, taggedOnlyDiveID])
         #expect(scoped.count == 2)
+    }
+
+    @Test func diveBuddyDetailPresentation_deferredContentTaskToken_ignoresNumberingRowCount() {
+        let buddyID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let tokenA = DiveBuddyDetailPresentation.deferredContentTaskToken(
+            buddyID: buddyID,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true
+        )
+        let tokenB = DiveBuddyDetailPresentation.deferredContentTaskToken(
+            buddyID: buddyID,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true
+        )
+        let tokenUnits = DiveBuddyDetailPresentation.deferredContentTaskToken(
+            buddyID: buddyID,
+            unitSystemRawValue: "metric",
+            automaticallyRenumberDives: true
+        )
+        let tokenRenumber = DiveBuddyDetailPresentation.deferredContentTaskToken(
+            buddyID: buddyID,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: false
+        )
+        #expect(tokenA == tokenB)
+        #expect(tokenA != tokenUnits)
+        #expect(tokenA != tokenRenumber)
+        #expect(tokenA == "\(buddyID.uuidString)|imperial|1")
+    }
+
+    @Test func diveBuddyDetailPresentation_contentRebuildFingerprint_changesWithEnrichmentFlags() {
+        let buddyID = UUID()
+        let base = DiveBuddyDetailPresentation.contentRebuildFingerprint(
+            buddyID: buddyID,
+            diveTagCount: 2,
+            mediaTagCount: 3,
+            ownerNumberingRowCount: 10,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true,
+            includeSecondarySections: true,
+            includeTripRows: false,
+            includeMarineLifeEnrichment: false
+        )
+        let enriched = DiveBuddyDetailPresentation.contentRebuildFingerprint(
+            buddyID: buddyID,
+            diveTagCount: 2,
+            mediaTagCount: 3,
+            ownerNumberingRowCount: 10,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true,
+            includeSecondarySections: true,
+            includeTripRows: false,
+            includeMarineLifeEnrichment: true
+        )
+        #expect(base != enriched)
+        #expect(
+            base
+                == DiveBuddyDetailPresentation.contentRebuildFingerprint(
+                    buddyID: buddyID,
+                    diveTagCount: 2,
+                    mediaTagCount: 3,
+                    ownerNumberingRowCount: 10,
+                    unitSystemRawValue: "imperial",
+                    automaticallyRenumberDives: true,
+                    includeSecondarySections: true,
+                    includeTripRows: false,
+                    includeMarineLifeEnrichment: false
+                )
+        )
+    }
+
+    @Test func profilePresentation_taggedMediaIDsFingerprint_isStableForSameIDs() {
+        let a = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let b = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        #expect(
+            ProfilePresentation.taggedMediaIDsFingerprint([a, b])
+                == "\(a.uuidString),\(b.uuidString)"
+        )
+        #expect(ProfilePresentation.taggedMediaIDsFingerprint([]) == "")
+    }
+
+    @Test @MainActor func diveBuddyRosterPresentation_sharedDiveCount_doesNotRequireSortedList() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "count-owner", displayName: "Owner")
+        context.insert(owner)
+        let buddy = DiveBuddy(displayName: "Pat", owner: owner)
+        context.insert(buddy)
+
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        older.ownerProfileID = owner.id
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        newer.ownerProfileID = owner.id
+        context.insert(older)
+        context.insert(newer)
+        _ = DiveBuddyActivityAssociation.tagBuddy(buddy, on: older, modelContext: context)
+        _ = DiveBuddyActivityAssociation.tagBuddy(buddy, on: newer, modelContext: context)
+        try context.save()
+
+        #expect(DiveBuddyRosterPresentation.sharedDiveCount(for: buddy, ownerProfileID: owner.id) == 2)
+        let map = DiveBuddyRosterPresentation.sharedDiveCountsByBuddyID(
+            for: [buddy],
+            ownerProfileID: owner.id
+        )
+        #expect(map[buddy.id] == 2)
+        let denormalizedMap = DiveBuddyRosterPresentation.sharedDiveCountsByBuddyID(
+            buddyIDs: [buddy.id],
+            modelContext: context
+        )
+        #expect(denormalizedMap[buddy.id] == 2)
+    }
+
+    @Test func buddiesListNavigationRoute_identifiableIDs_areStable() {
+        let buddyID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let friend = GoDiveFriendGraphService.friendEdge(friendUID: "uid-1", displayName: "Pat")
+        #expect(BuddiesListNavigationRoute.rosterBuddy(buddyID).id == "buddy-\(buddyID.uuidString)")
+        #expect(BuddiesListNavigationRoute.friend(friend).id == "friend-uid-1")
     }
 
     @Test @MainActor func diveBuddyDetailPresentation_numberedRows_seedFromOwnerIndexCache() {
@@ -1067,6 +1195,9 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.menuBuddiesTitle == "Buddies")
         #expect(ProfilePresentation.menuTripsTitle == "Trips")
         #expect(ProfilePresentation.menuSignOutTitle == "Sign out")
+        #expect(ProfilePresentation.menuInviteBuddyTitle == "Invite a buddy")
+        #expect(ProfilePresentation.menuInviteBuddySystemImage == "qrcode")
+        #expect(ProfilePresentation.menuInviteBuddyAccessibilityIdentifier == "Profile.InviteBuddy")
         #expect(ProfilePresentation.menuIconPointSize == 28)
         #expect(ProfilePresentation.sideMenuWidthFraction == CGFloat(2.0 / 3.0))
         #expect(ProfilePresentation.sideMenuItemTitles == [
@@ -1079,14 +1210,14 @@ struct GoDiveMVPTests {
         #expect(!ProfilePresentation.sideMenuItemTitles.contains("Edit Profile"))
         #expect(!ProfilePresentation.sideMenuItemTitles.contains("My tagged media"))
         #expect(!ProfilePresentation.sideMenuItemTitles.contains("Sign out"))
+        #expect(!ProfilePresentation.sideMenuItemTitles.contains("Invite a buddy"))
     }
 
-    @Test @MainActor func profileDetailContentPagerPresentation_detailsPageCopy() {
-        #expect(ProfileDetailContentPagerPresentation.pageCount == 3)
+    @Test @MainActor func profileDetailContentPagerPresentation_diverStatsAndTaggedMediaPages() {
+        #expect(ProfileDetailContentPagerPresentation.pageCount == 2)
         #expect(
             ProfileDetailContentPagerPresentation.pages == [
                 .diverStats,
-                .details,
                 .taggedMedia,
             ]
         )
@@ -1094,17 +1225,12 @@ struct GoDiveMVPTests {
         #expect(ProfileDetailContentPagerPresentation.showsBuddyLeaderboardOnDiverStats == false)
         #expect(ProfileDetailContentPagerPresentation.showsLifetimeSummaryOnDiverStats == false)
         #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .diverStats) == "Diver stats")
-        #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .details) == "Details")
         #expect(
             ProfileDetailContentPagerPresentation.pageTitle(for: .taggedMedia)
                 == DiveBuddyTaggedMediaPresentation.sectionTitle
         )
-        #expect(ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .diverStats))
+        #expect(!ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .diverStats))
         #expect(!ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .taggedMedia))
-        #expect(ProfileDetailContentPagerPresentation.danSectionTitle == "DAN insurance")
-        #expect(ProfileDetailContentPagerPresentation.certificationSectionTitle == "Certification")
-        #expect(ProfileDetailContentPagerPresentation.certificationDateAttainedLabel == "Date attained")
-        #expect(ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .details))
         #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay("1234567") == "#1234567")
         #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay("#999") == "#999")
         #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay(nil) == "#")
@@ -1114,14 +1240,9 @@ struct GoDiveMVPTests {
             BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding == AppTheme.Spacing.lg
         )
         #expect(ProfileDetailContentPagerPresentation.danWebsiteURL.absoluteString == "https://dan.org/")
-        #expect(ProfileDetailContentPagerPresentation.emptyDanMessage.contains("DAN"))
         #expect(
             ProfileDetailContentPagerPresentation.accessibilityIdentifier(for: .diverStats)
                 == "Profile.ContentPager.DiverStats"
-        )
-        #expect(
-            ProfileDetailContentPagerPresentation.accessibilityIdentifier(for: .details)
-                == "Profile.ContentPager.Details"
         )
         #expect(
             ProfileDetailContentPagerPresentation.accessibilityIdentifier(for: .taggedMedia)
@@ -3838,10 +3959,12 @@ struct GoDiveMVPTests {
             dateAttained: Date(timeIntervalSince1970: 1_700_000_000)
         )
         #expect(CertificationPresentation.listAgencyNumberLine(for: cert) == "PADI · #240988")
+        #expect(CertificationPresentation.listAgencyLine(for: cert) == "PADI")
         #expect(CertificationPresentation.formattedCertNumber("240988") == "#240988")
         #expect(CertificationPresentation.formattedCertNumber("#99") == "#99")
         #expect(CertificationPresentation.formattedCertNumber("  ") == nil)
         #expect(CertificationPresentation.listAgencyNumberLine(for: Certification()) == "—")
+        #expect(CertificationPresentation.listAgencyLine(for: Certification()) == "—")
         #expect(
             CertificationPresentation.listDateLine(for: cert)
                 == CertificationPresentation.formattedDate(cert.dateAttained)
@@ -10903,6 +11026,7 @@ struct GoDiveMVPTests {
                 )
         )
         #expect(upcoming.linkedDiveCountLabel == nil)
+        #expect(upcoming.inviteBadgeTitle == nil)
 
         let active = TripPlannerPresentation.listRowDisplayData(for: trip, phase: .active)
         #expect(active.dateRangeLine == dateRange)
@@ -11249,6 +11373,239 @@ struct GoDiveMVPTests {
         #expect(remaining.isEmpty)
     }
 
+    @Test @MainActor func diveTripShareOfferPresentation_onlyNewlyAddedLinkedFriends() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-share-offer", displayName: "Diver")
+        context.insert(profile)
+
+        let friend = DiveBuddy(displayName: "Alex", owner: profile)
+        friend.linkedFirebaseUID = "friend-uid"
+        let local = DiveBuddy(displayName: "Local", owner: profile)
+        context.insert(friend)
+        context.insert(local)
+
+        let trip = DiveTrip(
+            startDate: .now,
+            endDate: .now,
+            title: "Shared",
+            owner: profile
+        )
+        context.insert(trip)
+
+        let roster = [friend.id: friend, local.id: local]
+        let candidates = DiveTripShareOfferPresentation.candidates(
+            previousBuddyIDs: [],
+            newBuddyIDs: [friend.id, local.id],
+            rosterByID: roster,
+            trip: trip
+        )
+        #expect(candidates.map(\.friendUID) == ["friend-uid"])
+
+        DiveTripShareLineagePresentation.recordSharedWithFriend(trip, friendUID: "friend-uid")
+        let again = DiveTripShareOfferPresentation.candidates(
+            previousBuddyIDs: [],
+            newBuddyIDs: [friend.id],
+            rosterByID: roster,
+            trip: trip
+        )
+        #expect(again.isEmpty)
+    }
+
+    @Test @MainActor func diveTripShareMaterializer_createsPendingInviteeCopyAndLocksEdits() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-share-materialize", displayName: "Recipient")
+        context.insert(profile)
+
+        let siteID = UUID()
+        let start = Date(timeIntervalSince1970: 1_900_000_000)
+        let end = Date(timeIntervalSince1970: 1_900_100_000)
+        let shared = GoDiveTripShareMapping.SharedTripSnapshot(
+            tripID: "SOURCE-TRIP",
+            title: "Bonaire",
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire"],
+            plannedSiteIDs: [siteID.uuidString],
+            updatedAt: end,
+            createdAt: start,
+            schemaVersion: 1
+        )
+        let invite = GoDiveTripShareMapping.InviteSnapshot(
+            inviteID: "sharer_SOURCE-TRIP",
+            sharerUID: "sharer-uid",
+            tripID: "SOURCE-TRIP",
+            status: .pending,
+            title: "Bonaire",
+            sharerDisplayName: "Alex",
+            createdAt: start,
+            updatedAt: nil,
+            schemaVersion: 1
+        )
+
+        let result = GoDiveTripShareMaterializer.materializePending(
+            invite: invite,
+            sharedTrip: shared,
+            owner: profile,
+            modelContext: context
+        )
+        try context.save()
+        #expect(result.created)
+        let trip = try #require(
+            context.fetch(FetchDescriptor<DiveTrip>()).first { $0.id == result.tripID }
+        )
+        #expect(DiveTripShareLineagePresentation.isPendingInvite(trip))
+        #expect(!DiveTripShareLineagePresentation.canEditSharedDetails(trip))
+        #expect(trip.ownerProfileID == profile.id)
+        #expect(trip.plannedSiteIDs == [siteID])
+        #expect(trip.sharedFromFirebaseUID == "sharer-uid")
+
+        var updatedShared = shared
+        updatedShared.title = "Bonaire Reef"
+        updatedShared.countries = ["Bonaire", "Curaçao"]
+        updatedShared.updatedAt = end.addingTimeInterval(60)
+        #expect(GoDiveTripShareMaterializer.applySyncedFields(updatedShared, to: trip))
+        #expect(trip.title == "Bonaire Reef")
+        #expect(trip.countries == ["Bonaire", "Curaçao"])
+        #expect(!GoDiveTripShareMaterializer.applySyncedFields(updatedShared, to: trip))
+
+        GoDiveTripShareMaterializer.markAccepted(trip)
+        #expect(DiveTripShareLineagePresentation.isAcceptedInvite(trip))
+        #expect(
+            TripPlannerPresentation.listRowDisplayData(for: trip, phase: .upcoming).inviteBadgeTitle
+                == nil
+        )
+        #expect(
+            DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).contains {
+                $0.linkedFirebaseUID == "sharer-uid"
+            }
+        )
+    }
+
+    /// Regression: launch reconcile used a fresh `ModelContext` + `AccountSession` owner from
+    /// the main context; linking the sharer as a planned buddy asserted in SwiftData.
+    @Test @MainActor func tripShareMaterializer_acceptsOwnerFromDifferentModelContext() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let main = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-share-cross-ctx", displayName: "Recipient")
+        main.insert(profile)
+        let existingBuddy = DiveBuddy(displayName: "Alex", owner: profile)
+        existingBuddy.linkedFirebaseUID = "sharer-uid"
+        main.insert(existingBuddy)
+        try main.save()
+
+        let background = ModelContext(container)
+        let start = Date(timeIntervalSince1970: 1_900_000_000)
+        let end = Date(timeIntervalSince1970: 1_900_100_000)
+        let shared = GoDiveTripShareMapping.SharedTripSnapshot(
+            tripID: "SOURCE-TRIP-CTX",
+            title: "Bonaire",
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire"],
+            plannedSiteIDs: [],
+            updatedAt: end,
+            createdAt: start,
+            schemaVersion: 1
+        )
+        let invite = GoDiveTripShareMapping.InviteSnapshot(
+            inviteID: "sharer_SOURCE-TRIP-CTX",
+            sharerUID: "sharer-uid",
+            tripID: "SOURCE-TRIP-CTX",
+            status: .pending,
+            title: "Bonaire",
+            sharerDisplayName: "Alex",
+            createdAt: start,
+            updatedAt: nil,
+            schemaVersion: 1
+        )
+
+        // Pass the main-context owner into a different context (the crashing production shape).
+        let result = GoDiveTripShareMaterializer.materializePending(
+            invite: invite,
+            sharedTrip: shared,
+            owner: profile,
+            modelContext: background
+        )
+        try background.save()
+        #expect(result.created)
+        let trip = try #require(
+            background.fetch(FetchDescriptor<DiveTrip>()).first { $0.id == result.tripID }
+        )
+        #expect(DiveTripShareLineagePresentation.isPendingInvite(trip))
+        #expect(
+            DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).contains {
+                $0.linkedFirebaseUID == "sharer-uid"
+            }
+        )
+    }
+
+    @Test func diveTripShareLineage_ordinaryTripCanEditSharedDetails() {
+        let trip = DiveTrip(startDate: .now, endDate: .now, title: "Mine")
+        #expect(DiveTripShareLineagePresentation.canEditSharedDetails(trip))
+        #expect(!DiveTripShareLineagePresentation.isSharedInviteeCopy(trip))
+    }
+
+    @Test @MainActor func tripDetailBuddyActivitiesPresentation_filtersByTripDatesAndFriendUIDs() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-buddy-acts", displayName: "Diver")
+        context.insert(profile)
+        let friend = DiveBuddy(displayName: "Alex", owner: profile)
+        friend.linkedFirebaseUID = "friend-a"
+        let local = DiveBuddy(displayName: "Local", owner: profile)
+        context.insert(friend)
+        context.insert(local)
+
+        let uids = TripDetailBuddyActivitiesPresentation.friendUIDsOnTrip(
+            plannedBuddies: [friend, local],
+            sharedFromFirebaseUID: "sharer-b"
+        )
+        #expect(uids == ["friend-a", "sharer-b"])
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let tripStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let tripEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let inWindow = calendar.date(from: DateComponents(year: 2026, month: 6, day: 5, hour: 12))!
+        let outWindow = calendar.date(from: DateComponents(year: 2026, month: 7, day: 1, hour: 12))!
+
+        func row(id: String, start: Date?) -> LogbookBuddyFeedPresentation.Row {
+            LogbookBuddyFeedPresentation.Row(
+                id: id,
+                friendUID: "friend-a",
+                friendDisplayName: "Alex",
+                friendPhotoURL: nil,
+                dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+                    id: id,
+                    startTime: start,
+                    durationMinutes: nil,
+                    maxDepthMeters: nil,
+                    siteName: "Site",
+                    locationName: nil,
+                    activityTagNames: [],
+                    sightings: [],
+                    taggedBuddies: [],
+                    equipmentSummary: [],
+                    mediaPreviews: [],
+                    profileTrackBase64: nil
+                )
+            )
+        }
+
+        let filtered = TripDetailBuddyActivitiesPresentation.rowsInTripWindow(
+            [row(id: "in", start: inWindow), row(id: "out", start: outWindow), row(id: "nil", start: nil)],
+            start: tripStart,
+            end: tripEnd,
+            calendar: calendar
+        )
+        #expect(filtered.map(\.id) == ["in"])
+        #expect(
+            TripDetailBuddyActivitiesPresentation.subtitleLine(for: filtered[0]).contains("Site")
+        )
+    }
+
     @Test func diveTripDateRange_rejectsEndBeforeStart() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -11550,14 +11907,22 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func tripDetailContentPager_activeTripPages() {
-        #expect(TripDetailContentPagerPresentation.pageCount(hasStarted: true) == 5)
+        #expect(TripDetailContentPagerPresentation.pageCount(hasStarted: true) == 6)
         #expect(
             TripDetailContentPagerPresentation.pages(hasStarted: true) == [
-                .stats, .activities, .marineLife, .buddies, .media,
+                .stats, .activities, .tripActivities, .marineLife, .buddies, .media,
             ]
         )
         #expect(TripDetailContentPagerPresentation.defaultPage(hasStarted: true) == .stats)
         #expect(TripDetailContentPagerPresentation.accessibilityIdentifier(for: .stats) == "TripDetail.ContentPager.Stats")
+        #expect(
+            TripDetailContentPagerPresentation.accessibilityIdentifier(for: .activities)
+                == "TripDetail.ContentPager.MyActivities"
+        )
+        #expect(
+            TripDetailContentPagerPresentation.accessibilityIdentifier(for: .tripActivities)
+                == "TripDetail.ContentPager.TripActivities"
+        )
         #expect(TripDetailContentPagerPresentation.accessibilityIdentifier(for: .media) == "TripDetail.ContentPager.Media")
     }
 
@@ -11566,12 +11931,14 @@ struct GoDiveMVPTests {
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .media))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .marineLife))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .activities))
+        #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .tripActivities))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .plannedSites))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .buddies))
         #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .stats) == .top)
         #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .media) == .top)
         #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .stats) == "Trip Stats")
-        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .activities) == "Activities")
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .activities) == "My Activities")
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .tripActivities) == "Trip Activities")
         #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .marineLife) == "Marine Life")
         #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .buddies) == "Dive Buddies")
         #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .media) == "Media")
@@ -11581,6 +11948,14 @@ struct GoDiveMVPTests {
         #expect(
             TripDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: .stats)
                 == "TripDetail.Stats.Subtitle"
+        )
+        #expect(
+            TripDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: .activities)
+                == "TripDetail.MyActivities.Subtitle"
+        )
+        #expect(
+            TripDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: .tripActivities)
+                == "TripDetail.TripActivities.Subtitle"
         )
     }
 
@@ -11800,9 +12175,67 @@ struct GoDiveMVPTests {
         #expect(members.count == 2)
         #expect(members[0].id == ownerID)
         #expect(members[0].isOwner)
+        #expect(members[0].shareChrome == .you)
         #expect(members[1].id == buddyID)
+        #expect(members[1].shareChrome == TripBuddyTripShareChrome.none)
         #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[0]) == "You")
-        #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[1]) == "On this trip")
+        #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[1]).isEmpty)
+        #expect(TripDetailPlannedBuddyPresentation.statusBadgeTitle(for: members[1]) == nil)
+    }
+
+    @Test @MainActor func tripDetailPlannedBuddyPresentation_shareChromeInviteInvitedJoined() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "share-chrome-owner", displayName: "Alex")
+        let invitee = DiveBuddy(displayName: "Jordan", owner: owner)
+        invitee.linkedFirebaseUID = "friend-jordan"
+        let pending = DiveBuddy(displayName: "Sam", owner: owner)
+        pending.linkedFirebaseUID = "friend-sam"
+        let local = DiveBuddy(displayName: "Local", owner: owner)
+        let trip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 2_000_000),
+            endDate: Date(timeIntervalSince1970: 2_086_400),
+            owner: owner
+        )
+        context.insert(owner)
+        context.insert(invitee)
+        context.insert(pending)
+        context.insert(local)
+        context.insert(trip)
+
+        DiveTripShareLineagePresentation.recordSharedWithFriend(trip, friendUID: "friend-sam")
+        DiveTripShareLineagePresentation.recordAcceptedFriend(trip, friendUID: "friend-jordan")
+
+        let members = TripDetailPlannedBuddyPresentation.listMembers(
+            owner: owner,
+            plannedBuddies: [invitee, pending, local],
+            trip: trip
+        )
+        let byID = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0) })
+        #expect(byID[invitee.id]?.shareChrome == .joined)
+        #expect(
+            TripDetailPlannedBuddyPresentation.statusBadgeTitle(for: byID[invitee.id]!)
+                == "Joined"
+        )
+        #expect(TripDetailPlannedBuddyPresentation.subtitle(for: byID[invitee.id]!).isEmpty)
+
+        #expect(byID[pending.id]?.shareChrome == .invited)
+        #expect(
+            TripDetailPlannedBuddyPresentation.statusBadgeTitle(for: byID[pending.id]!)
+                == "Invited"
+        )
+
+        #expect(byID[local.id]?.shareChrome == TripBuddyTripShareChrome.none)
+        #expect(TripDetailPlannedBuddyPresentation.statusBadgeTitle(for: byID[local.id]!) == nil)
+
+        // Linked friend not yet shared → Invite action chrome.
+        let notShared = DiveBuddy(displayName: "Pat", owner: owner)
+        notShared.linkedFirebaseUID = "friend-pat"
+        context.insert(notShared)
+        #expect(
+            TripDetailPlannedBuddyPresentation.shareChrome(for: notShared, trip: trip) == .invite
+        )
+        #expect(TripDetailPlannedBuddyPresentation.joinedBadgeStyle.label == "Joined")
     }
 
     @Test func tripDetailPlannedBuddyPresentation_usesActiveTripBuddyGridMetrics() {
@@ -11810,6 +12243,8 @@ struct GoDiveMVPTests {
         #expect(TripDetailBuddiesPresentation.avatarDiameter == 64)
         #expect(TripDetailPlannedBuddyPresentation.ownerSubtitle == "You")
         #expect(TripDetailPlannedBuddyPresentation.buddySubtitle == "On this trip")
+        #expect(TripDetailPlannedBuddyPresentation.inviteButtonTitle == "Invite")
+        #expect(TripDetailPlannedBuddyPresentation.invitedBadgeTitle == "Invited")
     }
 
     @Test func tripShareCardPresentation_buildsTemporaryPNGFileName() {
@@ -12063,6 +12498,52 @@ struct GoDiveMVPTests {
         #expect(aggregate.buddies[0].diveCount == 2)
         #expect(aggregate.buddies[1].buddyID == buddyB)
         #expect(aggregate.buddies[1].diveCount == 2)
+    }
+
+    @Test func tripDetailPresentation_deferredContentTaskToken_omitsUpdatedAt() {
+        let tripID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let featured = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let tokenA = TripDetailPresentation.deferredContentTaskToken(
+            tripID: tripID,
+            activityLinkCount: 3,
+            plannedSiteCount: 2,
+            featuredTripMediaPhotoID: featured,
+            ownedDiveActivityCount: 40,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true
+        )
+        let tokenB = TripDetailPresentation.deferredContentTaskToken(
+            tripID: tripID,
+            activityLinkCount: 3,
+            plannedSiteCount: 2,
+            featuredTripMediaPhotoID: featured,
+            ownedDiveActivityCount: 40,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true
+        )
+        let tokenLinks = TripDetailPresentation.deferredContentTaskToken(
+            tripID: tripID,
+            activityLinkCount: 4,
+            plannedSiteCount: 2,
+            featuredTripMediaPhotoID: featured,
+            ownedDiveActivityCount: 40,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true
+        )
+        #expect(tokenA == tokenB)
+        #expect(tokenA != tokenLinks)
+        let fingerprint = TripDetailPresentation.contentRebuildFingerprint(
+            tripID: tripID,
+            activityLinkCount: 3,
+            plannedSiteCount: 2,
+            featuredTripMediaPhotoID: featured,
+            ownedDiveActivityCount: 40,
+            rosterBuddyCount: 5,
+            unitSystemRawValue: "imperial",
+            automaticallyRenumberDives: true
+        )
+        #expect(fingerprint.hasPrefix(tokenA))
+        #expect(fingerprint.hasSuffix("|5"))
     }
 
     @Test func tripDetailPresentation_prefersMapHero_forPlannedTripWithSites() {
@@ -15671,6 +16152,137 @@ struct GoDiveMVPTests {
         #expect(snapshot.allSitesPlottableSites.count >= 1)
         #expect(snapshot.logbookListRows.map(\.displayName) == ["Salt Pier"])
         #expect(snapshot.plottableSignature(for: .logbook) != snapshot.plottableSignature(for: .allSites))
+    }
+
+    @Test func exploreSiteScopeCacheBackgroundBuild_matchesDirectMake() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let siteID = UUID()
+        let linkedSite = DiveSite(id: siteID, siteName: "Salt Pier", latCoords: 12.08, longCoords: -68.28)
+        context.insert(linkedSite)
+        try context.save()
+
+        let logbookIDs: Set<UUID> = [siteID]
+        let direct = ExploreSiteScopeCache.make(
+            catalog: [linkedSite],
+            userSites: [],
+            logbookSiteIDs: logbookIDs
+        )
+        let background = ExploreSiteScopeCacheBackgroundBuild.makeSnapshot(
+            container: container,
+            catalogPersistentIDs: [linkedSite.persistentModelID],
+            userSitePersistentIDs: [],
+            logbookSiteIDs: logbookIDs
+        )
+        #expect(background.hasLogbookSites == direct.hasLogbookSites)
+        #expect(background.logbookPlottableSites.map(\.id) == direct.logbookPlottableSites.map(\.id))
+        #expect(background.logbookListRows.map(\.displayName) == direct.logbookListRows.map(\.displayName))
+
+        let owner = UserProfile(appleUserIdentifier: "explore-scope-fallback", displayName: "Explorer")
+        context.insert(owner)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        activity.ownerProfileID = owner.id
+        activity.diveSiteID = siteID
+        context.insert(activity)
+        try context.save()
+
+        let fromOwnerFallback = ExploreSiteScopeCacheBackgroundBuild.makeSnapshot(
+            container: container,
+            catalogPersistentIDs: [linkedSite.persistentModelID],
+            userSitePersistentIDs: [],
+            logbookSiteIDs: [],
+            ownerProfileID: owner.id
+        )
+        #expect(fromOwnerFallback.hasLogbookSites)
+        #expect(fromOwnerFallback.logbookPlottableSites.contains(where: { $0.id == siteID }))
+    }
+
+    @Test func fieldGuideCatalogCacheBuild_indexesBoundSnapshotsWithoutRefetch() {
+        let snapshots = [
+            MarineLifeCatalogSnapshot(
+                uuid: "a",
+                commonName: "Queen Angelfish",
+                scientificName: "Holacanthus ciliaris",
+                category: "fishes",
+                subcategory: "angelfishes",
+                featureImageURL: "",
+                minSizeMeters: 0.1,
+                maxSizeMeters: 0.4,
+                avgDepthMeters: 10
+            ),
+            MarineLifeCatalogSnapshot(
+                uuid: "b",
+                commonName: "French Angelfish",
+                scientificName: "Pomacanthus paru",
+                category: "fishes",
+                subcategory: "angelfishes",
+                featureImageURL: "",
+                minSizeMeters: 0.1,
+                maxSizeMeters: 0.4,
+                avgDepthMeters: 12
+            ),
+        ]
+        let built = FieldGuideCatalogCacheBuild.make(snapshots: snapshots)
+        #expect(built.snapshots.count == 2)
+        #expect(built.categorySummaries == FieldGuideCatalogIndex.summaries(for: snapshots))
+        #expect(
+            built.subcategorySpeciesIndex
+                == FieldGuideCatalogIndex.subcategorySpeciesIndex(for: snapshots)
+        )
+    }
+
+    @Test func logbookActivitySnapshotSeeding_sortedMergedSeeds_ordersNewestFirst() {
+        let olderID = UUID()
+        let newerID = UUID()
+        let older = LogbookActivitySnapshotSeed(
+            id: olderID,
+            kind: .scubaDive,
+            sourceDiveId: nil,
+            sourceActivityId: nil,
+            startTime: Date(timeIntervalSince1970: 100),
+            maxDepthMeters: 10,
+            swimDistanceMeters: nil,
+            durationMinutes: 30,
+            bottomTimeSeconds: nil,
+            diveNumber: 1,
+            diveNumberExplicitlyNone: false,
+            displayName: "Older",
+            formattedStartDateOnly: "A",
+            resolvedSiteNameLowercased: nil,
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
+        )
+        let newer = LogbookActivitySnapshotSeed(
+            id: newerID,
+            kind: .snorkel,
+            sourceDiveId: nil,
+            sourceActivityId: nil,
+            startTime: Date(timeIntervalSince1970: 200),
+            maxDepthMeters: 0,
+            swimDistanceMeters: 100,
+            durationMinutes: 40,
+            bottomTimeSeconds: nil,
+            diveNumber: nil,
+            diveNumberExplicitlyNone: true,
+            displayName: "Newer",
+            formattedStartDateOnly: "B",
+            resolvedSiteNameLowercased: nil,
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: true
+        )
+        let sorted = LogbookActivitySnapshotSeeding.sortedMergedSeeds([older, newer])
+        #expect(sorted.map(\.id) == [newerID, olderID])
     }
 
     @Test func exploreCatalogMapPresentation_deduplicatingPlottableSites_keepsFirstOnDuplicateIDs() {
@@ -19345,6 +19957,91 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselScrollInteractionPresentation.usesEagerHorizontalStackForPaging)
     }
 
+    @Test func homeMediaCarouselPresentation_slideChromePanelHitPassThroughHeight_coversControlRow() {
+        let height = HomeMediaCarouselPresentation.slideChromePanelHitPassThroughHeight(
+            controlHeight: 48
+        )
+        #expect(height == HomeMediaCarouselPresentation.slideChromeDistanceBelowSeam + 48 + 8)
+        #expect(height > HomeMediaCarouselPresentation.slideChromeDistanceBelowSeam)
+        let shape = HomeLifetimeStatsPanelMediaChromePassThroughHitShape(passThroughTop: 100)
+        let path = shape.path(in: CGRect(x: 0, y: 0, width: 200, height: 400))
+        #expect(path.boundingRect.origin.y == 100)
+        #expect(path.boundingRect.height == 300)
+        let full = HomeLifetimeStatsPanelMediaChromePassThroughHitShape(passThroughTop: 0)
+            .path(in: CGRect(x: 0, y: 0, width: 200, height: 400))
+        #expect(full.boundingRect.height == 400)
+    }
+
+    @Test func homeMediaCarouselScrollInteraction_openMediaTapYieldsToChromeControls() {
+        #expect(
+            HomeMediaCarouselScrollInteractionPresentation.viewClassNameExcludesOpenMediaTap(
+                "SwiftUI.Button"
+            )
+        )
+        #expect(
+            HomeMediaCarouselScrollInteractionPresentation.viewClassNameExcludesOpenMediaTap(
+                "UIButton"
+            )
+        )
+        #expect(
+            !HomeMediaCarouselScrollInteractionPresentation.viewClassNameExcludesOpenMediaTap(
+                "UIScrollView"
+            )
+        )
+        #expect(
+            HomeMediaCarouselScrollInteractionPresentation.shouldIgnoreOpenMediaTap(
+                touchingViewClassNames: ["SwiftUI.ButtonPlatformView"],
+                encounteredNestedScrollView: false,
+                hasCompetingTapRecognizer: false
+            )
+        )
+        #expect(
+            HomeMediaCarouselScrollInteractionPresentation.shouldIgnoreOpenMediaTap(
+                touchingViewClassNames: ["UIView"],
+                encounteredNestedScrollView: true,
+                hasCompetingTapRecognizer: false
+            )
+        )
+        #expect(
+            HomeMediaCarouselScrollInteractionPresentation.shouldIgnoreOpenMediaTap(
+                touchingViewClassNames: ["UIView"],
+                encounteredNestedScrollView: false,
+                hasCompetingTapRecognizer: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselScrollInteractionPresentation.shouldIgnoreOpenMediaTap(
+                touchingViewClassNames: ["UIView", "UIImageView"],
+                encounteredNestedScrollView: false,
+                hasCompetingTapRecognizer: false
+            )
+        )
+        #expect(
+            HomeMediaCarouselScrollInteractionPresentation.openMediaTapShouldRequireFailure(
+                ofOtherGestureClassName: "UITapGestureRecognizer",
+                otherIsTapGesture: true,
+                otherIsPanGesture: false,
+                otherViewIsPagingScrollView: false
+            )
+        )
+        #expect(
+            !HomeMediaCarouselScrollInteractionPresentation.openMediaTapShouldRequireFailure(
+                ofOtherGestureClassName: "UIPanGestureRecognizer",
+                otherIsTapGesture: false,
+                otherIsPanGesture: true,
+                otherViewIsPagingScrollView: false
+            )
+        )
+        #expect(
+            !HomeMediaCarouselScrollInteractionPresentation.openMediaTapShouldRequireFailure(
+                ofOtherGestureClassName: "UITapGestureRecognizer",
+                otherIsTapGesture: true,
+                otherIsPanGesture: false,
+                otherViewIsPagingScrollView: true
+            )
+        )
+    }
+
     @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 3) == 1)
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 2, count: 3) == 0)
@@ -19995,9 +20692,15 @@ struct GoDiveMVPTests {
             )
         )
         #expect(
-            !HomeMediaCarouselPresentation.allowsHomeTopChromeHitTesting(
+            HomeMediaCarouselPresentation.allowsHomeTopChromeHitTesting(
                 showsMarineLifeOverlay: false,
                 homeHeroInteractionOverlayActive: true
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.allowsHomeTopChromeHitTesting(
+                showsMarineLifeOverlay: false,
+                homeHeroInteractionOverlayActive: false
             )
         )
         let inset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
@@ -24219,6 +24922,14 @@ struct GoDiveMVPTests {
         #expect(MapKitWarmup.shouldWarmUp == !GoDiveUITestConfiguration.isActive)
     }
 
+    @Test @MainActor func mapKitWarmup_warmUpIfNeeded_doesNotBlockCallerSynchronously() {
+        guard MapKitWarmup.shouldWarmUp else { return }
+        MapKitWarmup.resetForTesting()
+        MapKitWarmup.warmUpIfNeeded()
+        // Scheduling must not create / insert MKMapView on the caller's stack (tab-select path).
+        #expect(!MapKitWarmup.didWarmUp)
+    }
+
     @Test func googleMapsBootstrap_shouldWarmUpAtLaunch_respectsEngineAndUITestFlag() {
         #expect(
             GoogleMapsBootstrap.shouldWarmUpAtLaunch
@@ -24645,6 +25356,7 @@ struct GoDiveMVPTests {
         )
         #expect(imperial.leadingStats[1].valueNumber == "109")
         #expect(imperial.leadingStats[1].valueUnit == "yd")
+        #expect(imperial.leadingStats[1].icon == .waterWaves)
         let metric = SnorkelActivityOverviewPresentation.mapOverviewStatsLayout(
             durationMinutes: 30,
             swimDistanceMeters: 210,
@@ -24654,6 +25366,7 @@ struct GoDiveMVPTests {
         )
         #expect(metric.leadingStats[1].valueNumber == "210")
         #expect(metric.leadingStats[1].valueUnit == "m")
+        #expect(metric.leadingStats[1].icon == .waterWaves)
     }
 
     @Test func diveActivityOverviewPresentation_siteTitleLinksToCatalogOverview_requiresLinkedSiteID() {
@@ -27202,11 +27915,32 @@ struct GoDiveMVPTests {
         }
     }
 
-    @Test func diveBuddyPresentation_firstName_usesFirstToken() {
+    @Test @MainActor func diveBuddyPresentation_firstName_usesFirstToken() {
         #expect(DiveBuddyPresentation.firstName(from: "Pat Lee") == "Pat")
         #expect(DiveBuddyPresentation.firstName(from: "  Jamie  ") == "Jamie")
         #expect(DiveBuddyPresentation.firstName(from: "Madonna") == "Madonna")
         #expect(DiveBuddyPresentation.firstName(from: "   ") == "Buddy")
+
+        #expect(
+            DiveBuddyPresentation.twoLineDisplayName(from: "Pat Lee")
+                == .init(firstLine: "Pat", secondLine: "Lee")
+        )
+        #expect(
+            DiveBuddyPresentation.twoLineDisplayName(from: "Mary Ann Smith")
+                == .init(firstLine: "Mary Ann", secondLine: "Smith")
+        )
+        #expect(
+            DiveBuddyPresentation.twoLineDisplayName(from: "Madonna")
+                == .init(firstLine: "Madonna", secondLine: nil)
+        )
+        #expect(
+            DiveBuddyPresentation.twoLineDisplayName(from: "  jean luc  picard  ")
+                == .init(firstLine: "jean luc", secondLine: "picard")
+        )
+        #expect(
+            DiveBuddyPresentation.twoLineDisplayName(from: "   ")
+                == .init(firstLine: "Buddy", secondLine: nil)
+        )
     }
 
     @Test func diveBuddyPresentation_addBuddySheetAccessibilityIdentifiers() {
@@ -28328,6 +29062,167 @@ struct GoDiveMVPTests {
         #expect(store.fingerprint == warmedFingerprint)
     }
 
+    @MainActor
+    @Test func globalSearchCatalogWarming_ensureCatalogAsyncCachesByFingerprint() async {
+        let store = GlobalSearchCatalogStore()
+        let ownerID = UUID()
+        _ = await GlobalSearchCatalogWarming.ensureCatalogAsync(
+            store: store,
+            ownerProfileID: ownerID,
+            dives: [],
+            snorkels: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: [],
+            unitSystem: .metric
+        )
+        let warmedFingerprint = store.fingerprint
+        #expect(store.catalog != nil)
+        #expect(!warmedFingerprint.isEmpty)
+
+        _ = await GlobalSearchCatalogWarming.ensureCatalogAsync(
+            store: store,
+            ownerProfileID: ownerID,
+            dives: [],
+            snorkels: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: [],
+            unitSystem: .metric
+        )
+        #expect(store.fingerprint == warmedFingerprint)
+    }
+
+    @Test func globalSearchCatalogBuild_fromCaptureInput_indexesDiveNotesAndSites() {
+        let diveID = UUID()
+        let siteID = UUID()
+        let seed = LogbookActivitySnapshotSeed(
+            id: diveID,
+            kind: .scubaDive,
+            sourceDiveId: nil,
+            sourceActivityId: nil,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            maxDepthMeters: 18,
+            swimDistanceMeters: nil,
+            durationMinutes: 45,
+            bottomTimeSeconds: nil,
+            diveNumber: 7,
+            diveNumberExplicitlyNone: false,
+            displayName: "Salt Pier",
+            formattedStartDateOnly: "Nov 14, 2023",
+            resolvedSiteNameLowercased: "salt pier",
+            activityTagNames: ["night"],
+            buddyDisplayNames: ["Pat"],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
+        )
+        let extras = GlobalSearchActivitySearchExtras(
+            marineLifeCommonNames: ["French Angelfish"],
+            tripTitles: ["Bonaire 2023"],
+            countrySearchValue: "bonaire netherlands antilles",
+            countryDisplay: "Bonaire",
+            region: "Kralendijk",
+            notes: "Saw a turtle at the pier"
+        )
+        let siteSeed = GlobalSearchDiveSiteSeed(
+            id: siteID,
+            siteName: "Salt Pier",
+            country: "Bonaire",
+            region: "Kralendijk",
+            bodyOfWater: "Caribbean Sea",
+            siteTags: []
+        )
+        let catalog = GlobalSearchCatalogBuild.build(
+            from: GlobalSearchCatalogBuildInput(
+                ownerProfileID: UUID(),
+                diveSeeds: [seed],
+                diveExtrasByID: [diveID: extras],
+                snorkelSeeds: [],
+                snorkelExtrasByID: [:],
+                diveSites: [siteSeed],
+                logbookSiteIDs: [siteID],
+                speciesSnapshots: [],
+                buddies: [],
+                tags: [],
+                trips: [],
+                equipment: [],
+                certifications: []
+            )
+        )
+        #expect(catalog.dives.count == 1)
+        #expect(catalog.dives[0].searchHaystack.contains("turtle"))
+        #expect(catalog.dives[0].searchHaystack.contains("french angelfish"))
+        #expect(catalog.dives[0].matchFields.contains(where: { $0.label == "Notes" }))
+        #expect(catalog.diveSites.contains(where: { $0.title == "Salt Pier" }))
+    }
+
+    @Test func globalSearchSiteIndexSeeding_entriesFromSeeds_matchModelPathCoverage() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Bonaire",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: "Caribbean Sea"
+        )
+        let catalogSiteID = UUID()
+        let localOnlySiteID = UUID()
+        let seeds = [
+            GlobalSearchDiveSiteSeed(
+                id: catalogSiteID,
+                siteName: "Salt Pier (mine)",
+                country: "Bonaire",
+                region: "",
+                bodyOfWater: "",
+                siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+            ),
+            GlobalSearchDiveSiteSeed(
+                id: localOnlySiteID,
+                siteName: "Secret Spot",
+                country: "",
+                region: "",
+                bodyOfWater: "",
+                siteTags: []
+            ),
+        ]
+        let entries = GlobalSearchSiteIndexSeeding.entries(
+            diveSites: seeds,
+            logbookSiteIDs: [localOnlySiteID],
+            reference: [reference]
+        )
+        #expect(entries.count == 2)
+        #expect(
+            entries.contains {
+                if case .diveSite(let siteID) = $0.destination {
+                    return siteID == catalogSiteID && $0.title == "Salt Pier (mine)"
+                }
+                return false
+            }
+        )
+        #expect(
+            entries.contains {
+                if case .diveSite(let siteID) = $0.destination {
+                    return siteID == localOnlySiteID && $0.title == "Secret Spot"
+                }
+                return false
+            }
+        )
+    }
+
     @Test func diveSiteReferenceCatalog_bundledReferenceByID_keysMatchBundledReference() {
         DiveSiteReferenceCatalog.resetCacheForTesting()
         let list = DiveSiteReferenceCatalog.bundledReference()
@@ -29005,6 +29900,55 @@ struct GoDiveMVPTests {
             GlobalSearchIndexLayerPresentation.shouldClearResultsForInactiveSearch(
                 preservesResultsSessionForDetailPush: false
             )
+        )
+    }
+
+    @Test @MainActor func globalSearchIndexLayer_canPatchRowContentsMatchReasonsOnly_whenHitIDsStable() {
+        let hitA = GlobalSearchPresentation.Hit(
+            id: "dive-1",
+            title: "Pier",
+            subtitle: nil,
+            systemImage: "water.waves",
+            destination: .dive(UUID()),
+            accessibilityIdentifier: "hit-1",
+            matchReasons: [.init(label: "Buddy", text: "Pat")]
+        )
+        let hitB = GlobalSearchPresentation.Hit(
+            id: "dive-1",
+            title: "Pier",
+            subtitle: nil,
+            systemImage: "water.waves",
+            destination: hitA.destination,
+            accessibilityIdentifier: "hit-1",
+            matchReasons: [.init(label: "Notes", text: "turtle")]
+        )
+        #expect(
+            GlobalSearchIndexLayerPresentation.canPatchRowContentsMatchReasonsOnly(
+                existingIDs: ["dive-1"],
+                hits: [hitB]
+            )
+        )
+        #expect(
+            !GlobalSearchIndexLayerPresentation.canPatchRowContentsMatchReasonsOnly(
+                existingIDs: ["dive-1"],
+                hits: [hitA, hitB]
+            )
+        )
+        let patched = GlobalSearchResultRowContent(
+            id: "dive-1",
+            destination: hitA.destination,
+            accessibilityIdentifier: "hit-1",
+            matchReasons: hitA.matchReasons,
+            kind: .standard(title: "Pier", subtitle: nil, artwork: .symbol("water.waves"))
+        ).replacingMatchReasons(hitB.matchReasons)
+        #expect(patched.matchReasons == hitB.matchReasons)
+        #expect(patched.kind == .standard(title: "Pier", subtitle: nil, artwork: .symbol("water.waves")))
+    }
+
+    @Test func globalSearchIndexLayer_keystrokeDebounce_isLongerThanCatalogListDebounce() {
+        #expect(
+            GlobalSearchIndexLayerPresentation.keystrokeDebounceNanoseconds
+                > CatalogSearchPresentation.debounceNanoseconds
         )
     }
 
@@ -31776,6 +32720,65 @@ struct GoDiveMVPTests {
         #expect(!RootTabSelectionPresentation.shouldPauseBubbles(for: .logbook, selected: .logbook))
         #expect(RootTabSelectionPresentation.isSelected(.explore, selected: .explore))
         #expect(!RootTabSelectionPresentation.isSelected(.explore, selected: .search))
+        #expect(
+            RootTabSelectionPresentation.shouldPublishSelectionChange(
+                previous: .home,
+                next: .explore
+            )
+        )
+        #expect(
+            !RootTabSelectionPresentation.shouldPublishSelectionChange(
+                previous: .explore,
+                next: .explore
+            )
+        )
+        #expect(
+            RootTabSelectionPresentation.localSelectionAfterMount(
+                tab: .logbook,
+                storeSelected: .logbook
+            )
+        )
+        #expect(
+            !RootTabSelectionPresentation.localSelectionAfterMount(
+                tab: .logbook,
+                storeSelected: .home
+            )
+        )
+        #expect(
+            RootTabSelectionPresentation.localSelection(
+                tab: .explore,
+                from: Notification(
+                    name: .rootTabSelectionDidChange,
+                    object: nil,
+                    userInfo: [RootTabBarSelectionSync.userInfoTabKey: RootTab.explore]
+                )
+            ) == true
+        )
+        #expect(
+            RootTabSelectionPresentation.localSelection(
+                tab: .explore,
+                from: Notification(
+                    name: .rootTabSelectionDidChange,
+                    object: nil,
+                    userInfo: [RootTabBarSelectionSync.userInfoTabKey: RootTab.home]
+                )
+            ) == false
+        )
+    }
+
+    @Test func rootTabBarSelectionSync_selectionDidChangeNotification_carriesTab() {
+        let expected = RootTab.fieldGuide
+        let received = OSAllocatedUnfairLock<RootTab?>(initialState: nil)
+        let token = NotificationCenter.default.addObserver(
+            forName: .rootTabSelectionDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            received.withLock { $0 = RootTabBarSelectionSync.tab(from: notification) }
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+        RootTabBarSelectionSync.postSelectionDidChange(expected)
+        #expect(received.withLock { $0 } == expected)
     }
 
     @Test func appHeaderMetrics_heightKey_reduceUsesMax() {

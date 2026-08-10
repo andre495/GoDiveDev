@@ -65,6 +65,14 @@ enum HomeMediaCarouselPresentation: Sendable {
     /// How far below the sheet seam the dive-link / fish / buddy row sits (larger → lower on screen).
     nonisolated static let slideChromeDistanceBelowSeam: CGFloat = 56
 
+    /// Top of the Home stats panel must pass hits through this height so dive-link / fish / buddy
+    /// (in the hero overlap band) stay tappable above the opaque sheet fill.
+    nonisolated static func slideChromePanelHitPassThroughHeight(
+        controlHeight: CGFloat = slideChromeControlHeight
+    ) -> CGFloat {
+        slideChromeDistanceBelowSeam + controlHeight + 8
+    }
+
     /// Trailing bottom-chrome chips on Home featured media (leading → trailing).
     /// Fish sits immediately left of the buddy chip; buddy stays trailing-most (bottom-right).
     nonisolated enum SlideChromeTrailingControl: Equatable, Sendable {
@@ -596,14 +604,18 @@ enum HomeMediaCarouselPresentation: Sendable {
         showsCloseControlInHomeTopChrome
     }
 
-    /// Keep header chrome tappable for the chrome **×** while the fish overlay is open; still block
-    /// chrome hits for other hero interaction holds (expanded buddy strip).
+    /// Home **bell** / profile / fish-overlay **×** stay tappable. Empty header chrome still passes
+    /// pans through to featured media via **`homeHeaderBlocksHitsInEmptyChrome`**.
+    ///
+    /// Expanded buddy strip and fish overlay must **not** disable top chrome — those holds live in
+    /// the hero band, not on the bell / avatar.
     nonisolated static func allowsHomeTopChromeHitTesting(
         showsMarineLifeOverlay: Bool,
         homeHeroInteractionOverlayActive: Bool
     ) -> Bool {
-        if showsMarineLifeOverlay { return true }
-        return !homeHeroInteractionOverlayActive
+        _ = showsMarineLifeOverlay
+        _ = homeHeroInteractionOverlayActive
+        return true
     }
 
     /// Species-content baseline: centers on the Home header brand row (same math as the bell slot).

@@ -697,6 +697,10 @@ enum GlobalSearchTabLaunchPresentation: Sendable {
 /// Shared-state ownership between the visible results layer and the hidden catalog warmer — both are
 /// instances of the same index layer, but only the visible one owns the shared search task + results.
 enum GlobalSearchIndexLayerPresentation: Sendable {
+    /// Keystroke debounce for the results layer — slightly longer than catalog list fields so typing
+    /// stays ahead of MainActor apply (row rebuild / media filter) while still feeling snappy.
+    nonisolated static let keystrokeDebounceNanoseconds: UInt64 = 120_000_000
+
     /// Only the **visible** results layer may cancel the shared search task on unmount. On pop from a
     /// pushed detail the warmer unmounts while the remounted results layer is scheduling its refresh —
     /// a warmer-side cancel killed that refresh, leaving every text section empty (Media survived on
@@ -711,6 +715,16 @@ enum GlobalSearchIndexLayerPresentation: Sendable {
         preservesResultsSessionForDetailPush: Bool
     ) -> Bool {
         !preservesResultsSessionForDetailPush
+    }
+
+    /// When hit **identity** is unchanged across keystrokes, reuse dive/artwork row kinds and only
+    /// patch **`matchReasons`** — avoids re-running logbook numbering + catalog scans per character.
+    nonisolated static func canPatchRowContentsMatchReasonsOnly(
+        existingIDs: [String],
+        hits: [GlobalSearchPresentation.Hit]
+    ) -> Bool {
+        existingIDs.count == hits.count
+            && zip(existingIDs, hits).allSatisfy { $0 == $1.id }
     }
 }
 
@@ -853,6 +867,8 @@ enum GlobalSearchPushedDestinationPresentation: Sendable {
 }
 
 /// Main-actor capture of SwiftData models into **`GlobalSearchPresentation.Catalog`**.
+/// Prefer **`GlobalSearchCatalogWarming.ensureCatalogAsync`** in UI paths so the heavy index
+/// assemble runs off MainActor; this sync entry remains for tests / small fixtures.
 enum GlobalSearchCatalogSeeding {
     @MainActor
     static func catalog(
@@ -867,300 +883,19 @@ enum GlobalSearchCatalogSeeding {
         certifications: [Certification],
         unitSystem: DiveDisplayUnitSystem
     ) -> GlobalSearchPresentation.Catalog {
-        let divesByID = Dictionary(dives.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let snorkelsByID = Dictionary(snorkels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let diveSpeciesNameByUUID = Dictionary(
-            speciesCatalog.map { ($0.uuid, $0.commonName) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        let diveTripTitleByID = Dictionary(
-            trips.map { ($0.id, $0.displayTitle) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        let diveIndexMonthSymbols = GlobalSearchDiveIndexing.monthSymbols()
-
-        let diveEntries = LogbookActivitySnapshotSeeding.seeds(from: dives).map { seed in
-            let matchFields = diveMatchFields(
-                seed: seed,
-                activity: divesByID[seed.id],
-                speciesNameByUUID: diveSpeciesNameByUUID,
-                tripTitleByID: diveTripTitleByID,
-                monthSymbols: diveIndexMonthSymbols
-            )
-            // Site name (row title) matches but needs no reason line; all other terms live in matchFields.
-            let haystack = CatalogSearchPresentation.joinedLowercasedHaystacks(
-                [seed.displayName, seed.resolvedSiteNameLowercased ?? ""] + matchFields.map(\.value)
-            )
-            return GlobalSearchPresentation.DiveIndexEntry(
-                id: seed.id,
-                title: seed.displayName,
-                subtitle: seed.resolvedSiteNameLowercased?.capitalized,
-                searchHaystack: haystack,
-                matchFields: matchFields
-            )
-        }
-
-        let snorkelEntries = LogbookActivitySnapshotSeeding.snorkelSeeds(from: snorkels).map { seed in
-            let matchFields = snorkelMatchFields(
-                seed: seed,
-                activity: snorkelsByID[seed.id],
-                speciesNameByUUID: diveSpeciesNameByUUID,
-                monthSymbols: diveIndexMonthSymbols
-            )
-            let haystack = CatalogSearchPresentation.joinedLowercasedHaystacks(
-                [seed.displayName, seed.resolvedSiteNameLowercased ?? ""] + matchFields.map(\.value)
-            )
-            return GlobalSearchPresentation.DiveIndexEntry(
-                id: seed.id,
-                title: seed.displayName,
-                subtitle: seed.resolvedSiteNameLowercased?.capitalized,
-                searchHaystack: haystack,
-                matchFields: matchFields
-            )
-        }
-
-        let ownerProfileID = dives.first?.ownerProfileID
-            ?? snorkels.first?.ownerProfileID
-            ?? buddies.first?.ownerProfileID
-        let siteEntries = GlobalSearchSiteIndexSeeding.entries(
-            diveSites: diveSites,
-            ownerActivities: dives,
-            ownerProfileID: ownerProfileID,
-            additionalLogbookSiteIDs: Set(snorkels.compactMap(\.diveSiteID))
-        )
-
-        let speciesEntries = speciesCatalog.map { species in
-            let snapshot = species.fieldGuideCatalogSnapshot
-            return GlobalSearchPresentation.SpeciesIndexEntry(
-                uuid: species.uuid,
-                title: species.commonName,
-                subtitle: species.scientificName,
-                searchText: FieldGuideMarineLifeSearch.precomputedSearchText(for: snapshot)
-            )
-        }
-
-        let buddyEntries = buddies.map {
-            GlobalSearchPresentation.BuddyIndexEntry(id: $0.id, displayName: $0.displayName)
-        }
-
-        let tagEntries = tags.map { tag in
-            let appliedDiveCount: Int
-            if let ownerProfileID {
-                appliedDiveCount = tag.dives.filter { $0.ownerProfileID == ownerProfileID }.count
-            } else {
-                appliedDiveCount = tag.dives.count
-            }
-            return GlobalSearchPresentation.TagIndexEntry(
-                id: tag.id,
-                name: tag.name,
-                appliedDiveCount: appliedDiveCount,
-                searchHaystack: CatalogSearchPresentation.joinedLowercasedHaystacks([
-                    tag.name,
-                    tag.normalizedName,
-                ])
-            )
-        }
-
-        let tripEntries = trips.map { trip in
-            GlobalSearchPresentation.TripIndexEntry(
-                id: trip.id,
-                displayTitle: trip.displayTitle,
-                subtitle: DiveTripPresentation.formattedDateRange(
-                    start: trip.startDate,
-                    end: trip.endDate
-                )
-            )
-        }
-
-        let equipmentEntries = equipment.map { item in
-            GlobalSearchPresentation.EquipmentIndexEntry(
-                id: item.id,
-                title: EquipmentItemPresentation.title(for: item),
-                gearTypeLabel: EquipmentItemPresentation.gearTypeLabel(for: item),
-                searchHaystacks: [
-                    EquipmentItemPresentation.title(for: item),
-                    EquipmentItemPresentation.gearTypeLabel(for: item),
-                    item.manufacturer,
-                    item.model,
-                    item.type,
-                    item.notes ?? "",
-                ]
-            )
-        }
-
-        let certificationEntries = certifications.map { cert in
-            GlobalSearchPresentation.CertificationIndexEntry(
-                id: cert.id,
-                title: CertificationPresentation.title(for: cert),
-                subtitle: CertificationPresentation.subtitle(for: cert),
-                searchHaystacks: [
-                    CertificationPresentation.title(for: cert),
-                    CertificationPresentation.subtitle(for: cert),
-                    cert.agency,
-                    cert.certNumber,
-                    cert.instructor,
-                    cert.diveShop ?? "",
-                ]
-            )
-        }
-
         _ = unitSystem
-        return GlobalSearchPresentation.Catalog(
-            dives: diveEntries,
-            snorkels: snorkelEntries,
-            diveSites: siteEntries,
-            species: speciesEntries,
-            buddies: buddyEntries,
-            tags: tagEntries,
-            trips: tripEntries,
-            equipment: equipmentEntries,
-            certifications: certificationEntries
+        let input = GlobalSearchCatalogCapture.capture(
+            dives: dives,
+            snorkels: snorkels,
+            diveSites: diveSites,
+            speciesCatalog: speciesCatalog,
+            buddies: buddies,
+            tags: tags,
+            trips: trips,
+            equipment: equipment,
+            certifications: certifications
         )
-    }
-
-    /// Labeled searchable fields for one dive — powers both the search haystack and the per-result
-    /// "why it matched" reason lines. Order here is the reason-priority order (buddies/marine life
-    /// first, notes/dive number last); the site name (row title) is intentionally excluded.
-    @MainActor
-    private static func diveMatchFields(
-        seed: LogbookActivitySnapshotSeed,
-        activity: DiveActivity?,
-        speciesNameByUUID: [String: String],
-        tripTitleByID: [UUID: String],
-        monthSymbols: [String]
-    ) -> [GlobalSearchPresentation.SearchField] {
-        var fields: [GlobalSearchPresentation.SearchField] = []
-
-        for buddy in seed.buddyDisplayNames {
-            fields.append(.init(label: "Buddy", value: buddy))
-        }
-        if let activity {
-            for name in diveSightingCommonNames(for: activity, speciesNameByUUID: speciesNameByUUID) {
-                fields.append(.init(label: "Marine life", value: name))
-            }
-        }
-        for tag in seed.activityTagNames {
-            fields.append(.init(label: "Tag", value: tag))
-        }
-        if let activity {
-            for title in diveLinkedTripTitles(for: activity, tripTitleByID: tripTitleByID) {
-                fields.append(.init(label: "Trip", value: title))
-            }
-        }
-        if let site = activity?.resolvedLinkedSite {
-            let countryTerms = DiveSiteCountryPresentation.searchTerms(for: site.country)
-            if !countryTerms.isEmpty {
-                let canonical = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
-                fields.append(.init(
-                    label: "Country",
-                    value: countryTerms.joined(separator: " "),
-                    display: canonical
-                ))
-            }
-            let region = site.region.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !region.isEmpty {
-                fields.append(.init(label: "Region", value: region))
-            }
-        }
-        if let month = GlobalSearchDiveIndexing.monthName(for: seed.startTime, monthSymbols: monthSymbols) {
-            fields.append(.init(label: "Dive month", value: month))
-        }
-        if let year = GlobalSearchDiveIndexing.yearString(for: seed.startTime) {
-            fields.append(.init(label: "Dive year", value: year))
-        }
-        if let notes = activity?.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
-            fields.append(.init(label: "Notes", value: notes, isSnippet: true))
-        }
-        if let number = seed.diveNumber {
-            fields.append(.init(label: "Dive number", value: "#\(number)"))
-        }
-
-        return fields
-    }
-
-    /// Labeled searchable fields for one snorkel — mirrors dive indexing for buddies, marine life,
-    /// site place terms, month/year, and notes (snorkels have no dive # / trip / activity-tag links today).
-    @MainActor
-    private static func snorkelMatchFields(
-        seed: LogbookActivitySnapshotSeed,
-        activity: SnorkelActivity?,
-        speciesNameByUUID: [String: String],
-        monthSymbols: [String]
-    ) -> [GlobalSearchPresentation.SearchField] {
-        var fields: [GlobalSearchPresentation.SearchField] = []
-
-        for buddy in seed.buddyDisplayNames {
-            fields.append(.init(label: "Buddy", value: buddy))
-        }
-        if let activity {
-            for name in snorkelSightingCommonNames(for: activity, speciesNameByUUID: speciesNameByUUID) {
-                fields.append(.init(label: "Marine life", value: name))
-            }
-        }
-        if let site = activity?.resolvedLinkedSite {
-            let countryTerms = DiveSiteCountryPresentation.searchTerms(for: site.country)
-            if !countryTerms.isEmpty {
-                let canonical = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
-                fields.append(.init(
-                    label: "Country",
-                    value: countryTerms.joined(separator: " "),
-                    display: canonical
-                ))
-            }
-            let region = site.region.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !region.isEmpty {
-                fields.append(.init(label: "Region", value: region))
-            }
-        }
-        if let month = GlobalSearchDiveIndexing.monthName(for: seed.startTime, monthSymbols: monthSymbols) {
-            fields.append(.init(label: "Snorkel month", value: month))
-        }
-        if let year = GlobalSearchDiveIndexing.yearString(for: seed.startTime) {
-            fields.append(.init(label: "Snorkel year", value: year))
-        }
-        if let notes = activity?.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
-            fields.append(.init(label: "Notes", value: notes, isSnippet: true))
-        }
-
-        return fields
-    }
-
-    /// Common names of species tagged on this dive; prefers the linked catalog row, else resolves the
-    /// denormalized `marineLifeUUID` against the loaded species catalog.
-    @MainActor
-    private static func diveSightingCommonNames(
-        for activity: DiveActivity,
-        speciesNameByUUID: [String: String]
-    ) -> [String] {
-        activity.marineLifeSightings.compactMap { sighting in
-            speciesNameByUUID[sighting.marineLifeUUID]
-        }
-    }
-
-    @MainActor
-    private static func snorkelSightingCommonNames(
-        for activity: SnorkelActivity,
-        speciesNameByUUID: [String: String]
-    ) -> [String] {
-        activity.marineLifeSightings.compactMap { sighting in
-            speciesNameByUUID[sighting.marineLifeUUID]
-        }
-    }
-
-    /// Display titles of trips this dive is linked to (resolved by relationship or denormalized id).
-    @MainActor
-    private static func diveLinkedTripTitles(
-        for activity: DiveActivity,
-        tripTitleByID: [UUID: String]
-    ) -> [String] {
-        activity.tripActivityLinks.compactMap { link in
-            if let title = link.trip?.displayTitle,
-               !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return title
-            }
-            guard let tripID = link.tripID else { return nil }
-            return tripTitleByID[tripID]
-        }
+        return GlobalSearchCatalogBuild.build(from: input)
     }
 }
 
@@ -1174,44 +909,97 @@ enum GlobalSearchSiteIndexSeeding: Sendable {
         additionalLogbookSiteIDs: Set<UUID> = [],
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
     ) -> [GlobalSearchPresentation.DiveSiteIndexEntry] {
-        let catalogByReferenceID = ExploreSiteScopePresentation.catalogSiteByOpenDiveMapID(diveSites)
         var logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
             ownerActivities: ownerActivities,
             ownerProfileID: ownerProfileID
         )
         logbookSiteIDs.formUnion(additionalLogbookSiteIDs)
+        let seeds = diveSites.map { site in
+            GlobalSearchDiveSiteSeed(
+                id: site.id,
+                siteName: site.siteName,
+                country: site.country,
+                region: site.region,
+                bodyOfWater: site.bodyOfWater,
+                siteTags: site.siteTags
+            )
+        }
+        return entries(diveSites: seeds, logbookSiteIDs: logbookSiteIDs, reference: reference)
+    }
+
+    /// Off-main path — Sendable site seeds + precomputed logbook site IDs (no live **`DiveActivity`** models).
+    nonisolated static func entries(
+        diveSites: [GlobalSearchDiveSiteSeed],
+        logbookSiteIDs: Set<UUID>,
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> [GlobalSearchPresentation.DiveSiteIndexEntry] {
+        let catalogByReferenceID = catalogSiteByOpenDiveMapID(diveSites)
         var entries: [GlobalSearchPresentation.DiveSiteIndexEntry] = []
         var indexedCatalogIDs = Set<UUID>()
 
         for snapshot in reference {
             if let catalogSite = catalogByReferenceID[snapshot.id] {
-                entries.append(catalogSiteEntry(for: catalogSite))
+                entries.append(catalogSiteEntry(for: catalogSite, reference: reference))
                 indexedCatalogIDs.insert(catalogSite.id)
             } else {
                 entries.append(referenceSiteEntry(for: snapshot))
             }
         }
 
-        let supplementalSites = ExploreSiteScopePresentation.supplementalLogbookCatalogSites(
+        let supplementalSites = supplementalLogbookCatalogSites(
             catalog: diveSites,
             logbookSiteIDs: logbookSiteIDs,
             reference: reference
         )
         for site in supplementalSites where !indexedCatalogIDs.contains(site.id) {
-            entries.append(catalogSiteEntry(for: site))
+            entries.append(catalogSiteEntry(for: site, reference: reference))
             indexedCatalogIDs.insert(site.id)
         }
 
         for site in diveSites where !indexedCatalogIDs.contains(site.id) {
-            entries.append(catalogSiteEntry(for: site))
+            entries.append(catalogSiteEntry(for: site, reference: reference))
             indexedCatalogIDs.insert(site.id)
         }
 
         return entries
     }
 
-    nonisolated private static func catalogSiteEntry(for site: DiveSite) -> GlobalSearchPresentation.DiveSiteIndexEntry {
-        let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
+    nonisolated private static func catalogSiteByOpenDiveMapID(
+        _ catalog: [GlobalSearchDiveSiteSeed]
+    ) -> [String: GlobalSearchDiveSiteSeed] {
+        var byReferenceID: [String: GlobalSearchDiveSiteSeed] = [:]
+        for site in catalog {
+            guard let referenceID = DiveSiteCatalogMatcher.referenceID(from: site.siteTags) else { continue }
+            byReferenceID[referenceID] = site
+        }
+        return byReferenceID
+    }
+
+    nonisolated private static func supplementalLogbookCatalogSites(
+        catalog: [GlobalSearchDiveSiteSeed],
+        logbookSiteIDs: Set<UUID>,
+        reference: [DiveSiteReferenceSnapshot]
+    ) -> [GlobalSearchDiveSiteSeed] {
+        let referenceIDs = Set(reference.map(\.id))
+        return catalog
+            .filter { logbookSiteIDs.contains($0.id) }
+            .filter { site in
+                guard let referenceID = DiveSiteCatalogMatcher.referenceID(from: site.siteTags) else {
+                    return true
+                }
+                return !referenceIDs.contains(referenceID)
+            }
+    }
+
+    nonisolated private static func catalogSiteEntry(
+        for site: GlobalSearchDiveSiteSeed,
+        reference: [DiveSiteReferenceSnapshot]
+    ) -> GlobalSearchPresentation.DiveSiteIndexEntry {
+        let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(
+            siteName: site.siteName,
+            siteTags: site.siteTags,
+            reference: reference
+        ) ?? site.siteName
         let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
         return GlobalSearchPresentation.DiveSiteIndexEntry(
             title: displayName,
@@ -1220,7 +1008,14 @@ enum GlobalSearchSiteIndexSeeding: Sendable {
                 region: site.region,
                 bodyOfWater: site.bodyOfWater
             ),
-            searchHaystacks: ExploreDiveSiteListSearch.searchHaystacks(for: site),
+            searchHaystacks: ExploreDiveSiteListSearch.searchHaystacks(
+                siteName: site.siteName,
+                country: site.country,
+                region: site.region,
+                bodyOfWater: site.bodyOfWater,
+                siteTags: site.siteTags,
+                reference: reference
+            ),
             destination: .diveSite(site.id)
         )
     }

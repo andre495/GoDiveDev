@@ -18,6 +18,11 @@ struct DiveBuddiesListView: View {
     @State private var friendPendingUnfriend: GoDiveFriendGraphService.FriendEdge?
     @State private var statusMessage: String?
     @State private var invitingBuddyID: UUID?
+    @State private var sharedDiveCountByBuddyID: [UUID: Int] = [:]
+    @State private var cachedMergedRows: [BuddiesListRow] = []
+    @State private var detailRoute: BuddiesListNavigationRoute?
+    @State private var friendsReloadTask: Task<Void, Never>?
+    @State private var pendingListOpenRepublishOwnerID: UUID?
 
     init(ownerProfileID: UUID? = nil) {
         let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
@@ -40,23 +45,29 @@ struct DiveBuddiesListView: View {
         )
     }
 
-    private var mergedRows: [BuddiesListRow] {
-        BuddiesListPresentation.mergedRows(
-            friends: friends,
-            rosterBuddies: rosterBuddies,
-            sharedDiveCount: { sharedDiveCount(for: $0) }
-        )
+    /// Identity-only token — must **not** read **`diveParticipations`** (faults every body pass).
+    private var rosterIdentityToken: String {
+        let owner = ownerProfileID?.uuidString ?? "none"
+        let buddyPart = ownedBuddies
+            .map { buddy in
+                let link = buddy.linkedFirebaseUID ?? ""
+                let photo = buddy.linkedPhotoURL ?? ""
+                return "\(buddy.id.uuidString)|\(buddy.displayName)|\(link)|\(photo)"
+            }
+            .sorted()
+            .joined(separator: ";")
+        return "\(owner)|\(buddyPart)"
+    }
+
+    private var friendsIdentityToken: String {
+        GoDiveFriendBuddyLinking.friendsRosterSyncFingerprint(friends)
     }
 
     private var showsLoadingChrome: Bool {
-        isLoadingFriends && mergedRows.isEmpty
+        isLoadingFriends && cachedMergedRows.isEmpty
     }
 
     @Environment(\.openBuddiesListDetailRoute) private var openBuddiesListDetailRoute
-
-    private var usesProgrammaticBuddyDetailNavigation: Bool {
-        openBuddiesListDetailRoute != nil
-    }
 
     var body: some View {
         AppPage(
@@ -76,7 +87,7 @@ struct DiveBuddiesListView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, AppTheme.Spacing.lg)
                 }
-            } else if mergedRows.isEmpty {
+            } else if cachedMergedRows.isEmpty {
                 AppScrollUnderHeaderEmptyState {
                     emptyState
                 }
@@ -86,26 +97,42 @@ struct DiveBuddiesListView: View {
             }
         )
         .hidesBottomTabBarWhenPushed()
-        .task { await reloadFriends(republishInBackground: true) }
+        .navigationDestination(item: $detailRoute) { route in
+            BuddiesListNavigationDestinationView(route: route)
+        }
+        .task {
+            await reloadFriends(
+                republishInBackground: true,
+                throttleListOpenRepublish: true
+            )
+        }
+        .task(id: rosterIdentityToken) {
+            rebuildListDisplayCache()
+        }
+        .onChange(of: friendsIdentityToken) { _, _ in
+            rebuildListDisplayCache()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .goDiveFriendGraphDidChange)) { _ in
-            Task { await reloadFriends(republishInBackground: true, showsLoadingUI: false) }
+            scheduleFriendsReload(
+                republishInBackground: true,
+                showsLoadingUI: false,
+                throttleListOpenRepublish: false
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .diveBuddyRosterDidChange)) { _ in
+            rebuildListDisplayCache()
+        }
+        .onDisappear {
+            friendsReloadTask?.cancel()
+            friendsReloadTask = nil
+            // Run deferred list-open republish after leaving the scroll surface.
+            flushPendingListOpenRepublishIfNeeded()
         }
         .sheet(isPresented: $showsAddBuddySheet) {
             DiveActivityAddBuddySheet()
         }
         .sheet(item: $activeInvite) { invite in
-            FriendInviteShareSheet(
-                inviteURL: invite.url,
-                onRevoke: {
-                    Task {
-                        _ = await GoDiveFriendGraphService.revokeInvite(token: invite.token)
-                        await MainActor.run {
-                            activeInvite = nil
-                        }
-                    }
-                }
-            )
-            .friendInviteShareSheetPresentation()
+            FriendInviteShareSheet(inviteURL: invite.url)
         }
         .alert(
             GoDiveFriendsPresentation.unfriendConfirmTitle,
@@ -196,14 +223,10 @@ struct DiveBuddiesListView: View {
                     .listRowBackground(Color.clear)
             }
 
-            ForEach(mergedRows) { row in
+            ForEach(cachedMergedRows) { row in
                 BuddiesListRowView(
                     row: row,
-                    isInviting: invitingBuddyID == row.buddy?.id,
-                    usesProgrammaticDetailNavigation: usesProgrammaticBuddyDetailNavigation,
-                    onOpenProgrammaticRoute: { route in
-                        openBuddiesListDetailRoute?(route)
-                    },
+                    onOpenRoute: openDetail,
                     onInvite: {
                         guard let buddy = row.buddy else { return }
                         Task { await inviteBuddyViaSMS(buddy) }
@@ -223,13 +246,49 @@ struct DiveBuddiesListView: View {
         }
     }
 
-    private func sharedDiveCount(for buddy: DiveBuddy) -> Int {
-        guard let ownerProfileID else { return 0 }
-        return DiveBuddyRosterPresentation.sharedDiveCount(for: buddy, ownerProfileID: ownerProfileID)
+    private func openDetail(_ route: BuddiesListNavigationRoute) {
+        if let openBuddiesListDetailRoute {
+            openBuddiesListDetailRoute(route)
+        } else {
+            NavigationStackPushCoalescing.assignUnlessDuplicate(route, to: &detailRoute)
+        }
+    }
+
+    private func rebuildListDisplayCache() {
+        let roster = rosterBuddies
+        let buddyIDs = Set(roster.map(\.id))
+        sharedDiveCountByBuddyID = DiveBuddyRosterPresentation.sharedDiveCountsByBuddyID(
+            buddyIDs: buddyIDs,
+            modelContext: modelContext
+        )
+        cachedMergedRows = BuddiesListPresentation.mergedRows(
+            friends: friends,
+            rosterBuddies: roster,
+            sharedDiveCount: { sharedDiveCountByBuddyID[$0.id] ?? 0 }
+        )
+    }
+
+    private func scheduleFriendsReload(
+        republishInBackground: Bool,
+        showsLoadingUI: Bool,
+        throttleListOpenRepublish: Bool
+    ) {
+        friendsReloadTask?.cancel()
+        friendsReloadTask = Task { @MainActor in
+            await reloadFriends(
+                republishInBackground: republishInBackground,
+                showsLoadingUI: showsLoadingUI,
+                throttleListOpenRepublish: throttleListOpenRepublish
+            )
+        }
     }
 
     @MainActor
-    private func reloadFriends(republishInBackground: Bool, showsLoadingUI: Bool = true) async {
+    private func reloadFriends(
+        republishInBackground: Bool,
+        showsLoadingUI: Bool = true,
+        throttleListOpenRepublish: Bool = false
+    ) async {
         let shouldDriveLoadingUI = showsLoadingUI || (friends.isEmpty && rosterBuddies.isEmpty)
         if shouldDriveLoadingUI {
             isLoadingFriends = true
@@ -249,28 +308,51 @@ struct DiveBuddiesListView: View {
                     modelContext: modelContext
                 )
             }
+            rebuildListDisplayCache()
             if republishInBackground, let ownerID = accountSession.currentProfile?.id {
-                scheduleBackgroundRepublish(ownerProfileID: ownerID, hasFriends: !friends.isEmpty)
+                scheduleBackgroundRepublish(
+                    ownerProfileID: ownerID,
+                    hasFriends: !friends.isEmpty,
+                    throttleListOpen: throttleListOpenRepublish
+                )
             }
         } catch {
             friendsLoadError = GoDiveFriendsPresentation.firebaseUnavailableMessage
             if friends.isEmpty {
                 friends = []
             }
+            rebuildListDisplayCache()
         }
     }
 
     @MainActor
-    private func scheduleBackgroundRepublish(ownerProfileID: UUID, hasFriends: Bool) {
+    private func scheduleBackgroundRepublish(
+        ownerProfileID: UUID,
+        hasFriends: Bool,
+        throttleListOpen: Bool
+    ) {
         guard hasFriends else { return }
-        let context = modelContext
-        Task {
-            await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
-                ownerProfileID: ownerProfileID,
-                modelContext: context,
-                assumeHasFriends: true
-            )
+        if throttleListOpen {
+            // Defer until leave — full republish on MainActor fights list scrolling.
+            if BuddiesListFriendShareRepublishGate.consumeListOpenRepublishSlot() {
+                pendingListOpenRepublishOwnerID = ownerProfileID
+            }
+            return
         }
+        GoDiveFriendShareRefreshCoordinator.scheduleRepublish(
+            ownerProfileID: ownerProfileID,
+            modelContext: modelContext
+        )
+    }
+
+    @MainActor
+    private func flushPendingListOpenRepublishIfNeeded() {
+        guard let ownerID = pendingListOpenRepublishOwnerID else { return }
+        pendingListOpenRepublishOwnerID = nil
+        GoDiveFriendShareRefreshCoordinator.scheduleRepublish(
+            ownerProfileID: ownerID,
+            modelContext: modelContext
+        )
     }
 
     @MainActor
@@ -292,27 +374,21 @@ struct DiveBuddiesListView: View {
     @MainActor
     private func inviteBuddyViaSMS(_ buddy: DiveBuddy) async {
         if invitingBuddyID == buddy.id { return }
-        guard networkConnectivity.isConnected else {
-            statusMessage = GoDiveFriendsPresentation.firebaseUnavailableMessage
-            return
-        }
         invitingBuddyID = buddy.id
         defer { invitingBuddyID = nil }
 
-        let result = await GoDiveFriendGraphService.createInvite()
-        switch result {
-        case .success(let pair):
-            let recipients = DiveBuddyContactSMSPresentation.smsRecipients(
-                contactsIdentifier: buddy.contactsIdentifier
-            )
-            let body = BuddiesListPresentation.smsBody(
-                inviteURL: pair.url,
-                buddyDisplayName: buddy.displayName
-            )
-            FriendInviteSMSComposePresentation.present(recipients: recipients, body: body)
+        let displayName = buddy.displayName
+        let contactsIdentifier = buddy.contactsIdentifier
+        let outcome = await DiveBuddyInviteSMSPresentation.presentInviteSMS(
+            buddyDisplayName: displayName,
+            contactsIdentifier: contactsIdentifier,
+            isNetworkConnected: networkConnectivity.isConnected
+        )
+        switch outcome {
+        case .presented:
             statusMessage = nil
-        case .failure(let failure):
-            statusMessage = failure.message
+        case .failed(let message):
+            statusMessage = message
         }
     }
 
@@ -335,9 +411,7 @@ struct DiveBuddiesListView: View {
 
 private struct BuddiesListRowView: View {
     let row: BuddiesListRow
-    let isInviting: Bool
-    let usesProgrammaticDetailNavigation: Bool
-    let onOpenProgrammaticRoute: (BuddiesListNavigationRoute) -> Void
+    let onOpenRoute: (BuddiesListNavigationRoute) -> Void
     let onInvite: () -> Void
 
     var body: some View {
@@ -366,24 +440,13 @@ private struct BuddiesListRowView: View {
     @ViewBuilder
     private var buddyRowNavigationLink: some View {
         if let route = row.navigationRoute {
-            if usesProgrammaticDetailNavigation {
-                Button {
-                    onOpenProgrammaticRoute(route)
-                } label: {
-                    rowLinkLabel
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                NavigationLink {
-                    BuddiesListNavigationDestinationView(route: route)
-                } label: {
-                    rowLinkLabel
-                }
-                .buttonStyle(.plain)
-                .navigationLinkIndicatorVisibility(.hidden)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                onOpenRoute(route)
+            } label: {
+                rowLinkLabel
             }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             rowLinkLabel
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -430,22 +493,14 @@ private struct BuddiesListRowView: View {
 
     private var inviteButton: some View {
         Button(action: onInvite) {
-            Group {
-                if isInviting {
-                    GoDiveRotateLoadingIndicator()
-                        .controlSize(.mini)
-                } else {
-                    Text(BuddiesListPresentation.inviteButtonTitle)
-                        .font(.caption2.weight(.semibold))
-                }
-            }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
+            Text(BuddiesListPresentation.inviteButtonTitle)
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
         }
         .buttonStyle(.glass)
         .buttonBorderShape(.capsule)
         .fixedSize(horizontal: true, vertical: false)
-        .disabled(isInviting)
         .accessibilityLabel(BuddiesListPresentation.inviteAccessibilityLabel)
         .accessibilityIdentifier("DiveBuddiesList.Invite.\(row.buddy?.id.uuidString ?? "unknown")")
     }

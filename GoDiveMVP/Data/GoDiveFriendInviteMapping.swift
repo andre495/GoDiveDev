@@ -10,7 +10,8 @@ enum GoDiveFriendInviteMapping: Sendable {
     nonisolated static let friendshipStatusActive = "active"
     /// Soft cap for small networks.
     nonisolated static let maxFriendsPerUser = 50
-    nonisolated static let inviteTimeToLiveSeconds: TimeInterval = 7 * 24 * 60 * 60
+    /// Soft-expire unused invites (client + Firestore rules check **`expiresAt`**).
+    nonisolated static let inviteTimeToLiveSeconds: TimeInterval = 24 * 60 * 60
     nonisolated static let tokenByteCount = 16
 
     struct InviteDraft: Equatable, Sendable {

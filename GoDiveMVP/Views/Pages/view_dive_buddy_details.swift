@@ -8,6 +8,7 @@ struct ViewDiveBuddyDetails: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
+    @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
 
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
@@ -40,6 +41,12 @@ struct ViewDiveBuddyDetails: View {
     @State private var buddySiteNavigationID: UUID?
     @State private var buddyHeroMode: DiveBuddyDetailHeroHeaderView.Mode = .media
     @State private var hasLoadedTripRows = false
+    @State private var isInvitingBuddy = false
+    @State private var inviteStatusMessage: String?
+    @State private var tripRowsLoadTask: Task<Void, Never>?
+    @State private var marineLifeLoadTask: Task<Void, Never>?
+    @State private var tagChangeRebuildTask: Task<Void, Never>?
+    @State private var lastBuddyContentRebuildFingerprint: String?
 
     private struct BuddyDiveNavigationID: Identifiable, Hashable {
         let id: UUID
@@ -123,12 +130,11 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private var buddyDetailContentToken: String {
-        [
-            buddy.id.uuidString,
-            "\(ownerNumberingRows.count)",
-            diveDisplayUnitSystem.rawValue,
-            automaticallyRenumberDives ? "1" : "0",
-        ].joined(separator: "|")
+        DiveBuddyDetailPresentation.deferredContentTaskToken(
+            buddyID: buddy.id,
+            unitSystemRawValue: diveDisplayUnitSystem.rawValue,
+            automaticallyRenumberDives: automaticallyRenumberDives
+        )
     }
 
     var body: some View {
@@ -181,6 +187,19 @@ struct ViewDiveBuddyDetails: View {
                 )
             }
         )
+        .alert(
+            "Invite unavailable",
+            isPresented: Binding(
+                get: { inviteStatusMessage != nil },
+                set: { if !$0 { inviteStatusMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                inviteStatusMessage = nil
+            }
+        } message: {
+            Text(inviteStatusMessage ?? "")
+        }
         .navigationDestination(item: $buddyDiveNavigationID) { target in
             if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == target.id }) {
                 ViewSingleActivity(activity: activity)
@@ -262,6 +281,7 @@ struct ViewDiveBuddyDetails: View {
         }
         .onDisappear {
             BuddiesListNavigationDiagnostics.logBuddyDetailDisappear()
+            cancelBuddyDetailSecondaryTasks()
             DiveMediaScopeCache.shared.deactivateScope(.buddyDetail(buddy.id))
         }
         .sheet(isPresented: $showsEditSheet) {
@@ -300,6 +320,24 @@ struct ViewDiveBuddyDetails: View {
         )
     }
 
+    private func buddyContentRebuildFingerprint(
+        includeSecondarySections: Bool,
+        includeTripRows: Bool,
+        includeMarineLifeEnrichment: Bool
+    ) -> String {
+        DiveBuddyDetailPresentation.contentRebuildFingerprint(
+            buddyID: buddy.id,
+            diveTagCount: effectiveBuddyDiveTags.count,
+            mediaTagCount: effectiveBuddyMediaTags.count,
+            ownerNumberingRowCount: ownerNumberingRows.count,
+            unitSystemRawValue: diveDisplayUnitSystem.rawValue,
+            automaticallyRenumberDives: automaticallyRenumberDives,
+            includeSecondarySections: includeSecondarySections,
+            includeTripRows: includeTripRows,
+            includeMarineLifeEnrichment: includeMarineLifeEnrichment
+        )
+    }
+
     private func rebuildBuddyDetailContent(
         includeSecondarySections: Bool,
         includeTripRows: Bool = false,
@@ -309,6 +347,13 @@ struct ViewDiveBuddyDetails: View {
         defer { AppPerformanceSignpost.end(.buddyDetailContentRebuild, signpostID: signpostID) }
 
         guard let ownerProfileID else { return }
+
+        let fingerprint = buddyContentRebuildFingerprint(
+            includeSecondarySections: includeSecondarySections,
+            includeTripRows: includeTripRows,
+            includeMarineLifeEnrichment: includeMarineLifeEnrichment
+        )
+        guard lastBuddyContentRebuildFingerprint != fingerprint else { return }
 
         let diveTags = effectiveBuddyDiveTags
         let mediaTags = effectiveBuddyMediaTags
@@ -401,6 +446,7 @@ struct ViewDiveBuddyDetails: View {
             selectedID: gallerySelectedMediaID,
             in: taggedMedia
         )
+        lastBuddyContentRebuildFingerprint = fingerprint
     }
 
     private func refreshBuddyDetailContentAfterDeferral() async {
@@ -494,14 +540,28 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private func refreshBuddyDetailContentAfterTagChange() {
-        rebuildBuddyDetailContent(
-            includeSecondarySections: true,
-            includeTripRows: hasLoadedTripRows,
-            includeMarineLifeEnrichment: hasLoadedMarineLifeEnrichment
-        )
-        if hasLoadedTripRows {
-            Task { await loadBuddyTripRowsIfNeeded(force: true) }
+        tagChangeRebuildTask?.cancel()
+        tagChangeRebuildTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
+            rebuildBuddyDetailContent(
+                includeSecondarySections: true,
+                includeTripRows: hasLoadedTripRows,
+                includeMarineLifeEnrichment: hasLoadedMarineLifeEnrichment
+            )
+            if hasLoadedTripRows {
+                await loadBuddyTripRowsIfNeeded(force: true)
+            }
         }
+    }
+
+    private func cancelBuddyDetailSecondaryTasks() {
+        tripRowsLoadTask?.cancel()
+        tripRowsLoadTask = nil
+        marineLifeLoadTask?.cancel()
+        marineLifeLoadTask = nil
+        tagChangeRebuildTask?.cancel()
+        tagChangeRebuildTask = nil
     }
 
     private func warmBuddyHeroHeaderMediaPreviewIfNeeded() async {
@@ -615,7 +675,8 @@ struct ViewDiveBuddyDetails: View {
         case .tripsTogether:
             guard !hasLoadedTripRows else { return }
             hasLoadedTripRows = true
-            Task {
+            tripRowsLoadTask?.cancel()
+            tripRowsLoadTask = Task { @MainActor in
                 await loadBuddyTripRowsIfNeeded()
             }
         case .taggedMedia:
@@ -626,7 +687,8 @@ struct ViewDiveBuddyDetails: View {
                 includeTripRows: hasLoadedTripRows,
                 includeMarineLifeEnrichment: true
             )
-            Task {
+            marineLifeLoadTask?.cancel()
+            marineLifeLoadTask = Task { @MainActor in
                 await loadBuddyMarineLifeCatalogIfNeeded()
             }
         case .divesTogether:
@@ -688,12 +750,59 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private var buddyAvatarHeader: some View {
-        ProfileAvatarView(
-            profilePhoto: buddy.profilePhoto,
-            diameter: Layout.avatarDiameter,
-            iconFont: .system(size: 56),
-            placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
+        // Same bottom-trailing badge seat as **`ProfileAvatarEditor`** camera control.
+        ZStack(alignment: .bottomTrailing) {
+            ProfileAvatarView(
+                profilePhoto: buddy.profilePhoto,
+                diameter: Layout.avatarDiameter,
+                iconFont: .system(size: 56),
+                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
+            )
+
+            buddyAvatarInviteButton
+        }
+    }
+
+    private var buddyAvatarInviteButton: some View {
+        let side = DiveBuddyInviteSMSPresentation.avatarPlusBadgeSideLength(
+            avatarDiameter: Layout.avatarDiameter
         )
+        return Button {
+            Task { await inviteBuddyViaSMS() }
+        } label: {
+            Image(systemName: DiveBuddyInviteSMSPresentation.plusSystemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: side, height: side)
+                .background(Circle().fill(AppTheme.Colors.accent))
+                .overlay {
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(isInvitingBuddy || !networkConnectivity.isConnected)
+        .opacity(networkConnectivity.isConnected ? 1 : 0.45)
+        .accessibilityLabel(BuddiesListPresentation.inviteAccessibilityLabel)
+        .accessibilityIdentifier(DiveBuddyInviteSMSPresentation.detailAccessibilityIdentifier)
+    }
+
+    @MainActor
+    private func inviteBuddyViaSMS() async {
+        guard !isInvitingBuddy else { return }
+        isInvitingBuddy = true
+        defer { isInvitingBuddy = false }
+
+        let displayName = buddy.displayName
+        let contactsIdentifier = buddy.contactsIdentifier
+        let outcome = await DiveBuddyInviteSMSPresentation.presentInviteSMS(
+            buddyDisplayName: displayName,
+            contactsIdentifier: contactsIdentifier,
+            isNetworkConnected: networkConnectivity.isConnected
+        )
+        if case .failed(let message) = outcome {
+            inviteStatusMessage = message
+        }
     }
 
     #if canImport(UIKit)

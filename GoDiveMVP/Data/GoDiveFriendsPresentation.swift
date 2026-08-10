@@ -10,7 +10,7 @@ enum GoDiveFriendsPresentation: Sendable {
     nonisolated static let inviteSheetTitle = "Invite a friend"
     nonisolated static let shareLinkButtonTitle = "Share link"
     nonisolated static let copyLinkButtonTitle = "Copy link"
-    nonisolated static let revokeInviteButtonTitle = "Revoke invite"
+    nonisolated static let inviteExpiresFooter = "This link expires in 24 hours."
     nonisolated static let redeemTitle = "Connect as friends?"
     nonisolated static let redeemConfirmButtonTitle = "Connect"
     nonisolated static let redeemCancelButtonTitle = "Not now"
