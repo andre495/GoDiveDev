@@ -4175,6 +4175,23 @@ struct GoDiveMVPTests {
         #expect(AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(59) == 59)
     }
 
+    @Test func appScrollUnderSearchChromePresentation_listTopInset_isChromeOnly() {
+        #expect(AppScrollUnderSearchChromePresentation.listTopInset(chromeClearance: 68) == 68)
+        #expect(AppScrollUnderSearchChromePresentation.listTopInset(chromeClearance: 72) == 72)
+        #expect(
+            AppScrollUnderSearchChromePresentation.chromeClearanceFallback
+                == CollapsibleInlineTitleHeaderPresentation.chromeBandHeight
+        )
+        #expect(
+            AppScrollUnderSearchChromePresentation.scrimBandHeight(chromeClearance: 68)
+                == 68 + CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
+        )
+        #expect(
+            AppScrollUnderSearchChromePresentation.listScrollFadeFeatherHeight
+                == CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
+        )
+    }
+
     @Test func secondaryDestinationBackButton_defaultTapDimensionIsFortyFourPoints() {
         #expect(SecondaryDestinationChromeMetrics.backButtonMinimumTapDimension == 44)
     }

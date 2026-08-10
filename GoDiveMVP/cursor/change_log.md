@@ -4408,6 +4408,14 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Batch existence via **`DiveMediaReferenceLoader.existingLocalIdentifiers`** (one PhotoKit fetch).
 - **Tests:** `deferredPhotoKitMaintenanceDelaySeconds == 8`; empty-ID batch helper.
 
-## 138 - Next batch
+## 138 - Tag sheet search scroll-under **(pushed)**
+
+**Summary:** Marine-life tag picker sheets use scroll-under search chrome on the shared overview panel background (list scrolls beneath sticky search).
+
+- **`AppScrollUnderSearchChromeLayout`** — shared modal ZStack (list / empty under measured **`CatalogListSearchChrome`** + **`LogbookTopChromeScrim`**); chrome-only inset (no status-bar double-count).
+- **Tag sheets:** **`DiveMarineLifeTagPickerSheet`**, **`DiveActivityMarineLifeTagPickerSheet`**, **`SnorkelMarineLifeTagPickerSheet`** — replace VStack sibling search with scroll-under layout.
+- **Tests:** `appScrollUnderSearchChromePresentation_listTopInset_isChromeOnly`.
+
+## 139 - Next batch
 
 
