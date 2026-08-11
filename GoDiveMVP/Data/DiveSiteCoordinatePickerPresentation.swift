@@ -3,8 +3,9 @@ import MapKit
 
 /// Region and formatting for the add-dive-site coordinate picker map.
 enum DiveSiteCoordinatePickerPresentation: Sendable {
-    nonisolated static let pickerLatitudeDelta: CGFloat = 0.04
-    nonisolated static let pickerLongitudeDelta: CGFloat = 0.04
+    /// Wide starting frame so users can pan/zoom to the site before placing the pin.
+    nonisolated static let pickerLatitudeDelta: CGFloat = 120
+    nonisolated static let pickerLongitudeDelta: CGFloat = 120
 
     nonisolated static let defaultCenter = DiveCoordinate(latitude: 20, longitude: 0)
 

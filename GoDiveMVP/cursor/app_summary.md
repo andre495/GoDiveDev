@@ -139,7 +139,7 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 | **Dive detail** | Map-first; icon tabs map / tank / media; embedded blue overview sheet; landscape on phone sideways |
 | **Snorkel detail** | Same shell; map / heart-rate / media; map tagging parity (buddies, marine life, tags) |
 | **Field Guide** | Category hub → subcategory → species detail (about, range, similar, tagged dives/media) |
-| **Explore** | Map or list; My Sites vs All Sites; catalog + user sites; add site sheet |
+| **Explore** | Map or list; My Sites vs All Sites; catalog + user sites; add/edit site sheets with searchable country picker + world-scale map pin start |
 | **Search** | Unified index: dives, snorkels, buddies, sites, species, trips, gear, certs, media grid |
 | **Profile** | Blue-sheet hero, stats + tagged photos pager, side menu (trips, certs, locker, buddies, settings) |
 | **Settings** | Units, tank default, renumber, auto-upload, sharing, notifications, crash reports, sign out / delete |

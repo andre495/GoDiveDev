@@ -16,6 +16,7 @@ struct DiveSiteEditSheet: View {
 
     @State private var draft: DiveSiteFormDraft
     @State private var saveErrorMessage: String?
+    @State private var showsCountryPicker = false
 
     init(site: DiveSite, onSaved: @escaping () -> Void = {}) {
         self.boundSite = .catalog(site)
@@ -48,7 +49,8 @@ struct DiveSiteEditSheet: View {
                 DiveSiteFormContent(
                     draft: $draft,
                     fallbackCoordinate: fallbackCoordinate,
-                    clearsListRowBackgrounds: true
+                    clearsListRowBackgrounds: true,
+                    showsCountryPicker: $showsCountryPicker
                 )
             }
             .scrollContentBackground(.hidden)
@@ -75,6 +77,7 @@ struct DiveSiteEditSheet: View {
             }
         }
         .diveSiteAddSheetPresentation()
+        .diveSiteCountryPickerSheet(isPresented: $showsCountryPicker, selectedCountry: $draft.country)
         .accessibilityIdentifier(DiveSiteEditPresentation.rootAccessibilityIdentifier)
     }
 

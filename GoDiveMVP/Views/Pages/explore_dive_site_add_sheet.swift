@@ -17,6 +17,7 @@ struct ExploreCatalogDiveSiteAddSheet: View {
         longitudeText: ""
     )
     @State private var saveErrorMessage: String?
+    @State private var showsCountryPicker = false
 
     var body: some View {
         NavigationStack {
@@ -24,7 +25,8 @@ struct ExploreCatalogDiveSiteAddSheet: View {
                 DiveSiteFormContent(
                     draft: $draft,
                     fallbackCoordinate: nil,
-                    clearsListRowBackgrounds: true
+                    clearsListRowBackgrounds: true,
+                    showsCountryPicker: $showsCountryPicker
                 )
             }
             .scrollContentBackground(.hidden)
@@ -51,6 +53,7 @@ struct ExploreCatalogDiveSiteAddSheet: View {
             }
         }
         .diveSiteAddSheetPresentation()
+        .diveSiteCountryPickerSheet(isPresented: $showsCountryPicker, selectedCountry: $draft.country)
         .accessibilityIdentifier("Explore.AddDiveSiteSheet.Root")
     }
 

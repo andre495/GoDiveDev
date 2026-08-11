@@ -12,6 +12,7 @@ struct DiveSiteAddSheet: View {
 
     @State private var draft: DiveSiteFormDraft
     @State private var saveErrorMessage: String?
+    @State private var showsCountryPicker = false
 
     init(
         activity: DiveActivity,
@@ -30,7 +31,8 @@ struct DiveSiteAddSheet: View {
                 DiveSiteFormContent(
                     draft: $draft,
                     fallbackCoordinate: activity.entryCoordinate,
-                    clearsListRowBackgrounds: true
+                    clearsListRowBackgrounds: true,
+                    showsCountryPicker: $showsCountryPicker
                 )
             }
             .scrollContentBackground(.hidden)
@@ -57,6 +59,7 @@ struct DiveSiteAddSheet: View {
             }
         }
         .diveSiteAddSheetPresentation()
+        .diveSiteCountryPickerSheet(isPresented: $showsCountryPicker, selectedCountry: $draft.country)
         .accessibilityIdentifier("DiveSiteAddSheet.Root")
     }
 

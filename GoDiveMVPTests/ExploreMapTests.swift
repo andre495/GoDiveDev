@@ -2482,7 +2482,14 @@ struct ExploreMapTests {
                     viewingDistanceMeters: DiveSiteCoordinatePickerPresentation.pickerRegionViewingDistanceMeters
                 )
                 #expect(zoom == reference)
-                #expect(zoom > 10)
+                #expect(zoom < 4)
+                #expect(DiveSiteCoordinatePickerPresentation.pickerLatitudeDelta >= 90)
+            }
+            @Test func diveSiteFormPresentation_countryPickerChrome() {
+                #expect(DiveSiteFormPresentation.countryPlaceholder == "Select country")
+                #expect(DiveSiteFormPresentation.countryFieldAccessibilityIdentifier == "DiveSiteForm.Country")
+                #expect(DiveSiteFormPresentation.countryPickerCancelAccessibilityIdentifier == "DiveSiteForm.CountryPicker.Cancel")
+                #expect(DiveSiteFormPresentation.countryPickerDoneAccessibilityIdentifier == "DiveSiteForm.CountryPicker.Done")
             }
             @Test func siteReportGraphExport_oneToOneWithActivityAndConditions() {
                 var calendar = Calendar(identifier: .gregorian)

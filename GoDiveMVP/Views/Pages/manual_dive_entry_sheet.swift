@@ -38,6 +38,7 @@ struct ManualDiveEntrySheet: View {
         longitudeText: ""
     )
     @State private var showsSitePicker = false
+    @State private var showsNewSiteCountryPicker = false
 
     private var selectedExistingSite: DiveSite? {
         guard let selectedExistingSiteID else { return nil }
@@ -118,7 +119,8 @@ struct ManualDiveEntrySheet: View {
                                 DiveSiteFormContent(
                                     draft: $newSiteDraft,
                                     fallbackCoordinate: nil,
-                                    clearsListRowBackgrounds: true
+                                    clearsListRowBackgrounds: true,
+                                    showsCountryPicker: $showsNewSiteCountryPicker
                                 )
                             }
                             .scrollContentBackground(.hidden)
@@ -179,6 +181,10 @@ struct ManualDiveEntrySheet: View {
                     sites: diveSites
                 )
             }
+            .diveSiteCountryPickerSheet(
+                isPresented: $showsNewSiteCountryPicker,
+                selectedCountry: $newSiteDraft.country
+            )
             .onChange(of: siteMode) { _, newMode in
                 switch newMode {
                 case .none:

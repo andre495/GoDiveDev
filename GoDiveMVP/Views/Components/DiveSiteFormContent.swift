@@ -7,8 +7,25 @@ struct DiveSiteFormContent: View {
     /// Blue overview-panel modals clear Form card fills so rows sit on the presentation background.
     var clearsListRowBackgrounds: Bool = false
 
+    /// Owned by the host sheet, which presents the picker via `diveSiteCountryPickerSheet`
+    /// at its root. A `.sheet` attached here (inside `Form` section content) anchors the
+    /// presentation to recycled list cells and tears down the whole sheet stack on iOS 26.
+    @Binding var showsCountryPicker: Bool
+
+    private var selectedCountryOption: DiveSiteSelectableCountry? {
+        let name = DiveSiteCountryPresentation.canonicalDisplayName(for: draft.country)
+        guard !name.isEmpty else { return nil }
+        let code = DiveSiteCountryPresentation.isoRegionCode(forCountryName: name) ?? ""
+        return DiveSiteSelectableCountry(
+            name: name,
+            isoRegionCode: code,
+            flagEmoji: DiveSiteCountryPresentation.flagEmoji(forCountryName: name)
+        )
+    }
+
     var body: some View {
-        Section {
+        Group {
+            Section {
             TextField("Site name", text: $draft.siteName)
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("DiveSiteForm.SiteName")
@@ -18,10 +35,38 @@ struct DiveSiteFormContent: View {
         }
 
         Section {
-            TextField("Country", text: $draft.country)
-                .textInputAutocapitalization(.words)
-                .accessibilityIdentifier("DiveSiteForm.Country")
-                .modifier(DiveSiteFormListRowBackground(clears: clearsListRowBackgrounds))
+            Button {
+                showsCountryPicker = true
+            } label: {
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    Text("Country")
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                    Spacer(minLength: AppTheme.Spacing.sm)
+
+                    if let country = selectedCountryOption {
+                        if let flag = country.flagEmoji, !flag.isEmpty {
+                            Text(flag)
+                                .accessibilityHidden(true)
+                        }
+                        Text(country.name)
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                            .lineLimit(1)
+                    } else {
+                        Text(DiveSiteFormPresentation.countryPlaceholder)
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                    }
+
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .accessibilityHidden(true)
+                }
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier(DiveSiteFormPresentation.countryFieldAccessibilityIdentifier)
+            .modifier(DiveSiteFormListRowBackground(clears: clearsListRowBackgrounds))
 
             TextField("Region", text: $draft.region)
                 .textInputAutocapitalization(.words)
@@ -34,8 +79,6 @@ struct DiveSiteFormContent: View {
                 .modifier(DiveSiteFormListRowBackground(clears: clearsListRowBackgrounds))
         } header: {
             Text("Place")
-        } footer: {
-            Text("Optional. Country is the broadest level; region is a state, province, or survey area; body of water is the sea, reef, or bay.")
         }
 
         Section {
@@ -90,6 +133,7 @@ struct DiveSiteFormContent: View {
             Text("Location")
         } footer: {
             Text("Drag the map to place the pin, or edit the coordinates directly. Location helps match future dives to this site.")
+        }
         }
     }
 }
