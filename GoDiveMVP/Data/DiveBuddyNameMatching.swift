@@ -69,10 +69,21 @@ enum DiveBuddyNameMatching {
 
     /// Prefers the more complete label when merging import text with roster.
     nonisolated static func preferredDisplayName(imported: String, existing: String) -> String {
-        let importedTokens = nameTokens(imported)
-        let existingTokens = nameTokens(existing)
         let importedTrimmed = imported.trimmingCharacters(in: .whitespacesAndNewlines)
         let existingTrimmed = existing.trimmingCharacters(in: .whitespacesAndNewlines)
+        let importedIsPlaceholder = importedTrimmed.isEmpty
+            || importedTrimmed.caseInsensitiveCompare(UserProfileStore.defaultDisplayName) == .orderedSame
+        let existingIsPlaceholder = existingTrimmed.isEmpty
+            || existingTrimmed.caseInsensitiveCompare(UserProfileStore.defaultDisplayName) == .orderedSame
+        if importedIsPlaceholder, !existingIsPlaceholder {
+            return existingTrimmed
+        }
+        if existingIsPlaceholder, !importedIsPlaceholder {
+            return String(importedTrimmed.prefix(DiveBuddyCatalog.maxDisplayNameLength))
+        }
+
+        let importedTokens = nameTokens(imported)
+        let existingTokens = nameTokens(existing)
 
         if importedTokens.count > existingTokens.count {
             return String(importedTrimmed.prefix(DiveBuddyCatalog.maxDisplayNameLength))

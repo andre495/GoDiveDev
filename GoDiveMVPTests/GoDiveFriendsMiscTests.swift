@@ -321,6 +321,28 @@ struct GoDiveFriendsMiscTests {
                 #expect(linked?.id == existing.id)
                 #expect(existing.linkedFirebaseUID == "firebase-pat")
             }
+            @Test @MainActor func friendBuddyLinking_doesNotReplaceRealNameWithPlaceholder() throws {
+                let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+                let context = ModelContext(container)
+                let owner = UserProfile(appleUserIdentifier: "friend-placeholder-owner", displayName: "Susu Dugas")
+                context.insert(owner)
+
+                let existing = DiveBuddy(displayName: "Andre Dugas", owner: owner)
+                existing.linkedFirebaseUID = "firebase-andre"
+                context.insert(existing)
+                try context.save()
+
+                let linked = GoDiveFriendBuddyLinking.upsertRosterBuddy(
+                    friendUID: "firebase-andre",
+                    displayName: UserProfileStore.defaultDisplayName,
+                    photoURL: nil,
+                    owner: owner,
+                    modelContext: context
+                )
+
+                #expect(linked?.id == existing.id)
+                #expect(existing.displayName == "Andre Dugas")
+            }
             @Test @MainActor func friendBuddyLinking_mergesDuplicateNameRows() throws {
                 let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
                 let context = ModelContext(container)

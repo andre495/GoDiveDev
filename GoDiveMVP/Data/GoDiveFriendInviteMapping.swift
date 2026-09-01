@@ -30,6 +30,7 @@ enum GoDiveFriendInviteMapping: Sendable {
         var status: String
         var inviteToken: String
         var createdAt: Date
+        var memberDisplayNames: [String: String]
     }
 
     /// Opaque URL-safe token (hex).
@@ -77,28 +78,74 @@ enum GoDiveFriendInviteMapping: Sendable {
         return fields
     }
 
-    /// Trimmed invite snapshot name; `nil` when empty.
+    /// True for empty strings and the onboarding placeholder **Diver**.
+    nonisolated static func isPlaceholderDisplayName(_ raw: String?) -> Bool {
+        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return true }
+        return trimmed.caseInsensitiveCompare(UserProfileStore.defaultDisplayName) == .orderedSame
+    }
+
+    /// Trimmed invite / directory name; `nil` when empty or the placeholder **Diver**.
     nonisolated static func sanitizedFromDisplayName(_ raw: String?) -> String? {
         let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !trimmed.isEmpty else { return nil }
+        guard !isPlaceholderDisplayName(trimmed) else { return nil }
         return trimmed
     }
 
-    /// Prefers the live directory name; falls back to the invite snapshot when the directory
-    /// doc is missing or still the placeholder **Diver**.
+    /// First usable (non-placeholder) name from local profile, Auth, Apple cache, then returning hint.
+    nonisolated static func resolvedPublisherDisplayName(
+        localProfileName: String?,
+        authDisplayName: String? = nil,
+        cachedAppleName: String? = nil,
+        returningHintName: String? = nil
+    ) -> String? {
+        [
+            localProfileName,
+            authDisplayName,
+            cachedAppleName,
+            returningHintName,
+        ]
+        .compactMap { sanitizedFromDisplayName($0) }
+        .first
+    }
+
+    /// Prefers the live directory name; falls back to the invite / friendship snapshot when the
+    /// directory doc is missing or still the placeholder **Diver**.
     nonisolated static func resolvedInviteDisplayName(
         directoryDisplayName: String?,
         inviteFromDisplayName: String?
     ) -> String {
-        let directory = directoryDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !directory.isEmpty, directory != UserProfileStore.defaultDisplayName {
+        if let directory = sanitizedFromDisplayName(directoryDisplayName) {
             return directory
         }
-        let invite = inviteFromDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !invite.isEmpty {
-            return invite
+        if let snapshot = sanitizedFromDisplayName(inviteFromDisplayName) {
+            return snapshot
         }
+        let directory = directoryDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return directory.isEmpty ? UserProfileStore.defaultDisplayName : directory
+    }
+
+    /// Snapshot name for `uid` from a friendship **`memberDisplayNames`** map (Firestore `[String: Any]`).
+    nonisolated static func memberDisplayName(for uid: String, in raw: Any?) -> String? {
+        let target = uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !target.isEmpty else { return nil }
+        let map: [String: Any]
+        if let anyMap = raw as? [String: Any] {
+            map = anyMap
+        } else if let stringMap = raw as? [String: String] {
+            map = stringMap
+        } else {
+            return nil
+        }
+        if let exact = sanitizedFromDisplayName(map[target] as? String) {
+            return exact
+        }
+        for (key, value) in map {
+            if key.trimmingCharacters(in: .whitespacesAndNewlines) == target {
+                return sanitizedFromDisplayName(value as? String)
+            }
+        }
+        return nil
     }
 
     /// True when any active friendship `members` list includes `uid`.
@@ -129,27 +176,41 @@ enum GoDiveFriendInviteMapping: Sendable {
         uidA: String,
         uidB: String,
         inviteToken: String,
-        now: Date = Date()
+        now: Date = Date(),
+        displayNameA: String? = nil,
+        displayNameB: String? = nil
     ) -> FriendshipDraft {
         let a = uidA.trimmingCharacters(in: .whitespacesAndNewlines)
         let b = uidB.trimmingCharacters(in: .whitespacesAndNewlines)
         let members = a < b ? [a, b] : [b, a]
+        var memberDisplayNames: [String: String] = [:]
+        if let nameA = sanitizedFromDisplayName(displayNameA) {
+            memberDisplayNames[a] = nameA
+        }
+        if let nameB = sanitizedFromDisplayName(displayNameB) {
+            memberDisplayNames[b] = nameB
+        }
         return FriendshipDraft(
             friendshipID: friendshipID(uidA: a, uidB: b),
             members: members,
             status: friendshipStatusActive,
             inviteToken: inviteToken.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-            createdAt: now
+            createdAt: now,
+            memberDisplayNames: memberDisplayNames
         )
     }
 
     nonisolated static func friendshipFields(from draft: FriendshipDraft) -> [String: Any] {
-        [
+        var fields: [String: Any] = [
             "members": draft.members,
             "status": draft.status,
             "inviteToken": draft.inviteToken,
             "createdAt": draft.createdAt,
         ]
+        if !draft.memberDisplayNames.isEmpty {
+            fields["memberDisplayNames"] = draft.memberDisplayNames
+        }
+        return fields
     }
 
     nonisolated static func isInviteOpen(

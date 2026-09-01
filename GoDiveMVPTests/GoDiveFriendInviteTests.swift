@@ -154,6 +154,43 @@ struct GoDiveFriendInviteTests {
             )
             #expect(empty.fromDisplayName == nil)
             #expect(GoDiveFriendInviteMapping.inviteFields(from: empty)["fromDisplayName"] == nil)
+
+            let placeholder = GoDiveFriendInviteMapping.inviteDraft(
+                fromUid: "uid-a",
+                token: "ghi789",
+                fromDisplayName: UserProfileStore.defaultDisplayName
+            )
+            #expect(placeholder.fromDisplayName == nil)
+            #expect(GoDiveFriendInviteMapping.inviteFields(from: placeholder)["fromDisplayName"] == nil)
+        }
+
+        @Test func friendInviteMapping_publisherNameSkipsPlaceholderThenUsesAuthOrCache() {
+            #expect(
+                GoDiveFriendInviteMapping.resolvedPublisherDisplayName(
+                    localProfileName: UserProfileStore.defaultDisplayName,
+                    authDisplayName: "Andre Dugas"
+                ) == "Andre Dugas"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedPublisherDisplayName(
+                    localProfileName: "  Diver  ",
+                    authDisplayName: nil,
+                    cachedAppleName: "Andre Dugas"
+                ) == "Andre Dugas"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedPublisherDisplayName(
+                    localProfileName: UserProfileStore.defaultDisplayName,
+                    authDisplayName: UserProfileStore.defaultDisplayName,
+                    cachedAppleName: "  ",
+                    returningHintName: "Susu Dugas"
+                ) == "Susu Dugas"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedPublisherDisplayName(
+                    localProfileName: UserProfileStore.defaultDisplayName
+                ) == nil
+            )
         }
 
         @Test func friendInviteMapping_resolvedDisplayNamePrefersDirectoryThenInviteSnapshot() {
@@ -180,6 +217,54 @@ struct GoDiveFriendInviteTests {
                     directoryDisplayName: nil,
                     inviteFromDisplayName: nil
                 ) == UserProfileStore.defaultDisplayName
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: UserProfileStore.defaultDisplayName,
+                    inviteFromDisplayName: UserProfileStore.defaultDisplayName
+                ) == UserProfileStore.defaultDisplayName
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: UserProfileStore.defaultDisplayName,
+                    inviteFromDisplayName: nil
+                ) == UserProfileStore.defaultDisplayName
+            )
+        }
+
+        @Test func friendInviteMapping_storesMemberDisplayNamesOnFriendshipAndOmitsPlaceholder() {
+            let draft = GoDiveFriendInviteMapping.friendshipDraft(
+                uidA: "uid-b",
+                uidB: "uid-a",
+                inviteToken: "abc123",
+                displayNameA: "  Susu Dugas  ",
+                displayNameB: UserProfileStore.defaultDisplayName
+            )
+            #expect(draft.memberDisplayNames["uid-a"] == nil)
+            #expect(draft.memberDisplayNames["uid-b"] == "Susu Dugas")
+            let fields = GoDiveFriendInviteMapping.friendshipFields(from: draft)
+            let names = fields["memberDisplayNames"] as? [String: String]
+            #expect(names == ["uid-b": "Susu Dugas"])
+            #expect(
+                GoDiveFriendInviteMapping.memberDisplayName(
+                    for: "uid-b",
+                    in: ["uid-b": "Susu Dugas", "uid-a": UserProfileStore.defaultDisplayName]
+                ) == "Susu Dugas"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.memberDisplayName(
+                    for: "uid-a",
+                    in: ["uid-a": UserProfileStore.defaultDisplayName]
+                ) == nil
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: UserProfileStore.defaultDisplayName,
+                    inviteFromDisplayName: GoDiveFriendInviteMapping.memberDisplayName(
+                        for: "uid-b",
+                        in: names
+                    )
+                ) == "Susu Dugas"
             )
         }
 

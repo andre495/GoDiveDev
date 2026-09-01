@@ -1082,6 +1082,18 @@ struct DiveBuddyTests {
             #expect(
                 DiveBuddyNameMatching.preferredDisplayName(imported: "Mike Dugas", existing: "Mike") == "Mike Dugas"
             )
+            #expect(
+                DiveBuddyNameMatching.preferredDisplayName(
+                    imported: UserProfileStore.defaultDisplayName,
+                    existing: "Andre Dugas"
+                ) == "Andre Dugas"
+            )
+            #expect(
+                DiveBuddyNameMatching.preferredDisplayName(
+                    imported: "Andre Dugas",
+                    existing: UserProfileStore.defaultDisplayName
+                ) == "Andre Dugas"
+            )
         }
 
         @Test func diveBuddyCatalog_fuzzyMatchesImportToExistingRoster() throws {

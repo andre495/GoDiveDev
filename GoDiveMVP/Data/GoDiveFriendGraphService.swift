@@ -73,8 +73,7 @@ enum GoDiveFriendGraphService: Sendable {
             return .failure(Failure(message: GoDiveFriendsPresentation.firebaseUnavailableMessage))
         }
 
-        let fromDisplayName = AccountSession.shared.currentProfile?.displayName
-            ?? Auth.auth().currentUser?.displayName
+        let fromDisplayName = resolvedCurrentUserDisplayName()
         await publishDirectoryDisplayNameIfNeeded(fromDisplayName)
 
         let draft = GoDiveFriendInviteMapping.inviteDraft(
@@ -221,10 +220,17 @@ enum GoDiveFriendGraphService: Sendable {
                 fromUid = uid
             }
 
+            let inviteFromDisplayName = inviteData["fromDisplayName"] as? String
+            let inviterProfile = await resolvedPublicProfile(
+                uid: fromUid,
+                inviteFromDisplayName: inviteFromDisplayName
+            )
             let friendship = GoDiveFriendInviteMapping.friendshipDraft(
                 uidA: me,
                 uidB: fromUid,
-                inviteToken: normalized
+                inviteToken: normalized,
+                displayNameA: resolvedCurrentUserDisplayName(),
+                displayNameB: inviterProfile.displayName
             )
             let friendshipRef = db.collection(GoDiveFriendInviteMapping.friendshipsCollection)
                 .document(friendship.friendshipID)
@@ -242,13 +248,9 @@ enum GoDiveFriendGraphService: Sendable {
             try await batch.commit()
 
             GoDiveSecurityEvent.record(.friendAdded, detail: "invite")
-            let profile = await resolvedPublicProfile(
-                uid: fromUid,
-                inviteFromDisplayName: inviteData["fromDisplayName"] as? String
-            )
             log.notice("Friendship created via invite")
             GoDiveFriendGraphChangeNotification.post()
-            return .success(profile)
+            return .success(inviterProfile)
         } catch {
             log.error("Invite redeem failed: \(String(describing: error), privacy: .private)")
             return .failure(Failure(message: "Could not connect. Try again."))
@@ -272,6 +274,7 @@ enum GoDiveFriendGraphService: Sendable {
             var friendUID: String
             var friendshipID: String
             var since: Date?
+            var snapshotDisplayName: String?
         }
 
         var pending: [Pending] = []
@@ -289,7 +292,11 @@ enum GoDiveFriendGraphService: Sendable {
                 Pending(
                     friendUID: other,
                     friendshipID: doc.documentID,
-                    since: (data["createdAt"] as? Timestamp)?.dateValue()
+                    since: (data["createdAt"] as? Timestamp)?.dateValue(),
+                    snapshotDisplayName: GoDiveFriendInviteMapping.memberDisplayName(
+                        for: other,
+                        in: data["memberDisplayNames"]
+                    )
                 )
             )
         }
@@ -301,7 +308,10 @@ enum GoDiveFriendGraphService: Sendable {
             return FriendEdge(
                 friendUID: item.friendUID,
                 friendshipID: item.friendshipID,
-                displayName: profile?.displayName ?? UserProfileStore.defaultDisplayName,
+                displayName: GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: profile?.displayName,
+                    inviteFromDisplayName: item.snapshotDisplayName
+                ),
                 photoURL: profile?.photoURL,
                 profileHeroURL: profile?.profileHeroURL,
                 profileHeroMediaKind: profile?.profileHeroMediaKind,
@@ -443,8 +453,23 @@ enum GoDiveFriendGraphService: Sendable {
         )
     }
 
+    @MainActor
+    private static func resolvedCurrentUserDisplayName() -> String? {
+        let profile = AccountSession.shared.currentProfile
+        let appleID = profile?.appleUserIdentifier
+        return GoDiveFriendInviteMapping.resolvedPublisherDisplayName(
+            localProfileName: profile?.displayName,
+            authDisplayName: Auth.auth().currentUser?.displayName,
+            cachedAppleName: appleID.flatMap { UserProfileStore.cachedDisplayName(forAppleUserIdentifier: $0) },
+            returningHintName: appleID.flatMap {
+                ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: $0)
+            }
+        )
+    }
+
     /// Best-effort directory write so invite previews can resolve a real name even when the
     /// first signup upsert never completed (stuck photo-step deferral).
+    /// Never publishes the placeholder **Diver** — that would overwrite a real directory name.
     @MainActor
     private static func publishDirectoryDisplayNameIfNeeded(_ displayName: String?) async {
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
