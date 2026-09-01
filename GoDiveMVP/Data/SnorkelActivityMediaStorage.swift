@@ -59,4 +59,64 @@ enum SnorkelActivityMediaStorage {
         try modelContext.save()
         DiveActivityMediaStorage.postMediaDidChange()
     }
+
+    /// Detaches one gallery item from the snorkel: marine-life tags, buddy tags, featured pointer, and share selection.
+    static func removeMedia(
+        _ media: SnorkelMediaPhoto,
+        from activity: SnorkelActivity,
+        owner: UserProfile?,
+        modelContext: ModelContext
+    ) throws {
+        let mediaID = media.id
+
+        let sightings = try MarineLifeSightingRecorder.sightings(
+            forSnorkelActivityID: activity.id,
+            modelContext: modelContext
+        ).filter { $0.snorkelMediaPhotoID == mediaID }
+        if let owner {
+            for marineLifeUUID in Set(sightings.map(\.marineLifeUUID)) {
+                try MarineLifeSightingRecorder.untagSpecies(
+                    marineLifeUUID: marineLifeUUID,
+                    on: media,
+                    snorkel: activity,
+                    owner: owner,
+                    modelContext: modelContext
+                )
+            }
+        } else {
+            for row in sightings {
+                modelContext.delete(row)
+            }
+        }
+
+        let buddyIDs = try SnorkelMediaBuddyAssociation.tags(
+            forMediaPhotoID: mediaID,
+            modelContext: modelContext
+        ).compactMap(\.buddyID)
+        for buddyID in buddyIDs {
+            try SnorkelMediaBuddyAssociation.removeBuddyTag(
+                buddyID: buddyID,
+                from: media,
+                snorkel: activity,
+                modelContext: modelContext
+            )
+        }
+
+        if activity.featuredMediaPhotoID == mediaID {
+            activity.featuredMediaPhotoID = nil
+        }
+
+        var shareIDs = ActivityFriendShareConfiguration.decodeMediaIDs(
+            from: activity.friendShareMediaSelectedIDsJSON
+        )
+        if shareIDs.contains(mediaID) {
+            shareIDs.remove(mediaID)
+            activity.friendShareMediaSelectedIDsJSON = ActivityFriendShareConfiguration.encodeMediaIDs(shareIDs)
+        }
+
+        activity.mediaPhotos.removeAll { $0.id == mediaID }
+        modelContext.delete(media)
+        try modelContext.save()
+        DiveActivityMediaStorage.postMediaDidChange()
+    }
 }

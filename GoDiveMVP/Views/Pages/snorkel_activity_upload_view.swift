@@ -12,6 +12,7 @@ struct SnorkelActivityUploadView: View {
     }
 
     @State private var isFileImporterPresented = false
+    @State private var showsManualEntrySheet = false
     @State private var importOverlay: DiveImportOverlayState = .hidden
     @State private var activeImportTask: Task<Void, Never>?
     @State private var fileImporterPresentationTask: Task<Void, Never>?
@@ -25,7 +26,7 @@ struct SnorkelActivityUploadView: View {
         AppPage(title: LogbookAddActivityPresentation.snorkelUploadPageTitle, showsBackButton: !importOverlay.disablesSourceButtons) {
             ZStack {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    Text("Import a snorkel session from a Garmin FIT file (Snorkel or Open Water swim).")
+                    Text("Import a snorkel from your computer, or add the details yourself.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.Colors.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -33,17 +34,7 @@ struct SnorkelActivityUploadView: View {
 
                     snorkelImportSection
 
-                    Toggle(isOn: $importCreateDiveSitesFromImport) {
-                        Text("Create dive sites from import names")
-                            .font(.subheadline)
-                    }
-                    .tint(AppTheme.Colors.accent)
-
-                    Toggle(isOn: $importAttachMediaFromPhotoLibrary) {
-                        Text("Attach matching photos from library")
-                            .font(.subheadline)
-                    }
-                    .tint(AppTheme.Colors.accent)
+                    snorkelManualEntrySection
 
                     Spacer(minLength: 0)
                 }
@@ -55,6 +46,11 @@ struct SnorkelActivityUploadView: View {
                     DiveImportProgressOverlayView(overlay: $importOverlay)
                         .zIndex(1)
                 }
+            }
+        }
+        .sheet(isPresented: $showsManualEntrySheet) {
+            ManualSnorkelEntrySheet { input in
+                confirmManualSnorkel(input)
             }
         }
         .fileImporter(
@@ -84,26 +80,83 @@ struct SnorkelActivityUploadView: View {
     }
 
     private var snorkelImportSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            snorkelSourceSection(title: "Import from a file") {
+                snorkelSourceCard(
+                    title: "Garmin",
+                    subtitle: "Snorkel or Open Water swim from Garmin Connect.",
+                    tag: ".fit",
+                    systemImage: "doc.badge.arrow.up",
+                    accessibilityIdentifier: "SnorkelActivityUpload.FileUpload"
+                ) {
+                    requestFileImporter()
+                }
+            }
+
+            Toggle(isOn: $importCreateDiveSitesFromImport) {
+                Text("Create dive sites from import names")
+                    .font(.subheadline)
+            }
+            .tint(AppTheme.Colors.accent)
+
+            Toggle(isOn: $importAttachMediaFromPhotoLibrary) {
+                Text("Attach matching photos from library")
+                    .font(.subheadline)
+            }
+            .tint(AppTheme.Colors.accent)
+        }
+    }
+
+    private var snorkelManualEntrySection: some View {
+        snorkelSourceSection(title: "Add it yourself") {
+            snorkelSourceCard(
+                title: "Manual entry",
+                subtitle: "Type in your snorkel details by hand.",
+                tag: nil,
+                systemImage: "square.and.pencil",
+                accessibilityIdentifier: "SnorkelActivityUpload.ManualEntry"
+            ) {
+                showsManualEntrySheet = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func snorkelSourceSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("IMPORT FROM A FILE")
+            Text(title.uppercased())
                 .font(.caption.weight(.semibold))
                 .tracking(0.6)
                 .foregroundStyle(AppTheme.Colors.mutedText)
                 .padding(.leading, 4)
 
-            Button {
-                requestFileImporter()
-            } label: {
-                HStack(spacing: AppTheme.Spacing.md) {
-                    snorkelSourceIconBadge(systemImage: "doc.badge.arrow.up")
+            content()
+        }
+    }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: AppTheme.Spacing.sm) {
-                            Text("Garmin")
-                                .font(.headline.weight(.semibold))
-                                .foregroundStyle(AppTheme.Colors.textPrimary)
+    private func snorkelSourceCard(
+        title: String,
+        subtitle: String,
+        tag: String?,
+        systemImage: String,
+        accessibilityIdentifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: AppTheme.Spacing.md) {
+                snorkelSourceIconBadge(systemImage: systemImage)
 
-                            Text(".fit")
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: AppTheme.Spacing.sm) {
+                        Text(title)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                        if let tag {
+                            Text(tag)
                                 .font(.caption2.weight(.semibold))
                                 .monospaced()
                                 .foregroundStyle(AppTheme.Colors.accent)
@@ -114,34 +167,34 @@ struct SnorkelActivityUploadView: View {
                                         .fill(AppTheme.Colors.accent.opacity(0.12))
                                 }
                         }
-
-                        Text("Snorkel or Open Water swim from Garmin Connect.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Spacer(minLength: AppTheme.Spacing.sm)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
-                    Image(systemName: "chevron.right")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
-                }
-                .padding(AppTheme.Spacing.md)
-                .frame(maxWidth: .infinity)
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(AppTheme.Colors.surfaceElevated)
-                        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
-                }
-                .contentShape(Rectangle())
+                Spacer(minLength: AppTheme.Spacing.sm)
+
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
             }
-            .buttonStyle(AddActivityCardButtonStyle())
-            .disabled(importOverlay.disablesSourceButtons)
-            .accessibilityLabel("Garmin. .fit. Import a snorkel or open water swim session.")
-            .accessibilityIdentifier("SnorkelActivityUpload.FileUpload")
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity)
+            .background {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(AppTheme.Colors.surfaceElevated)
+                    .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(AddActivityCardButtonStyle())
+        .disabled(importOverlay.disablesSourceButtons)
+        .accessibilityLabel(tag.map { "\(title). \($0). \(subtitle)" } ?? "\(title). \(subtitle)")
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private func requestFileImporter() {
@@ -152,6 +205,44 @@ struct SnorkelActivityUploadView: View {
             guard !Task.isCancelled else { return }
             isFileImporterPresented = true
             fileImporterPresentationTask = nil
+        }
+    }
+
+    @MainActor
+    private func confirmManualSnorkel(_ input: ManualSnorkelEntryInput) {
+        let activity = SnorkelActivityManualCreation.makeBlankActivity(from: input)
+        let outcome = SnorkelActivityManualCreation.persist(
+            activity,
+            siteSelection: input.siteSelection,
+            modelContext: modelContext
+        )
+        if let id = outcome.primaryInsertedActivityId {
+            if case .newSite = input.siteSelection,
+               let diveSiteID = activity.diveSiteID,
+               let site = try? DiveLinkedSiteResolver.existingUserDiveSite(id: diveSiteID, modelContext: modelContext) {
+                Task { @MainActor in
+                    await DiveSiteTimeZoneResolution.ensureResolved(
+                        for: site,
+                        at: activity.startTime,
+                        resolver: MapKitGeocodingTimeZoneResolver.shared
+                    )
+                    try? modelContext.save()
+                }
+            }
+            if let ownerID = accountSession.currentProfile?.id {
+                Task { @MainActor in
+                    await SnorkelLibraryMediaAutoAttachScheduler.attachAfterSnorkelPersisted(
+                        activity,
+                        ownerProfileID: ownerID,
+                        modelContext: modelContext
+                    )
+                }
+            }
+            onSuccessfulImport?(id)
+        } else {
+            presentImportResult(SnorkelImportAlertPresentation.failurePayload(
+                message: outcome.userMessage
+            ))
         }
     }
 

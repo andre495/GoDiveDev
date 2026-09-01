@@ -168,6 +168,7 @@ struct DiveActivityLogbookTests {
             let routes = LogbookAddActivityPresentation.hubOptions.map(\.route)
             #expect(routes == [.diveActivityUpload, .snorkelActivityUpload, .connectDeviceComingSoon])
             #expect(LogbookAddActivityPresentation.hubOptions.count == 3)
+            #expect(LogbookAddActivityPresentation.hubOptions[1].subtitle.contains("manually"))
         }
 
         @Test func logbookActivityRowPresentation_activityKindSymbols() {

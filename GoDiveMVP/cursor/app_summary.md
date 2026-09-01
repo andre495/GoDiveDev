@@ -111,7 +111,7 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 
 ## Dive file import
 
-- **Logbook → +** hub: **FIT dive**, **FIT snorkel** (Garmin swim/snorkel), **UDDF** (MacDive etc.), **manual dive**, **Connect device** (placeholder).
+- **Logbook → +** hub: **FIT dive**, **FIT snorkel** (Garmin swim/snorkel), **UDDF** (MacDive etc.), **manual dive**, **manual snorkel**, **Connect device** (placeholder).
 - **FIT:** **`FitDiveFileDecoder`** → **`DiveActivity`** or **`SnorkelActivity`**; scuba validates single-gas diving sessions.
 - **UDDF:** **`UddfDiveFileDecoder`**; may import multiple dives per file; MacDive import guide for bulk.
 - **Options per import:** create dive sites, attach library media, duplicate detection (**`DiveActivityDuplicateMatcher`**).

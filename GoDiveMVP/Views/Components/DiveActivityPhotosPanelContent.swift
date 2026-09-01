@@ -42,6 +42,7 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
     var dateDashTimeLine: String? = nil
     @Binding var mediaPickerItems: [PhotosPickerItem]
     var isImportInProgress = false
+    var onDeleteSelectedMedia: (() -> Void)? = nil
 
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var largeDetentMode: DiveActivityMediaLargeDetentMode = .marineLife
@@ -123,7 +124,8 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                     overlaysChrome: true,
                     onCollapseToMedium: onCollapsePanelToMedium,
                     mediaPickerItems: $mediaPickerItems,
-                    isMediaImportInProgress: isImportInProgress
+                    isMediaImportInProgress: isImportInProgress,
+                    onDeleteSelectedMedia: onDeleteSelectedMedia
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if usesCarouselPinnedLayout {

@@ -938,6 +938,22 @@ struct GoDiveFriendsMiscTests {
                 dive.friendShareActivityEnabled = false
                 #expect(!ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: defaults))
             }
+
+            @Test @MainActor func activityFriendShareConfiguration_shouldPublish_trueWhenSeededWithGlobalOn() {
+                let suiteName = "GoDiveFriendsTests.activityFriendShareShouldPublishSeed.\(UUID().uuidString)"
+                let defaults = UserDefaults(suiteName: suiteName)!
+                defer { defaults.removePersistentDomain(forName: suiteName) }
+                defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+
+                let dive = DiveActivity(
+                    source: .manual,
+                    startTime: Date(),
+                    durationMinutes: 30,
+                    maxDepthMeters: 12
+                )
+                ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(dive, userDefaults: defaults)
+                #expect(ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: defaults))
+            }
             @Test @MainActor func activityFriendShareConfiguration_configuredOverridesGlobalMediaAndNotes() {
                 let suiteName = "GoDiveFriendsTests.activityFriendShareOverrides.\(UUID().uuidString)"
                 let defaults = UserDefaults(suiteName: suiteName)!
@@ -1012,12 +1028,48 @@ struct GoDiveFriendsMiscTests {
                 )
                 ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(dive, userDefaults: defaults)
                 #expect(dive.friendShareBuddyDefaultsCaptured)
-                // Local-first publish checkpoint: new activities never auto-share, even with global share on.
-                #expect(!dive.friendShareActivityEnabled)
-                #expect(dive.friendSharePublishCheckpointPending)
+                #expect(dive.friendShareActivityEnabled)
+                #expect(!dive.friendSharePublishCheckpointPending)
                 #expect(dive.friendShareMediaEnabled)
                 #expect(dive.friendShareNotesModeRaw == ActivityFriendShareNotesMode.off.rawValue)
                 #expect(!dive.friendShareBuddySettingsConfigured)
+            }
+
+            @Test func activityFriendShareConfiguration_seedNewActivityFollowsGlobalShareOff() {
+                let suiteName = "GoDiveFriendsTests.activityFriendShareSeedOff.\(UUID().uuidString)"
+                let defaults = UserDefaults(suiteName: suiteName)!
+                defer { defaults.removePersistentDomain(forName: suiteName) }
+                defaults.set(false, forKey: AppUserSettings.shareDivesWithFriendsKey)
+
+                let dive = DiveActivity(
+                    source: .manual,
+                    startTime: Date(),
+                    durationMinutes: 30,
+                    maxDepthMeters: 12
+                )
+                ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(dive, userDefaults: defaults)
+                #expect(dive.friendShareBuddyDefaultsCaptured)
+                #expect(!dive.friendShareActivityEnabled)
+                #expect(!dive.friendSharePublishCheckpointPending)
+            }
+
+            @Test func activityFriendShareConfiguration_seedDoesNotOverwriteCapturedOff() {
+                let suiteName = "GoDiveFriendsTests.activityFriendShareSeedKeepOff.\(UUID().uuidString)"
+                let defaults = UserDefaults(suiteName: suiteName)!
+                defer { defaults.removePersistentDomain(forName: suiteName) }
+                defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+
+                let dive = DiveActivity(
+                    source: .manual,
+                    startTime: Date(),
+                    durationMinutes: 30,
+                    maxDepthMeters: 12
+                )
+                dive.friendShareBuddyDefaultsCaptured = true
+                dive.friendShareActivityEnabled = false
+                ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(dive, userDefaults: defaults)
+                #expect(!dive.friendShareActivityEnabled)
+                #expect(dive.friendShareBuddyDefaultsCaptured)
             }
             @Test func activityPublishCheckpointBanner_promptCopy() {
                 #expect(

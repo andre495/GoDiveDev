@@ -681,10 +681,11 @@ final class AccountSession {
     }
 
     /// Pushes display name and/or a new profile photo to Firestore / Storage after Profile edits.
-    /// No-ops while the post-sign-up photo-step deferral is still active (initial publish owns that write).
+    /// No-ops while the post-sign-up photo wizard is still on screen (initial publish owns that write).
     func pushFirestoreSocialProfileEdits(uploadPhoto: Bool) {
         guard GoDiveFirestoreProfileEditSync.shouldSyncEdits(
-            isDeferredUntilPhotoStep: GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep()
+            isDeferredUntilPhotoStep: GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(),
+            isPostSignUpSetupVisible: showsPostSignUpInterests || showsPostSignUpProfileSetup
         ) else { return }
         guard let profile = currentProfile else { return }
         let displayName = profile.displayName

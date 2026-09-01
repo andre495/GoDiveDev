@@ -704,7 +704,8 @@ struct ViewSingleSnorkelActivity: View {
                 timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds
             ),
             mediaPickerItems: $snorkelMediaPickerItems,
-            isImportInProgress: mediaImportOverlay.isBlocking
+            isImportInProgress: mediaImportOverlay.isBlocking,
+            onDeleteSelectedMedia: { deleteSelectedMedia() }
         )
         .animation(nil, value: overviewSheetDetent)
         .accessibilityIdentifier(snorkelMediaPanelAccessibilityIdentifier)
@@ -717,6 +718,25 @@ struct ViewSingleSnorkelActivity: View {
         case .minimized:
             "SnorkelOverview.MediaPanel.Minimized"
         }
+    }
+
+    private func deleteSelectedMedia() {
+        guard let media = SnorkelActivityMediaPresentation.selectedMedia(
+            selectedID: selectedMediaPhotoID,
+            in: derivedSnorkelData.sortedMediaItems
+        ) else { return }
+        let nextID = DiveActivityMediaPresentation.selectedPhotoIDAfterRemoving(
+            mediaID: media.id,
+            selectedID: selectedMediaPhotoID,
+            orderedIDs: derivedSnorkelData.sortedMediaItems.map(\.id)
+        )
+        try? SnorkelActivityMediaStorage.removeMedia(
+            media,
+            from: activity,
+            owner: accountSession.currentProfile ?? activity.owner,
+            modelContext: modelContext
+        )
+        selectedMediaPhotoID = nextID
     }
 
     private func toggleFeaturedMedia(_ media: SnorkelMediaPhoto) {

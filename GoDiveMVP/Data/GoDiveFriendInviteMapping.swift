@@ -17,6 +17,7 @@ enum GoDiveFriendInviteMapping: Sendable {
     struct InviteDraft: Equatable, Sendable {
         var token: String
         var fromUid: String
+        var fromDisplayName: String?
         var status: String
         var createdAt: Date
         var expiresAt: Date
@@ -45,12 +46,14 @@ enum GoDiveFriendInviteMapping: Sendable {
         fromUid: String,
         token: String = makeToken(),
         now: Date = Date(),
-        timeToLive: TimeInterval = inviteTimeToLiveSeconds
+        timeToLive: TimeInterval = inviteTimeToLiveSeconds,
+        fromDisplayName: String? = nil
     ) -> InviteDraft {
         let trimmedUID = fromUid.trimmingCharacters(in: .whitespacesAndNewlines)
         return InviteDraft(
             token: token.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             fromUid: trimmedUID,
+            fromDisplayName: sanitizedFromDisplayName(fromDisplayName),
             status: inviteStatusOpen,
             createdAt: now,
             expiresAt: now.addingTimeInterval(timeToLive),
@@ -65,10 +68,54 @@ enum GoDiveFriendInviteMapping: Sendable {
             "createdAt": draft.createdAt,
             "expiresAt": draft.expiresAt,
         ]
+        if let fromDisplayName = draft.fromDisplayName {
+            fields["fromDisplayName"] = fromDisplayName
+        }
         if let redeemedBy = draft.redeemedBy {
             fields["redeemedBy"] = redeemedBy
         }
         return fields
+    }
+
+    /// Trimmed invite snapshot name; `nil` when empty.
+    nonisolated static func sanitizedFromDisplayName(_ raw: String?) -> String? {
+        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    /// Prefers the live directory name; falls back to the invite snapshot when the directory
+    /// doc is missing or still the placeholder **Diver**.
+    nonisolated static func resolvedInviteDisplayName(
+        directoryDisplayName: String?,
+        inviteFromDisplayName: String?
+    ) -> String {
+        let directory = directoryDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !directory.isEmpty, directory != UserProfileStore.defaultDisplayName {
+            return directory
+        }
+        let invite = inviteFromDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !invite.isEmpty {
+            return invite
+        }
+        return directory.isEmpty ? UserProfileStore.defaultDisplayName : directory
+    }
+
+    /// True when any active friendship `members` list includes `uid`.
+    ///
+    /// Used instead of `getDocument` on `friendships/{sortedPair}`: that path is
+    /// permission-denied when the doc does not exist yet (`resource.data.members`).
+    nonisolated static func hasActiveFriendship(
+        with uid: String,
+        memberLists: [[String]]
+    ) -> Bool {
+        let target = uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !target.isEmpty else { return false }
+        return memberLists.contains { members in
+            members.contains {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines) == target
+            }
+        }
     }
 
     /// Deterministic doc id for a pair of Firebase UIDs (order-independent).

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Surface swim / snorkel session (Garmin FIT import and future manual entry).
+/// Surface swim / snorkel session (Garmin FIT import and manual entry).
 @Model
 final class SnorkelActivity {
 

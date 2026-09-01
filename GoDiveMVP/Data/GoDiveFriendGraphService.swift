@@ -73,7 +73,14 @@ enum GoDiveFriendGraphService: Sendable {
             return .failure(Failure(message: GoDiveFriendsPresentation.firebaseUnavailableMessage))
         }
 
-        let draft = GoDiveFriendInviteMapping.inviteDraft(fromUid: uid)
+        let fromDisplayName = AccountSession.shared.currentProfile?.displayName
+            ?? Auth.auth().currentUser?.displayName
+        await publishDirectoryDisplayNameIfNeeded(fromDisplayName)
+
+        let draft = GoDiveFriendInviteMapping.inviteDraft(
+            fromUid: uid,
+            fromDisplayName: fromDisplayName
+        )
         guard let url = GoDiveFriendInviteURL.preferredInviteURL(token: draft.token)
         else {
             return .failure(Failure(message: "Could not build invite link."))
@@ -162,8 +169,11 @@ enum GoDiveFriendGraphService: Sendable {
             else {
                 return .failure(Failure(message: GoDiveFriendsPresentation.redeemFailureMessage(.inviteMissing)))
             }
-            let profile = await fetchPublicProfile(uid: fromUid)
-                ?? PublicProfileSummary(uid: fromUid, displayName: "Diver", photoURL: nil)
+            let inviteName = data["fromDisplayName"] as? String
+            let profile = await resolvedPublicProfile(
+                uid: fromUid,
+                inviteFromDisplayName: inviteName
+            )
             return .success((fromUid, profile))
         } catch {
             log.error("Invite preview failed: \(String(describing: error), privacy: .private)")
@@ -190,14 +200,18 @@ enum GoDiveFriendGraphService: Sendable {
                 return .failure(Failure(message: GoDiveFriendsPresentation.redeemFailureMessage(.inviteMissing)))
             }
 
-            let friendCount = try await activeFriendshipCount()
+            let memberLists = try await fetchActiveFriendshipMemberLists()
+            let alreadyFriends = GoDiveFriendInviteMapping.hasActiveFriendship(
+                with: (inviteData["fromUid"] as? String) ?? "",
+                memberLists: memberLists
+            )
             let validation = GoDiveFriendInviteMapping.validateRedeem(
                 inviteFromUid: inviteData["fromUid"] as? String,
                 inviteStatus: inviteData["status"] as? String,
                 inviteExpiresAt: (inviteData["expiresAt"] as? Timestamp)?.dateValue(),
                 redeemingUid: me,
-                alreadyFriends: false,
-                currentFriendCount: friendCount
+                alreadyFriends: alreadyFriends,
+                currentFriendCount: memberLists.count
             )
             let fromUid: String
             switch validation {
@@ -205,11 +219,6 @@ enum GoDiveFriendGraphService: Sendable {
                 return .failure(Failure(message: GoDiveFriendsPresentation.redeemFailureMessage(error)))
             case .success(let uid):
                 fromUid = uid
-            }
-
-            let friendshipID = GoDiveFriendInviteMapping.friendshipID(uidA: me, uidB: fromUid)
-            if try await friendshipDocumentExists(friendshipID: friendshipID) {
-                return .failure(Failure(message: GoDiveFriendsPresentation.redeemFailureMessage(.alreadyFriends)))
             }
 
             let friendship = GoDiveFriendInviteMapping.friendshipDraft(
@@ -233,8 +242,10 @@ enum GoDiveFriendGraphService: Sendable {
             try await batch.commit()
 
             GoDiveSecurityEvent.record(.friendAdded, detail: "invite")
-            let profile = await fetchPublicProfile(uid: fromUid)
-                ?? PublicProfileSummary(uid: fromUid, displayName: "Diver", photoURL: nil)
+            let profile = await resolvedPublicProfile(
+                uid: fromUid,
+                inviteFromDisplayName: inviteData["fromDisplayName"] as? String
+            )
             log.notice("Friendship created via invite")
             GoDiveFriendGraphChangeNotification.post()
             return .success(profile)
@@ -290,7 +301,7 @@ enum GoDiveFriendGraphService: Sendable {
             return FriendEdge(
                 friendUID: item.friendUID,
                 friendshipID: item.friendshipID,
-                displayName: profile?.displayName ?? "Diver",
+                displayName: profile?.displayName ?? UserProfileStore.defaultDisplayName,
                 photoURL: profile?.photoURL,
                 profileHeroURL: profile?.profileHeroURL,
                 profileHeroMediaKind: profile?.profileHeroMediaKind,
@@ -306,27 +317,28 @@ enum GoDiveFriendGraphService: Sendable {
     /// Count active friendships without loading public profiles.
     @MainActor
     static func activeFriendshipCount() async throws -> Int {
+        try await fetchActiveFriendshipMemberLists().count
+    }
+
+    /// `members` arrays for the current user's active friendships.
+    /// Query is `arrayContains` current uid so Firestore list rules allow the empty-result case.
+    @MainActor
+    private static func fetchActiveFriendshipMemberLists() async throws -> [[String]] {
         GoDiveFirebaseBootstrap.configureIfNeeded()
-        guard GoDiveFirebaseBootstrap.isConfigured else { return 0 }
-        guard let me = Auth.auth().currentUser?.uid, !me.isEmpty else { return 0 }
+        guard GoDiveFirebaseBootstrap.isConfigured else { return [] }
+        guard let me = Auth.auth().currentUser?.uid, !me.isEmpty else { return [] }
 
         let snap = try await Firestore.firestore()
             .collection(GoDiveFriendInviteMapping.friendshipsCollection)
             .whereField("members", arrayContains: me)
             .getDocuments()
-        return snap.documents.filter { doc in
-            (doc.data()["status"] as? String) == GoDiveFriendInviteMapping.friendshipStatusActive
-        }.count
-    }
-
-    @MainActor
-    private static func friendshipDocumentExists(friendshipID: String) async throws -> Bool {
-        let snap = try await Firestore.firestore()
-            .collection(GoDiveFriendInviteMapping.friendshipsCollection)
-            .document(friendshipID)
-            .getDocument()
-        guard let data = snap.data() else { return false }
-        return (data["status"] as? String) == GoDiveFriendInviteMapping.friendshipStatusActive
+        return snap.documents.compactMap { doc in
+            let data = doc.data()
+            guard (data["status"] as? String) == GoDiveFriendInviteMapping.friendshipStatusActive else {
+                return nil
+            }
+            return data["members"] as? [String]
+        }
     }
 
     @MainActor
@@ -387,7 +399,7 @@ enum GoDiveFriendGraphService: Sendable {
             let snap = try await Firestore.firestore().collection("users").document(trimmed).getDocument()
             guard let data = snap.data() else { return nil }
             let name = (data["displayName"] as? String)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "Diver"
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? UserProfileStore.defaultDisplayName
             let photo = (data["photoURL"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let heroURL = (data["profileHeroURL"] as? String)?
@@ -397,7 +409,7 @@ enum GoDiveFriendGraphService: Sendable {
             )
             return PublicProfileSummary(
                 uid: trimmed,
-                displayName: name.isEmpty ? "Diver" : name,
+                displayName: name.isEmpty ? UserProfileStore.defaultDisplayName : name,
                 photoURL: (photo?.isEmpty == false) ? photo : nil,
                 profileHeroURL: (heroURL?.isEmpty == false) ? heroURL : nil,
                 profileHeroMediaKind: heroKind,
@@ -406,6 +418,48 @@ enum GoDiveFriendGraphService: Sendable {
         } catch {
             log.error("Public profile fetch failed: \(String(describing: error), privacy: .private)")
             return nil
+        }
+    }
+
+    @MainActor
+    private static func resolvedPublicProfile(
+        uid: String,
+        inviteFromDisplayName: String?
+    ) async -> PublicProfileSummary {
+        if var profile = await fetchPublicProfile(uid: uid) {
+            profile.displayName = GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                directoryDisplayName: profile.displayName,
+                inviteFromDisplayName: inviteFromDisplayName
+            )
+            return profile
+        }
+        return PublicProfileSummary(
+            uid: uid,
+            displayName: GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                directoryDisplayName: nil,
+                inviteFromDisplayName: inviteFromDisplayName
+            ),
+            photoURL: nil
+        )
+    }
+
+    /// Best-effort directory write so invite previews can resolve a real name even when the
+    /// first signup upsert never completed (stuck photo-step deferral).
+    @MainActor
+    private static func publishDirectoryDisplayNameIfNeeded(_ displayName: String?) async {
+        guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+        guard let name = GoDiveFriendInviteMapping.sanitizedFromDisplayName(displayName) else { return }
+        do {
+            try await Firestore.firestore().collection("users").document(uid).setData(
+                [
+                    "displayName": name,
+                    "updatedAt": FieldValue.serverTimestamp(),
+                ],
+                merge: true
+            )
+            GoDiveFirestoreProfilePublishGate.clear()
+        } catch {
+            log.error("Directory display name publish failed: \(String(describing: error), privacy: .private)")
         }
     }
 

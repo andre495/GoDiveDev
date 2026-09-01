@@ -115,11 +115,6 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         for dive in dives {
             guard !Task.isCancelled else { return }
-            await ensureProfileTrackBlob(for: dive, modelContext: modelContext)
-        }
-
-        for dive in dives {
-            guard !Task.isCancelled else { return }
             if ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: userDefaults) {
                 _ = await upsertDive(
                     dive,
@@ -137,10 +132,6 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         let snorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
-        for snorkel in snorkels {
-            guard !Task.isCancelled else { return }
-            await ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
-        }
         for snorkel in snorkels {
             guard !Task.isCancelled else { return }
             if ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel, userDefaults: userDefaults) {
@@ -713,7 +704,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         )
     }
 
-    /// Loads SwiftData samples on the main actor, then LZFSE-encodes off-main.
+    /// Loads samples and LZFSE-encodes on a background SwiftData context, then applies the blob on main.
     @MainActor
     private static func ensureProfileTrackBlob(
         for dive: DiveActivity,
@@ -722,26 +713,14 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         if let existing = dive.profileTrackData, !existing.isEmpty {
             return
         }
-        do {
-            try DiveProfilePointStore.ensurePointsLoaded(for: dive, modelContext: modelContext)
-            if dive.profilePoints.isEmpty {
-                dive.profilePoints = try DiveProfilePointStore.fetchPoints(
-                    for: dive.id,
-                    modelContext: modelContext
-                )
-            }
-        } catch {
-            return
-        }
-        guard !dive.profilePoints.isEmpty else { return }
-        let samples = dive.profilePoints.map(DiveProfileTrackSample.init)
-        let startTime = dive.startTime
-        let encoded = await Task.detached(priority: .utility) {
-            try? DiveProfileTrackCodec.encode(samples: samples, diveStartTime: startTime)
-        }.value
+        let encoded = await DiveProfilePointStore.encodeMissingTrackBlobForSharing(
+            activityID: dive.id,
+            container: modelContext.container
+        )
         guard let encoded, !encoded.isEmpty else { return }
-        dive.profileTrackData = encoded
-        try? modelContext.save()
+        if dive.profileTrackData == nil || dive.profileTrackData?.isEmpty == true {
+            dive.profileTrackData = encoded
+        }
     }
 
     @MainActor
@@ -753,7 +732,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         return dive.profileTrackData
     }
 
-    /// Loads SwiftData samples on the main actor, then LZFSE-encodes off-main.
+    /// Loads samples and LZFSE-encodes on a background SwiftData context, then applies the blob on main.
     @MainActor
     private static func ensureSwimTrackBlob(
         for snorkel: SnorkelActivity,
@@ -762,26 +741,14 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         if let existing = snorkel.swimTrackData, !existing.isEmpty {
             return
         }
-        do {
-            try SnorkelProfilePointStore.ensurePointsLoaded(for: snorkel, modelContext: modelContext)
-            if snorkel.profilePoints.isEmpty {
-                snorkel.profilePoints = try SnorkelProfilePointStore.fetchPoints(
-                    for: snorkel.id,
-                    modelContext: modelContext
-                )
-            }
-        } catch {
-            return
-        }
-        guard !snorkel.profilePoints.isEmpty else { return }
-        let samples = snorkel.profilePoints.map(SnorkelSwimTrackSample.init)
-        let startTime = snorkel.startTime
-        let encoded = await Task.detached(priority: .utility) {
-            try? SnorkelSwimTrackCodec.encode(samples: samples, activityStartTime: startTime)
-        }.value
+        let encoded = await SnorkelProfilePointStore.encodeMissingTrackBlobForSharing(
+            activityID: snorkel.id,
+            container: modelContext.container
+        )
         guard let encoded, !encoded.isEmpty else { return }
-        snorkel.swimTrackData = encoded
-        try? modelContext.save()
+        if snorkel.swimTrackData == nil || snorkel.swimTrackData?.isEmpty == true {
+            snorkel.swimTrackData = encoded
+        }
     }
 
     @MainActor

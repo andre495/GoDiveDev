@@ -610,12 +610,52 @@ struct GoDiveMVPMiscTests {
                 #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
                 GoDiveFirestoreProfilePublishGate.markDeferredUntilPhotoStep(userDefaults: defaults)
                 #expect(GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+                #expect(
+                    GoDiveFirestoreProfilePublishGate.shouldDeferDirectoryUpsert(
+                        isPostSignUpSetupVisible: true,
+                        userDefaults: defaults
+                    )
+                )
+                #expect(
+                    !GoDiveFirestoreProfilePublishGate.shouldDeferDirectoryUpsert(
+                        isPostSignUpSetupVisible: false,
+                        userDefaults: defaults
+                    )
+                )
                 GoDiveFirestoreProfilePublishGate.clear(userDefaults: defaults)
                 #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+                #expect(
+                    !GoDiveFirestoreProfilePublishGate.shouldDeferDirectoryUpsert(
+                        isPostSignUpSetupVisible: true,
+                        userDefaults: defaults
+                    )
+                )
             }
             @Test func firestoreProfileEditSync_skipsWhileSignupPhotoDeferred() {
-                #expect(GoDiveFirestoreProfileEditSync.shouldSyncEdits(isDeferredUntilPhotoStep: false))
-                #expect(!GoDiveFirestoreProfileEditSync.shouldSyncEdits(isDeferredUntilPhotoStep: true))
+                #expect(
+                    GoDiveFirestoreProfileEditSync.shouldSyncEdits(
+                        isDeferredUntilPhotoStep: false,
+                        isPostSignUpSetupVisible: false
+                    )
+                )
+                #expect(
+                    GoDiveFirestoreProfileEditSync.shouldSyncEdits(
+                        isDeferredUntilPhotoStep: false,
+                        isPostSignUpSetupVisible: true
+                    )
+                )
+                #expect(
+                    !GoDiveFirestoreProfileEditSync.shouldSyncEdits(
+                        isDeferredUntilPhotoStep: true,
+                        isPostSignUpSetupVisible: true
+                    )
+                )
+                #expect(
+                    GoDiveFirestoreProfileEditSync.shouldSyncEdits(
+                        isDeferredUntilPhotoStep: true,
+                        isPostSignUpSetupVisible: false
+                    )
+                )
             }
             @Test func goDivePlainText_labeled_keepsAPIValueLiteral() {
                 let line = GoDivePlainText.labeled("Fishial: ", value: "*evil*_name_")

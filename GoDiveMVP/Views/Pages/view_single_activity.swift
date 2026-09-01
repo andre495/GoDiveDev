@@ -1762,7 +1762,8 @@ struct ViewSingleActivity: View {
                 timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds
             ),
             mediaPickerItems: $diveMediaPickerItems,
-            isImportInProgress: mediaImportOverlay.isBlocking
+            isImportInProgress: mediaImportOverlay.isBlocking,
+            onDeleteSelectedMedia: { deleteSelectedMedia() }
         )
         .animation(nil, value: overviewSheetDetent)
         .accessibilityIdentifier(mediaPanelAccessibilityIdentifier)
@@ -1775,6 +1776,27 @@ struct ViewSingleActivity: View {
         case .minimized:
             "DiveOverview.MediaPanel.Minimized"
         }
+    }
+
+    private func deleteSelectedMedia() {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return }
+        CrashBreadcrumbTrail.noteAction("deleteMedia \(media.id.uuidString.prefix(8))")
+        let nextID = DiveActivityMediaPresentation.selectedPhotoIDAfterRemoving(
+            mediaID: media.id,
+            selectedID: selectedDiveMediaPhotoID,
+            orderedIDs: derivedDiveData.sortedMediaItems.map(\.id)
+        )
+        try? DiveActivityMediaStorage.removeMedia(
+            media,
+            from: activity,
+            owner: accountSession.currentProfile ?? activity.owner,
+            modelContext: modelContext
+        )
+        selectedDiveMediaPhotoID = nextID
+        recordDiveOverviewBreadcrumb()
     }
 
     /// Sets the tapped media as the featured logbook preview, or reverts to the default (oldest) when it is

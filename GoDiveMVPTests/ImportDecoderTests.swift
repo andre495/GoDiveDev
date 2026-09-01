@@ -1024,7 +1024,7 @@ struct ImportDecoderTests {
                     try DiveFileImportLimits.validateContent(Data("<!DOCTYPE uddf><uddf></uddf>".utf8), kind: .uddf)
                 }
                 try DiveFileImportLimits.validateContent(Data("<uddf version=\"3.2\"></uddf>".utf8), kind: .uddf)
-                #expect(DiveFileImportLimits.maxFileBytes == 100 * 1024 * 1024)
+                #expect(DiveFileImportLimits.maxFileBytes == 500 * 1024 * 1024)
                 #expect(DiveFileImportLimits.parseTimeoutSeconds == 600)
                 try DiveFileImportLimits.enforceFileSize(byteCount: DiveFileImportLimits.maxFileBytes)
                 #expect(throws: DiveFileImportLimits.Error.parseTimeout) {

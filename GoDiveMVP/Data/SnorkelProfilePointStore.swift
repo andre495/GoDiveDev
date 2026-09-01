@@ -78,6 +78,29 @@ enum SnorkelProfilePointStore {
         return encoded
     }
 
+    /// Fetches, encodes, and persists a missing swim-track blob on a **background** context.
+    nonisolated static func encodeMissingTrackBlobForSharing(
+        activityID: UUID,
+        container: ModelContainer
+    ) async -> Data? {
+        await Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+            let id = activityID
+            var descriptor = FetchDescriptor<SnorkelActivity>(
+                predicate: #Predicate { $0.id == id }
+            )
+            descriptor.fetchLimit = 1
+            guard let snorkel = try? context.fetch(descriptor).first else { return nil as Data? }
+            guard let data = try? SnorkelProfilePointStore.swimTrackDataForSharing(
+                activity: snorkel,
+                modelContext: context
+            ) else { return nil }
+            try? context.save()
+            return data
+        }.value
+    }
+
     nonisolated static func insertStagedPointsAndSyncTrack(
         for activity: SnorkelActivity,
         into modelContext: ModelContext

@@ -113,3 +113,5 @@ Fields missing from your file simply stay empty in GoDive.
 ## Manual entry
 
 Choose **Manual entry** on Add activity to create a dive without a file. The blue **New dive** sheet asks for date and an optional dive site (**Cancel** / **Done**). You can fill location, conditions, tank info, and buddies yourself afterward; profile chart appears when you add samples or dive without import constraints.
+
+On **New Snorkel Activity**, choose **Manual entry** to add a snorkel the same way — date and optional site, then fill in details on the snorkel detail screen afterward.

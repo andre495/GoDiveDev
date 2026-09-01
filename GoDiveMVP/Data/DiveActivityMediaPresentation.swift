@@ -349,6 +349,63 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .large
     }
 
+    /// **Large** Media chrome: overflow (**ellipsis**) sits immediately leading the upload control.
+    nonisolated static func placesLargeDetentDeleteMediaControlLeadingAddMedia(
+        for detent: DiveActivityOverviewDetent
+    ) -> Bool {
+        detent == .large
+    }
+
+    /// Overflow delete is available at **large** when a gallery item is selected.
+    nonisolated static func showsLargeDetentDeleteMediaControl(
+        for detent: DiveActivityOverviewDetent,
+        hasSelectedMedia: Bool
+    ) -> Bool {
+        detent == .large && hasSelectedMedia
+    }
+
+    nonisolated static let deleteMediaOverflowSystemImage = "ellipsis"
+    nonisolated static let deleteMediaConfirmationButtonTitle = "Delete"
+    nonisolated static let deleteMediaOverflowAccessibilityIdentifier = "DiveOverview.MediaDelete"
+
+    nonisolated static func deleteMediaConfirmationTitle(kind: DiveMediaKind) -> String {
+        switch kind {
+        case .image: return "Delete this photo?"
+        case .video: return "Delete this video?"
+        }
+    }
+
+    nonisolated static func deleteMediaAccessibilityLabel(kind: DiveMediaKind) -> String {
+        switch kind {
+        case .image: return "Delete this photo"
+        case .video: return "Delete this video"
+        }
+    }
+
+    /// Gallery selection after removing **`mediaID`**. Prefers the next item, then the previous, then **`nil`**.
+    nonisolated static func selectedPhotoIDAfterRemoving(
+        mediaID: UUID,
+        selectedID: UUID?,
+        orderedIDs: [UUID]
+    ) -> UUID? {
+        guard let index = orderedIDs.firstIndex(of: mediaID) else {
+            if let selectedID, orderedIDs.contains(selectedID) {
+                return selectedID
+            }
+            return orderedIDs.first
+        }
+        var remaining = orderedIDs
+        remaining.remove(at: index)
+        guard !remaining.isEmpty else { return nil }
+        if let selectedID, selectedID != mediaID, remaining.contains(selectedID) {
+            return selectedID
+        }
+        if index < remaining.count {
+            return remaining[index]
+        }
+        return remaining[index - 1]
+    }
+
     /// Reserves space for the fish/buddy toggle row (**segment** + shell padding).
     nonisolated static var largeDetentTagOverviewChromeHeight: CGFloat {
         PushedDetailHeroModeTogglePresentation.segmentSize

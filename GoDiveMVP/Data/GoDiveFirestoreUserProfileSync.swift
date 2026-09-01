@@ -63,27 +63,23 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
             }()
 
             var uploadedPhotoURL: String?
+            var photoUploadFailed = false
             if let profilePhotoJPEG, !profilePhotoJPEG.isEmpty {
                 do {
                     uploadedPhotoURL = try await GoDiveFirebaseProfilePhotoStorage.uploadProfileJPEG(profilePhotoJPEG)
                 } catch {
                     log.error("Profile photo upload failed: \(String(describing: error), privacy: .private)")
-                    return .failed(String(describing: error))
+                    photoUploadFailed = true
                 }
             }
 
-            let includePhotoURL: Bool
-            let photoURLValue: String
-            if let uploadedPhotoURL {
-                includePhotoURL = true
-                photoURLValue = uploadedPhotoURL
-            } else if preserveExistingPhotoURLIfNoUpload {
-                includePhotoURL = false
-                photoURLValue = ""
-            } else {
-                includePhotoURL = true
-                photoURLValue = ""
-            }
+            let photoMerge = GoDiveFirestoreUserProfileMapping.photoURLMerge(
+                uploadedPhotoURL: uploadedPhotoURL,
+                photoUploadFailed: photoUploadFailed,
+                preserveExistingPhotoURLIfNoUpload: preserveExistingPhotoURLIfNoUpload
+            )
+            let includePhotoURL = photoMerge.includePhotoURL
+            let photoURLValue = photoMerge.photoURLValue
 
             let publicDraft = GoDiveFirestoreUserProfileMapping.publicDraft(
                 displayName: resolvedName,
@@ -223,7 +219,11 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
         guard Auth.auth().currentUser != nil else {
             return .skippedNotSignedIn
         }
-        if GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep() {
+        let setupVisible = AccountSession.shared.showsPostSignUpInterests
+            || AccountSession.shared.showsPostSignUpProfileSetup
+        if GoDiveFirestoreProfilePublishGate.shouldDeferDirectoryUpsert(
+            isPostSignUpSetupVisible: setupVisible
+        ) {
             log.notice("Firestore profile skip: deferred until photo step")
             return .skippedDeferredUntilPhotoStep
         }

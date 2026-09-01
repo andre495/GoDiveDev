@@ -79,6 +79,29 @@ enum DiveProfilePointStore {
         return encoded
     }
 
+    /// Fetches, encodes, and persists a missing track blob on a **background** context.
+    nonisolated static func encodeMissingTrackBlobForSharing(
+        activityID: UUID,
+        container: ModelContainer
+    ) async -> Data? {
+        await Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+            let id = activityID
+            var descriptor = FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { $0.id == id }
+            )
+            descriptor.fetchLimit = 1
+            guard let dive = try? context.fetch(descriptor).first else { return nil as Data? }
+            guard let data = try? DiveProfilePointStore.profileTrackDataForSharing(
+                activity: dive,
+                modelContext: context
+            ) else { return nil }
+            try? context.save()
+            return data
+        }.value
+    }
+
     /// Inserts staged points and refreshes the synced track blob.
     nonisolated static func insertStagedPointsAndSyncTrack(
         for activity: DiveActivity,

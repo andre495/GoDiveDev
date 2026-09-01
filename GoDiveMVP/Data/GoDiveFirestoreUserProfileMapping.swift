@@ -120,6 +120,21 @@ enum GoDiveFirestoreUserProfileMapping: Sendable {
         return nil
     }
 
+    /// Avatar Storage upload is optional. A failed upload must not skip the `users/{uid}` write.
+    nonisolated static func photoURLMerge(
+        uploadedPhotoURL: String?,
+        photoUploadFailed: Bool,
+        preserveExistingPhotoURLIfNoUpload: Bool
+    ) -> (includePhotoURL: Bool, photoURLValue: String) {
+        if let uploadedPhotoURL, !uploadedPhotoURL.isEmpty {
+            return (true, uploadedPhotoURL)
+        }
+        if photoUploadFailed || preserveExistingPhotoURLIfNoUpload {
+            return (false, "")
+        }
+        return (true, "")
+    }
+
     /// Dictionary for Firestore `setData` (timestamps added by sync layer).
     /// Omits empty **`photoURL`** when **`includePhotoURL`** is false so merge can preserve a remote URL.
     nonisolated static func publicFields(

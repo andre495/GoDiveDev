@@ -1288,6 +1288,27 @@ struct AccountOnboardingTests {
                 let withoutPhoto = GoDiveFirestoreUserProfileMapping.publicFields(from: draft, includePhotoURL: false)
                 #expect(withoutPhoto["photoURL"] == nil)
                 #expect(withoutPhoto["interests"] as? [String] == ["Scuba Diving"])
+
+                let uploaded = GoDiveFirestoreUserProfileMapping.photoURLMerge(
+                    uploadedPhotoURL: "https://example.com/p.jpg",
+                    photoUploadFailed: false,
+                    preserveExistingPhotoURLIfNoUpload: false
+                )
+                #expect(uploaded.includePhotoURL)
+                #expect(uploaded.photoURLValue == "https://example.com/p.jpg")
+                let failed = GoDiveFirestoreUserProfileMapping.photoURLMerge(
+                    uploadedPhotoURL: nil,
+                    photoUploadFailed: true,
+                    preserveExistingPhotoURLIfNoUpload: false
+                )
+                #expect(!failed.includePhotoURL)
+                let skipPhoto = GoDiveFirestoreUserProfileMapping.photoURLMerge(
+                    uploadedPhotoURL: nil,
+                    photoUploadFailed: false,
+                    preserveExistingPhotoURLIfNoUpload: false
+                )
+                #expect(skipPhoto.includePhotoURL)
+                #expect(skipPhoto.photoURLValue == "")
             }
             @Test func firestoreUserProfileMapping_interestsFromActivityFlags() {
                 #expect(

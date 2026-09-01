@@ -243,9 +243,10 @@ struct SnorkelActivityFriendShareSettingsView: View {
 
     private func performDelete(reportProgress: @escaping @MainActor @Sendable (Double) -> Void) async throws {
         let activityID = activity.id
-        try await SnorkelActivityDeletion.deletePermanently(
-            activity,
-            modelContext: modelContext,
+        try await SnorkelActivityDeletion.delete(
+            activityID: activityID,
+            container: modelContext.container,
+            mainModelContext: modelContext,
             reportProgress: reportProgress
         )
         ActivityDeleteSuccessPresentation.postDidDelete(activityID: activityID)

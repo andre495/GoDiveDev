@@ -31,7 +31,7 @@ enum LogbookAddActivityPresentation: Sendable {
         HubOption(
             id: "snorkel",
             title: "New Snorkel Activity",
-            subtitle: "Import a snorkel session from a FIT file.",
+            subtitle: "Import a snorkel session or add one manually.",
             systemImage: "figure.open.water.swim",
             route: .snorkelActivityUpload,
             accessibilityIdentifier: "Logbook.AddActivityHub.Snorkel"

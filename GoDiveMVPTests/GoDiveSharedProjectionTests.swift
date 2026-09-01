@@ -758,7 +758,7 @@ struct GoDiveSharedProjectionTests {
             )
         }
 
-        @Test func activityFriendSharePublishCheckpoint_seedNewSnorkelStaysLocalWithPendingFlag() {
+        @Test func activityFriendSharePublishCheckpoint_seedNewSnorkelInheritsGlobalShare() {
             let suiteName = "GoDiveFriendsTests.publishCheckpointSnorkelSeed.\(UUID().uuidString)"
             let defaults = UserDefaults(suiteName: suiteName)!
             defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -772,8 +772,8 @@ struct GoDiveSharedProjectionTests {
             )
             ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(snorkel, userDefaults: defaults)
             #expect(snorkel.friendShareBuddyDefaultsCaptured)
-            #expect(!snorkel.friendShareActivityEnabled)
-            #expect(snorkel.friendSharePublishCheckpointPending)
+            #expect(snorkel.friendShareActivityEnabled)
+            #expect(!snorkel.friendSharePublishCheckpointPending)
             #expect(snorkel.friendShareMediaEnabled)
         }
 
@@ -1424,6 +1424,41 @@ struct GoDiveSharedProjectionTests {
                 #expect(!(encoded?.isEmpty ?? true))
                 #expect(dive.profileTrackData != nil)
             }
+
+            @Test @MainActor
+            func friendShareProjection_encodesProfileTrackOffMainViaBackgroundContext() async throws {
+                let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+                let context = ModelContext(container)
+                let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+                let dive = DiveActivity(
+                    source: .manual,
+                    startTime: start,
+                    durationMinutes: 40,
+                    maxDepthMeters: 20
+                )
+                context.insert(dive)
+
+                let pointA = DiveProfilePoint(timestamp: start, depthMeters: 0)
+                pointA.diveActivityID = dive.id
+                let pointB = DiveProfilePoint(timestamp: start.addingTimeInterval(90), depthMeters: 20)
+                pointB.diveActivityID = dive.id
+                context.insert(pointA)
+                context.insert(pointB)
+                try context.save()
+
+                dive.profileTrackData = nil
+                dive.profilePoints = []
+                try context.save()
+
+                let encoded = await DiveProfilePointStore.encodeMissingTrackBlobForSharing(
+                    activityID: dive.id,
+                    container: container
+                )
+                #expect(encoded != nil)
+                #expect(!(encoded?.isEmpty ?? true))
+            }
+
             @Test @MainActor
             func friendShareProfileTrackRepublish_schedulesOnce() throws {
                 let defaults = UserDefaults(suiteName: "GoDiveFriendShareProfileTrackRepublishTests")!
@@ -1517,6 +1552,44 @@ struct GoDiveSharedProjectionTests {
                 #expect(!(encoded?.isEmpty ?? true))
                 #expect(snorkel.swimTrackData != nil)
             }
+
+            @Test @MainActor
+            func friendShareProjection_encodesSwimTrackOffMainViaBackgroundContext() async throws {
+                let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+                let context = ModelContext(container)
+                let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+                let snorkel = SnorkelActivity(
+                    startTime: start,
+                    durationMinutes: 30,
+                    swimDistanceMeters: 500
+                )
+                context.insert(snorkel)
+
+                let pointA = SnorkelProfilePoint(timestamp: start, latitude: 12.1, longitude: -68.9)
+                pointA.snorkelActivityID = snorkel.id
+                let pointB = SnorkelProfilePoint(
+                    timestamp: start.addingTimeInterval(120),
+                    latitude: 12.11,
+                    longitude: -68.91
+                )
+                pointB.snorkelActivityID = snorkel.id
+                context.insert(pointA)
+                context.insert(pointB)
+                try context.save()
+
+                snorkel.swimTrackData = nil
+                snorkel.profilePoints = []
+                try context.save()
+
+                let encoded = await SnorkelProfilePointStore.encodeMissingTrackBlobForSharing(
+                    activityID: snorkel.id,
+                    container: container
+                )
+                #expect(encoded != nil)
+                #expect(!(encoded?.isEmpty ?? true))
+            }
+
             @Test @MainActor
             func friendShareAffectedDiveIDs_includesSnorkelMediaPhoto() throws {
                 let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)

@@ -422,10 +422,10 @@ enum DiveActivitySiteAssociation {
         return site
     }
 
-    /// Inserts a user-owned **`UserDiveSite`** and links **`activity`** to it.
+    /// Inserts a user-owned **`UserDiveSite`** and links **`activity`** (dive or snorkel) to it.
     @discardableResult
     static func createSiteAndLink(
-        to activity: DiveActivity,
+        to activity: any DiveSiteLinkableActivity,
         siteName: String,
         country: String = "",
         region: String = "",

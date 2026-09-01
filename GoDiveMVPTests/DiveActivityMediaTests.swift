@@ -406,6 +406,72 @@ struct DiveActivityMediaTests {
             #expect(!DiveActivityMediaPresentation.placesLargeDetentTagActionsLeading(for: .minimized))
             #expect(DiveActivityMediaPresentation.placesLargeDetentAddMediaControlTrailing(for: .large))
             #expect(!DiveActivityMediaPresentation.placesLargeDetentAddMediaControlTrailing(for: .minimized))
+            #expect(DiveActivityMediaPresentation.placesLargeDetentDeleteMediaControlLeadingAddMedia(for: .large))
+            #expect(!DiveActivityMediaPresentation.placesLargeDetentDeleteMediaControlLeadingAddMedia(for: .minimized))
+            #expect(
+                DiveActivityMediaPresentation.showsLargeDetentDeleteMediaControl(
+                    for: .large,
+                    hasSelectedMedia: true
+                )
+            )
+            #expect(
+                !DiveActivityMediaPresentation.showsLargeDetentDeleteMediaControl(
+                    for: .large,
+                    hasSelectedMedia: false
+                )
+            )
+            #expect(
+                !DiveActivityMediaPresentation.showsLargeDetentDeleteMediaControl(
+                    for: .minimized,
+                    hasSelectedMedia: true
+                )
+            )
+        }
+
+        @Test func diveActivityMediaPresentation_deleteMediaCopy_matchesPhotoAndVideo() {
+            #expect(DiveActivityMediaPresentation.deleteMediaOverflowSystemImage == "ellipsis")
+            #expect(DiveActivityMediaPresentation.deleteMediaConfirmationButtonTitle == "Delete")
+            #expect(DiveActivityMediaPresentation.deleteMediaOverflowAccessibilityIdentifier == "DiveOverview.MediaDelete")
+            #expect(DiveActivityMediaPresentation.deleteMediaConfirmationTitle(kind: .image) == "Delete this photo?")
+            #expect(DiveActivityMediaPresentation.deleteMediaConfirmationTitle(kind: .video) == "Delete this video?")
+            #expect(DiveActivityMediaPresentation.deleteMediaAccessibilityLabel(kind: .image) == "Delete this photo")
+            #expect(DiveActivityMediaPresentation.deleteMediaAccessibilityLabel(kind: .video) == "Delete this video")
+        }
+
+        @Test func diveActivityMediaPresentation_selectedPhotoIDAfterRemoving_prefersNextThenPrevious() {
+            let first = UUID()
+            let middle = UUID()
+            let last = UUID()
+            let ordered = [first, middle, last]
+
+            #expect(
+                DiveActivityMediaPresentation.selectedPhotoIDAfterRemoving(
+                    mediaID: middle,
+                    selectedID: middle,
+                    orderedIDs: ordered
+                ) == last
+            )
+            #expect(
+                DiveActivityMediaPresentation.selectedPhotoIDAfterRemoving(
+                    mediaID: last,
+                    selectedID: last,
+                    orderedIDs: ordered
+                ) == middle
+            )
+            #expect(
+                DiveActivityMediaPresentation.selectedPhotoIDAfterRemoving(
+                    mediaID: first,
+                    selectedID: last,
+                    orderedIDs: ordered
+                ) == last
+            )
+            #expect(
+                DiveActivityMediaPresentation.selectedPhotoIDAfterRemoving(
+                    mediaID: first,
+                    selectedID: first,
+                    orderedIDs: [first]
+                ) == nil
+            )
         }
 
         @Test func marineLifeMediaTagPresentation_taggedRows_listsUniqueSpeciesOnMedia() {
@@ -1124,6 +1190,92 @@ struct DiveActivityMediaTests {
 
             try DiveActivityMediaStorage.setFeaturedMedia(nil, on: activity, modelContext: context)
             #expect(activity.featuredMediaPhotoID == nil)
+        }
+
+        @Test @MainActor func diveActivityMediaStorage_removeMedia_deletesItemAndClearsRelatedState() throws {
+            let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+            let context = container.mainContext
+            let owner = UserProfile(appleUserIdentifier: "remove-media-owner", displayName: "Diver")
+            let activity = DiveActivity(
+                source: .manual,
+                startTime: Date(timeIntervalSince1970: 5_100_000),
+                durationMinutes: 40,
+                maxDepthMeters: 18
+            )
+            activity.owner = owner
+            activity.ownerProfileID = owner.id
+            let keep = DiveMediaPhoto(
+                sortOrder: 0,
+                mediaKind: .image,
+                capturedAt: Date(timeIntervalSince1970: 5_100_100),
+                dive: activity
+            )
+            let remove = DiveMediaPhoto(
+                sortOrder: 1,
+                mediaKind: .video,
+                capturedAt: Date(timeIntervalSince1970: 5_100_200),
+                dive: activity
+            )
+            keep.link(to: activity)
+            remove.link(to: activity)
+            activity.mediaPhotos = [keep, remove]
+            activity.featuredMediaPhotoID = remove.id
+            activity.friendShareBuddySettingsConfigured = true
+            activity.friendShareMediaSelectedIDsJSON = ActivityFriendShareConfiguration.encodeMediaIDs(
+                [keep.id, remove.id]
+            )
+            let species = MarineLife(uuid: "marine-life-remove-media", commonName: "Removed Fish")
+            let buddy = DiveBuddy(displayName: "Jamie", owner: owner)
+            context.insert(owner)
+            context.insert(activity)
+            context.insert(keep)
+            context.insert(remove)
+            context.insert(species)
+            context.insert(buddy)
+            try context.save()
+
+            _ = try MarineLifeSightingRecorder.tagSpecies(
+                species,
+                on: remove,
+                dive: activity,
+                captureContext: nil,
+                owner: owner,
+                modelContext: context
+            )
+            _ = try DiveMediaBuddyAssociation.tagBuddy(
+                buddy,
+                on: remove,
+                dive: activity,
+                modelContext: context
+            )
+
+            try DiveActivityMediaStorage.removeMedia(
+                remove,
+                from: activity,
+                owner: owner,
+                modelContext: context
+            )
+
+            #expect(Set(activity.mediaPhotos.map(\.id)) == [keep.id])
+            #expect(activity.featuredMediaPhotoID == nil)
+            #expect(
+                ActivityFriendShareConfiguration.decodeMediaIDs(
+                    from: activity.friendShareMediaSelectedIDsJSON
+                ) == [keep.id]
+            )
+            #expect(
+                try MarineLifeSightingRecorder.sightings(
+                    forMediaPhotoID: remove.id,
+                    modelContext: context
+                ).isEmpty
+            )
+            #expect(
+                try DiveMediaBuddyAssociation.tags(
+                    forMediaPhotoID: remove.id,
+                    modelContext: context
+                ).isEmpty
+            )
+            #expect(Set(try context.fetch(FetchDescriptor<DiveMediaPhoto>()).map(\.id)) == [keep.id])
         }
 
         @Test func diveActivityMediaPresentation_overviewUsesPreviewVideoQuality() {

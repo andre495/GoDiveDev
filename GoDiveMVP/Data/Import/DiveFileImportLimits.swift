@@ -2,8 +2,8 @@ import Foundation
 
 /// Resource caps for FIT / UDDF import (OWASP Phase 2 — fail closed on oversized / hostile files).
 enum DiveFileImportLimits: Sendable {
-    /// ~100 MiB — large multi-dive MacDive UDDF exports; still bounded for memory.
-    nonisolated static let maxFileBytes = 100 * 1024 * 1024
+    /// ~500 MiB — large multi-dive MacDive UDDF exports; still bounded for memory.
+    nonisolated static let maxFileBytes = 500 * 1024 * 1024
     /// Per-dive profile samples (FIT records / UDDF waypoints).
     nonisolated static let maxProfileSamplesPerDive = 50_000
     /// Wall-clock budget for a single decode pass (XML + dive build). Large MacDive UDDFs need headroom past file-size raise.

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// How **Add activity → Manual entry** should attach a catalog dive site when the dive is created.
+/// How **Add activity → Manual entry** (dive or snorkel) should attach a catalog site when the activity is created.
 enum ManualDiveEntrySiteSelection: Equatable, Sendable {
     case none
     case existingSite(id: UUID)

@@ -137,6 +137,63 @@ struct GoDiveFriendInviteTests {
             #expect(GoDiveFriendsPresentation.inviteExpiresFooter.contains("24 hours"))
         }
 
+        @Test func friendInviteMapping_storesFromDisplayNameOnInvite() {
+            let draft = GoDiveFriendInviteMapping.inviteDraft(
+                fromUid: "uid-a",
+                token: "abc123",
+                fromDisplayName: "  Jane Doe  "
+            )
+            #expect(draft.fromDisplayName == "Jane Doe")
+            let fields = GoDiveFriendInviteMapping.inviteFields(from: draft)
+            #expect(fields["fromDisplayName"] as? String == "Jane Doe")
+
+            let empty = GoDiveFriendInviteMapping.inviteDraft(
+                fromUid: "uid-a",
+                token: "def456",
+                fromDisplayName: "   "
+            )
+            #expect(empty.fromDisplayName == nil)
+            #expect(GoDiveFriendInviteMapping.inviteFields(from: empty)["fromDisplayName"] == nil)
+        }
+
+        @Test func friendInviteMapping_resolvedDisplayNamePrefersDirectoryThenInviteSnapshot() {
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: "Alex Rivera",
+                    inviteFromDisplayName: "Stale Name"
+                ) == "Alex Rivera"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: UserProfileStore.defaultDisplayName,
+                    inviteFromDisplayName: "Jane Doe"
+                ) == "Jane Doe"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: nil,
+                    inviteFromDisplayName: "  Pat Lee  "
+                ) == "Pat Lee"
+            )
+            #expect(
+                GoDiveFriendInviteMapping.resolvedInviteDisplayName(
+                    directoryDisplayName: nil,
+                    inviteFromDisplayName: nil
+                ) == UserProfileStore.defaultDisplayName
+            )
+        }
+
+        @Test func friendInviteMapping_hasActiveFriendshipUsesMemberListsNotMissingDocGet() {
+            let lists = [
+                ["me", "friend-a"],
+                ["friend-b", "me"],
+            ]
+            #expect(GoDiveFriendInviteMapping.hasActiveFriendship(with: "friend-a", memberLists: lists))
+            #expect(GoDiveFriendInviteMapping.hasActiveFriendship(with: " friend-b ", memberLists: lists))
+            #expect(!GoDiveFriendInviteMapping.hasActiveFriendship(with: "friend-c", memberLists: lists))
+            #expect(!GoDiveFriendInviteMapping.hasActiveFriendship(with: "friend-a", memberLists: []))
+        }
+
         @Test func friendInviteMapping_expiresAfter24Hours() {
             #expect(GoDiveFriendInviteMapping.inviteTimeToLiveSeconds == 24 * 60 * 60)
             let now = Date(timeIntervalSince1970: 1_700_000_000)

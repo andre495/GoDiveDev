@@ -32,8 +32,11 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
     /// Owner Media tab — same **PhotosPicker** as minimized carousel trailing **+**.
     var mediaPickerItems: Binding<[PhotosPickerItem]>? = nil
     var isMediaImportInProgress = false
+    /// Owner Media tab — overflow **ellipsis** leading upload deletes the selected gallery item.
+    var onDeleteSelectedMedia: (() -> Void)? = nil
 
     @State private var buddyDetailCover: BuddyDetailCover?
+    @State private var showsDeleteMediaConfirmation = false
     @State private var speciesDetailCover: SpeciesDetailCover?
     @State private var largeDetentScrollOffsetY: CGFloat = 0
 
@@ -67,6 +70,21 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .confirmationDialog(
+            DiveActivityMediaPresentation.deleteMediaConfirmationTitle(
+                kind: media?.resolvedMediaKind ?? .image
+            ),
+            isPresented: $showsDeleteMediaConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(
+                DiveActivityMediaPresentation.deleteMediaConfirmationButtonTitle,
+                role: .destructive
+            ) {
+                onDeleteSelectedMedia?()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .onChange(of: taggedSpecies.map(\.uuid)) { _, uuids in
             if let selectedTaggedSpeciesUUID, uuids.contains(selectedTaggedSpeciesUUID) {
                 return
@@ -181,12 +199,42 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
 
     @ViewBuilder
     private var trailingAddMediaChrome: some View {
-        if let mediaPickerItems {
-            DiveActivityMediaAddPhotosPickerButton(
-                mediaPickerItems: mediaPickerItems,
-                isImportInProgress: isMediaImportInProgress
-            )
+        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            if showsDeleteMediaOverflow {
+                Button {
+                    showsDeleteMediaConfirmation = true
+                } label: {
+                    Image(systemName: DiveActivityMediaPresentation.deleteMediaOverflowSystemImage)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    DiveActivityMediaPresentation.deleteMediaAccessibilityLabel(
+                        kind: media?.resolvedMediaKind ?? .image
+                    )
+                )
+                .accessibilityIdentifier(
+                    DiveActivityMediaPresentation.deleteMediaOverflowAccessibilityIdentifier
+                )
+            }
+
+            if let mediaPickerItems {
+                DiveActivityMediaAddPhotosPickerButton(
+                    mediaPickerItems: mediaPickerItems,
+                    isImportInProgress: isMediaImportInProgress
+                )
+            }
         }
+    }
+
+    private var showsDeleteMediaOverflow: Bool {
+        DiveActivityMediaPresentation.showsLargeDetentDeleteMediaControl(
+            for: .large,
+            hasSelectedMedia: media != nil
+        ) && onDeleteSelectedMedia != nil
     }
 
     @ViewBuilder

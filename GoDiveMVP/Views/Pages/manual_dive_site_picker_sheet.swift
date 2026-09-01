@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Single-select catalog **`DiveSite`** picker for manual dive entry.
+/// Single-select catalog **`DiveSite`** picker for manual dive or snorkel entry.
 struct ManualDiveEntrySitePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 

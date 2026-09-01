@@ -111,17 +111,14 @@ enum ActivityFriendShareConfiguration: Sendable {
         return true
     }
 
-    /// Seeds a brand-new activity as a **local-only draft** (Strava-style publish checkpoint): media /
-    /// notes defaults snapshot from global Settings, but sharing stays **off** until the owner explicitly
-    /// publishes from the detail-page banner (**Share**), or configures sharing in Activity Settings.
+    /// Snapshots current global Settings onto a newly created or imported dive.
+    /// Global share on → this dive starts shared; global off → it starts off. Already-captured
+    /// activities (including ones the owner turned off) are left unchanged.
     nonisolated static func seedBuddyShareDefaultsOnNewActivity(
         _ dive: DiveActivity,
         userDefaults: UserDefaults = .standard
     ) {
-        guard !dive.friendShareBuddySettingsConfigured, !dive.friendShareBuddyDefaultsCaptured else { return }
-        captureGlobalBuddyShareDefaults(on: dive, userDefaults: userDefaults)
-        dive.friendShareActivityEnabled = false
-        dive.friendSharePublishCheckpointPending = true
+        captureGlobalBuddyShareDefaultsIfNeeded(on: dive, userDefaults: userDefaults)
     }
 
     /// One-time backfill for activities created before defaults were snapshotted at creation.
@@ -276,15 +273,12 @@ enum ActivityFriendShareConfiguration: Sendable {
         return true
     }
 
-    /// See the dive overload — new snorkels start as local-only drafts pending the publish checkpoint.
+    /// See the dive overload — new/imported snorkels inherit the current global share setting.
     nonisolated static func seedBuddyShareDefaultsOnNewActivity(
         _ snorkel: SnorkelActivity,
         userDefaults: UserDefaults = .standard
     ) {
-        guard !snorkel.friendShareBuddySettingsConfigured, !snorkel.friendShareBuddyDefaultsCaptured else { return }
-        captureGlobalBuddyShareDefaults(on: snorkel, userDefaults: userDefaults)
-        snorkel.friendShareActivityEnabled = false
-        snorkel.friendSharePublishCheckpointPending = true
+        captureGlobalBuddyShareDefaultsIfNeeded(on: snorkel, userDefaults: userDefaults)
     }
 
     nonisolated static func captureGlobalBuddyShareDefaultsIfNeeded(
