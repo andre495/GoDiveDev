@@ -19,7 +19,8 @@
     "allow_cc_by": true,
     "search_suffixes": ["underwater", "diver", "scuba"],
     "commons_request_delay_seconds": 0.2,
-    "openverse_request_delay_seconds": 1.0
+    "openverse_request_delay_seconds": 1.0,
+    "gbif_request_delay_seconds": 0.25
   },
   "marine_life_bundle_photos": {
     "output_width": 960,

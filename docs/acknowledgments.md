@@ -16,7 +16,9 @@ GoDive is built on Apple’s platforms and a mix of open catalogs, third-party S
 | **[FishBase](https://www.fishbase.org/)** | Scientific names, depth/size facts, and taxonomy for Caribbean saltwater **fish** (via public FishBase parquet extracts in our build pipeline) |
 | **[SeaLifeBase](https://www.sealifebase.org/)** | Scientific names and facts for Caribbean **invertebrates** and other non-fish marine life |
 | **[REEF.org](https://www.reef.org/)** | Tropical Western Atlantic (TWA) species checklist used to filter the bundled fish list toward diver-relevant reef species |
-| **[Wikimedia Commons](https://commons.wikimedia.org/)** | Many bundled Field Guide **photos** (Creative Commons and public-domain works; individual file licenses apply on Wikimedia) |
+| **[GBIF](https://www.gbif.org/)** | Occurrence still images used for many bundled Field Guide **photos** (CC0 / CC BY only; individual record licenses apply) |
+| **[iNaturalist](https://www.inaturalist.org/)** | Research-grade photos indexed by GBIF for those Field Guide heroes (CC0 / CC BY; photographer credited per file) |
+| **[Wikimedia Commons](https://commons.wikimedia.org/)** | Additional bundled Field Guide **photos** (Creative Commons and public-domain works; individual file licenses apply on Wikimedia) |
 | **[snorkelstj.com](https://www.snorkelstj.com/)** | Supplemental Caribbean ID gallery reference used when building and validating species common names |
 
 User-added species, your tagged sightings, and photos from your **Photos** library are yours — they are not part of these bundled catalogs.

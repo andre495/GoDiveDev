@@ -14,7 +14,8 @@ Facts-only import from [FishBase](https://www.fishbase.se) (fish) and [SeaLifeBa
 | `Scripts/extract_fishbase_caribbean.py` | Rebuild **fish** rows in staging CSV from FishBase |
 | `Scripts/extract_sealifebase_caribbean.py` | **Append** non-fish rows from SeaLifeBase (keeps existing fish) |
 | `Scripts/sync_marine_life_staging_to_json.py` | Merge staging → JSON |
-| `Scripts/fetch_marine_life_images.py` | CC0 / CC BY hero images → staging CSV |
+| `Scripts/fetch_marine_life_images.py` | CC0 / CC BY hero images → staging CSV (Commons / Openverse) |
+| `Scripts/fetch_marine_life_images_gbif.py` | CC0 / CC BY occurrence photos → staging CSV (GBIF / iNaturalist) |
 | `Scripts/fishbase_caribbean_config.json` | FishBase parquet URL, family → subcategory map |
 | `Scripts/filter_marine_life_by_reef.py` | Keep staging rows that match REEF.org scientific names |
 | `Scripts/fetch_snorkelstj_species_reference.py` | Crawl snorkelstj.com species pages → common names |
@@ -139,6 +140,21 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images.py
 ```
 
 **Sources:** Wikimedia Commons (primary), Openverse (fallback). Search queries append **`underwater`**, **`diver`**, and **`scuba`** to the scientific name; scoring boosts in-situ reef photos and penalizes maps, sketches, fishing shots, and diagrams. Use **`--refetch-gaps`** to retry misses and `imageNeedsReview=yes` rows. Writes `featureImageURL` plus workflow columns `imageLicense`, `imageAttribution`, `imageSource`, `imageNeedsReview`. Re-run **`sync_marine_life_staging_to_json.py --all`** to push images into the app bundle.
+
+## GBIF occurrence image fetch (optional)
+
+GBIF occurrence search is taxon-keyed (scientific name → `usageKey`) and mostly surfaces iNaturalist research-grade photos. Only **`media.license`** CC0 / CC BY is kept (occurrence-level license facets can disagree). NC, BY-SA, museum “Usage Conditions Apply”, and preserved-specimen records are dropped. Hits replace `featureImageURL`; misses leave the existing image alone.
+
+```bash
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_gbif.py --dry-run --limit 20
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_gbif.py
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_gbif.py --missing-only
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_gbif.py --bundle
+```
+
+- Default is **all catalog species**. **`--missing-only`** skips rows that already have `featureImageURL` or a bundled JPEG.
+- Cache: **`CatalogAuthoring/gbif_image_cache.json`**. Delay: `marine_life_images.gbif_request_delay_seconds` in **`fishbase_caribbean_config.json`**.
+- **`--bundle`** runs **`download_marine_life_images.py`** after staging.
 
 ## Offline bundled photos (Field Guide)
 
