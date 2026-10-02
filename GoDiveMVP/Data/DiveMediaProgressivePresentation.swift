@@ -55,12 +55,13 @@ enum DiveMediaProgressivePresentation: Sendable {
     }
     #endif
 
-    /// Progressive paths may upgrade preview → full once the preview stream is on screen.
+    /// Playback stays on the medium stream. **`.highQualityFormat` `requestAVAsset`** copies
+    /// iCloud originals into the app sandbox and was accumulating gigabytes of Documents & Data.
     nonisolated static func allowsFullQualityUpgrade(
         for libraryVideoQuality: DiveMediaVideoRequestQuality
     ) -> Bool {
         _ = libraryVideoQuality
-        return true
+        return false
     }
 
     /// Never race a full-quality iCloud download against the initial preview resolve.

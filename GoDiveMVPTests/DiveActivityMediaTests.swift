@@ -3348,10 +3348,15 @@ struct DiveActivityMediaTests {
                 #expect(decoded?.size.width == DiveMediaPreviewPersistence.storedPreviewEdge)
             }
 
-            @Test func diveMediaPreviewPersistence_shouldPersistPreview_onlyWhenMissing() {
+            @Test func diveMediaPreviewPersistence_shouldPersistPreview_whenMissingOrOversized() {
                 #expect(DiveMediaPreviewPersistence.shouldPersistPreview(existingData: nil))
                 #expect(DiveMediaPreviewPersistence.shouldPersistPreview(existingData: Data()))
                 #expect(!DiveMediaPreviewPersistence.shouldPersistPreview(existingData: Data([0xFF, 0xD8])))
+                let oversized = Data(count: DiveMediaPreviewPersistence.maxStoredPreviewBytes + 1)
+                #expect(DiveMediaPreviewPersistence.isOversizedPreview(oversized))
+                #expect(DiveMediaPreviewPersistence.shouldPersistPreview(existingData: oversized))
+                #expect(!DiveMediaPreviewPersistence.isOversizedPreview(Data(count: 128)))
+                #expect(DiveMediaPreviewPersistence.shrunkPreviewJPEG(from: Data([0xFF, 0xD8])) == nil)
             }
 
             @Test func diveMediaPreviewPersistence_showsMissingPlaceholder_onlyAfterLoadFinishes() {
@@ -3730,10 +3735,10 @@ struct DiveActivityMediaTests {
                     )
                 )
                 #expect(
-                    DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: .fullQuality)
+                    !DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: .fullQuality)
                 )
                 #expect(
-                    DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: .homeCarousel)
+                    !DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: .homeCarousel)
                 )
                 #expect(
                     !DiveMediaProgressivePresentation.allowsBackgroundFullVideoUpgrade(for: .homeCarousel)

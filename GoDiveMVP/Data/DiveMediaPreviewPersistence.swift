@@ -17,7 +17,27 @@ enum DiveMediaPreviewPersistence: Sendable {
 
     nonisolated static func shouldPersistPreview(existingData: Data?) -> Bool {
         guard let existingData, !existingData.isEmpty else { return true }
-        return false
+        return isOversizedPreview(existingData)
+    }
+
+    /// Legacy write-once blobs that skipped the 256 px / 512 KB cap.
+    nonisolated static func isOversizedPreview(_ data: Data?) -> Bool {
+        guard let data, !data.isEmpty else { return false }
+        return data.count > maxStoredPreviewBytes
+    }
+
+    /// Re-encodes an oversized stored JPEG down to the preview cap (no PhotoKit).
+    nonisolated static func shrunkPreviewJPEG(from existing: Data) -> Data? {
+        guard isOversizedPreview(existing) else { return nil }
+        #if canImport(UIKit)
+        guard let image = decodePreviewJPEG(existing),
+              let encoded = encodePreviewJPEG(image),
+              encoded.count < existing.count
+        else { return nil }
+        return encoded
+        #else
+        return nil
+        #endif
     }
 
     /// **`true`** when the UI should show the offline / missing media affordance (not while loading).

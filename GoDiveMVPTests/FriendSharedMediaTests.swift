@@ -631,6 +631,15 @@ struct FriendSharedMediaTests {
                     hasAssociatedMedia: true
                 )
             )
+            #expect(
+                !PushedDetailHeroModePresentation.shouldFallBackFromMapToMedia(
+                    mapPinCount: 0,
+                    currentMode: .map,
+                    isMapContentReady: true,
+                    hasAssociatedMedia: true,
+                    hasMapFocusRegion: true
+                )
+            )
         }
 
         @Test func pushedDetailHeroModePresentation_keepsMediaMountedAndPlayingAcrossMapToggle() {
@@ -1449,6 +1458,68 @@ struct FriendSharedMediaTests {
 
             #expect(await cache.cachedFileURL(remoteURLString: secondURL, tier: .thumb) != nil)
             #expect(await cache.cachedFileURL(remoteURLString: firstURL, tier: .thumb) == nil)
+        }
+
+        @Test func goDiveSharedMediaCache_downloadSession_doesNotUseSharedHTTPCache() {
+            let config = GoDiveSharedMediaCache.makeDownloadSessionConfiguration()
+            #expect(config.requestCachePolicy == .reloadIgnoringLocalCacheData)
+            #expect(config.urlCache == nil)
+        }
+
+        @Test func goDiveSharedMediaCache_shouldPersistOnDisk_skipsContentVideos() {
+            let photo = "https://firebasestorage.googleapis.com/v0/b/t/o/still.jpg?alt=media"
+            let video = "https://firebasestorage.googleapis.com/v0/b/t/o/clip.mp4?alt=media"
+            #expect(GoDiveSharedMediaCache.shouldPersistOnDisk(remoteURLString: photo, tier: .thumb))
+            #expect(GoDiveSharedMediaCache.shouldPersistOnDisk(remoteURLString: photo, tier: .content))
+            #expect(GoDiveSharedMediaCache.shouldPersistOnDisk(remoteURLString: video, tier: .thumb))
+            #expect(!GoDiveSharedMediaCache.shouldPersistOnDisk(remoteURLString: video, tier: .content))
+            #expect(GoDiveSharedMediaCache.isVideoFile(video))
+            #expect(!GoDiveSharedMediaCache.isVideoFile(photo))
+        }
+
+        @Test func goDiveSharedMediaCache_purgeContent_removesFiles() async throws {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            GoDiveSharedMediaCache.testingRootDirectory = root
+            defer {
+                GoDiveSharedMediaCache.testingRootDirectory = nil
+                try? FileManager.default.removeItem(at: root)
+            }
+
+            let url = "https://firebasestorage.googleapis.com/v0/b/t/o/purge-\(UUID().uuidString).jpg?alt=media"
+            let cache = GoDiveSharedMediaCache(fileManager: .default, session: .shared)
+            _ = try await cache.storeForTesting(
+                data: Data([0xFF, 0xD8, 0xFF, 0xD9]),
+                remoteURLString: url,
+                tier: .content
+            )
+            #expect(await cache.cachedFileURL(remoteURLString: url, tier: .content) != nil)
+            await cache.purge(tier: .content)
+            #expect(await cache.cachedFileURL(remoteURLString: url, tier: .content) == nil)
+        }
+
+        @Test func goDiveMediaDiskMaintenance_identifiesExportTempFiles() {
+            let tmp = FileManager.default.temporaryDirectory
+            #expect(
+                GoDiveMediaDiskMaintenance.isEphemeralExportTemporaryURL(
+                    tmp.appendingPathComponent("godive-shared-media-abc.mp4")
+                )
+            )
+            #expect(
+                GoDiveMediaDiskMaintenance.isEphemeralExportTemporaryURL(
+                    tmp.appendingPathComponent("godive-profile-hero-xyz.mp4")
+                )
+            )
+            #expect(
+                !GoDiveMediaDiskMaintenance.isEphemeralExportTemporaryURL(
+                    tmp.appendingPathComponent("unrelated.mp4")
+                )
+            )
+        }
+
+        @Test func goDiveSharedMediaCache_contentTierCap_isSessionSized() {
+            #expect(GoDiveSharedMediaCache.Tier.content.maxBytes == 80_000_000)
+            #expect(GoDiveSharedMediaCache.Tier.thumb.maxBytes == 50_000_000)
         }
 
         @Test func friendSharedMediaPanelPresentation_resolvedFeaturedMediaID() {

@@ -22,7 +22,8 @@ actor GoDiveSharedMediaCache {
         nonisolated var maxBytes: Int64 {
             switch self {
             case .thumb: 50_000_000
-            case .content: 500_000_000
+            /// Session-only stills (4096 px JPEGs). Videos stream and are never persisted.
+            case .content: 80_000_000
             }
         }
     }
@@ -40,10 +41,42 @@ actor GoDiveSharedMediaCache {
 
     init(
         fileManager: FileManager = .default,
-        session: URLSession = .shared
+        session: URLSession = GoDiveSharedMediaCache.makeDownloadSession()
     ) {
         self.fileManager = fileManager
         self.session = session
+    }
+
+    /// Dedicated session so Firebase media bytes never land in **`URLCache.shared`**.
+    nonisolated static func makeDownloadSession() -> URLSession {
+        URLSession(configuration: makeDownloadSessionConfiguration())
+    }
+
+    nonisolated static func makeDownloadSessionConfiguration() -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.ephemeral
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        return config
+    }
+
+    /// Videos stream; only stills (and thumbs) may occupy the LRU.
+    nonisolated static func shouldPersistOnDisk(remoteURLString: String, tier: Tier) -> Bool {
+        guard sanitizedURL(from: remoteURLString) != nil else { return false }
+        if tier == .content, isVideoFile(remoteURLString) {
+            return false
+        }
+        return true
+    }
+
+    nonisolated static func isVideoFile(_ remoteURLString: String) -> Bool {
+        let lowered = remoteURLString.lowercased()
+        if lowered.contains(".mp4") || lowered.contains(".mov") || lowered.contains(".m4v") {
+            return true
+        }
+        let path = (sanitizedURL(from: remoteURLString)?.path ?? remoteURLString).lowercased()
+        return path.hasSuffix(".mp4") || path.hasSuffix(".mov") || path.hasSuffix(".m4v")
     }
 
     func cachedFileURL(remoteURLString: String, tier: Tier) -> URL? {
@@ -84,7 +117,7 @@ actor GoDiveSharedMediaCache {
     ) async {
         guard allowsNetworkFetch else { return }
         let pending = remoteURLStrings.filter { raw in
-            guard Self.sanitizedURL(from: raw) != nil else { return false }
+            guard Self.shouldPersistOnDisk(remoteURLString: raw, tier: tier) else { return false }
             return cachedFileURL(remoteURLString: raw, tier: tier) == nil
         }
         guard !pending.isEmpty else { return }
@@ -179,6 +212,7 @@ actor GoDiveSharedMediaCache {
     }
 
     private func prefetchOne(_ raw: String, tier: Tier) async {
+        guard Self.shouldPersistOnDisk(remoteURLString: raw, tier: tier) else { return }
         if cachedFileURL(remoteURLString: raw, tier: tier) != nil { return }
         guard let data = await fetchData(remoteURLString: raw) else { return }
         _ = try? store(data: data, remoteURLString: raw, tier: tier)
@@ -187,7 +221,7 @@ actor GoDiveSharedMediaCache {
     private func fetchData(remoteURLString: String) async -> Data? {
         guard let url = Self.sanitizedURL(from: remoteURLString) else { return nil }
         var request = URLRequest(url: url)
-        request.cachePolicy = .returnCacheDataElseLoad
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse,
@@ -197,6 +231,11 @@ actor GoDiveSharedMediaCache {
         } catch {
             return nil
         }
+    }
+
+    func purge(tier: Tier) {
+        guard let directory = directoryURL(tier: tier) else { return }
+        try? fileManager.removeItem(at: directory)
     }
 
     private func enforceCapacity(tier: Tier) throws {

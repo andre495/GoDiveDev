@@ -9,6 +9,7 @@ import UIKit
 struct TripDetailMapRepresentable: UIViewRepresentable {
     let pins: [TripDetailMapPin]
     let fitLayout: TripDetailMapFitLayout
+    var focusRegion: DiveLocationMapRegionSpec? = nil
     var onSiteSelected: (UUID) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -27,6 +28,7 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         context.coordinator.scheduleRegionApplyIfNeeded(
             on: mapView,
             pins: pins,
+            focusRegion: focusRegion,
             fitLayout: fitLayout,
             animated: false
         )
@@ -37,11 +39,13 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         context.coordinator.onSiteSelected = onSiteSelected
         let pinsChanged = context.coordinator.syncAnnotations(on: mapView, pins: pins)
         let layoutChanged = context.coordinator.syncFitLayout(fitLayout)
+        let regionChanged = context.coordinator.syncFocusRegion(focusRegion)
         context.coordinator.scheduleRegionApplyIfNeeded(
             on: mapView,
             pins: pins,
+            focusRegion: focusRegion,
             fitLayout: fitLayout,
-            animated: pinsChanged || layoutChanged
+            animated: pinsChanged || layoutChanged || regionChanged
         )
     }
 
@@ -51,7 +55,9 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         private var lastPinsSignature: String?
         private var lastFitLayoutSignature: String?
         private var lastAppliedRegionSignature: String?
+        private var lastFocusRegionSignature: String?
         private var currentFitLayout: TripDetailMapFitLayout?
+        private var currentFocusRegion: DiveLocationMapRegionSpec?
         private var selectedPinID: String?
         private var isApplyingRegion = false
 
@@ -81,14 +87,24 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
             return true
         }
 
+        @discardableResult
+        func syncFocusRegion(_ focusRegion: DiveLocationMapRegionSpec?) -> Bool {
+            let signature = Self.focusRegionSignature(focusRegion)
+            guard signature != lastFocusRegionSignature else { return false }
+            lastFocusRegionSignature = signature
+            return true
+        }
+
         func scheduleRegionApplyIfNeeded(
             on mapView: MKMapView,
             pins: [TripDetailMapPin],
+            focusRegion: DiveLocationMapRegionSpec?,
             fitLayout: TripDetailMapFitLayout,
             animated: Bool
         ) {
-            guard !pins.isEmpty else { return }
+            guard !pins.isEmpty || focusRegion != nil else { return }
             currentFitLayout = fitLayout
+            currentFocusRegion = focusRegion
 
             let layoutHeight = TripDetailMapPresentation.effectiveMapHeight(
                 measuredBoundsHeight: mapView.bounds.height,
@@ -103,7 +119,7 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
             let boundsSignature = hasMeasuredBounds
                 ? String(format: "%.0f|%.0f", mapView.bounds.width, mapView.bounds.height)
                 : "provisional"
-            let signature = "\(pins.map(\.id).sorted().joined(separator: "|"))|\(fitLayout.layoutSignature)|\(boundsSignature)"
+            let signature = "\(pins.map(\.id).sorted().joined(separator: "|"))|\(Self.focusRegionSignature(focusRegion))|\(fitLayout.layoutSignature)|\(boundsSignature)"
             guard signature != lastAppliedRegionSignature else { return }
             lastAppliedRegionSignature = signature
 
@@ -115,6 +131,7 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
             applyRegion(
                 on: mapView,
                 pins: pins,
+                focusRegion: focusRegion,
                 fitLayout: applyLayout,
                 hasMeasuredBounds: hasMeasuredBounds,
                 animated: animated
@@ -124,6 +141,7 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         func applyRegion(
             on mapView: MKMapView,
             pins: [TripDetailMapPin],
+            focusRegion: DiveLocationMapRegionSpec?,
             fitLayout: TripDetailMapFitLayout,
             hasMeasuredBounds: Bool,
             animated: Bool
@@ -131,13 +149,36 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
             isApplyingRegion = true
             defer { isApplyingRegion = false }
 
-            if hasMeasuredBounds, let zoomRect = TripDetailMapPresentation.mkMapRect(for: pins) {
-                let padding = TripDetailMapPresentation.uiMapFitEdgeInsets(for: fitLayout)
-                let visibleRect = mapView.mapRectThatFits(zoomRect, edgePadding: padding)
-                mapView.setVisibleMapRect(visibleRect, animated: animated)
-            } else if let region = TripDetailMapPresentation.fittingRegion(for: pins) {
-                mapView.setRegion(region.mkCoordinateRegion, animated: animated)
+            if !pins.isEmpty {
+                if hasMeasuredBounds, let zoomRect = TripDetailMapPresentation.mkMapRect(for: pins) {
+                    let padding = TripDetailMapPresentation.uiMapFitEdgeInsets(for: fitLayout)
+                    let visibleRect = mapView.mapRectThatFits(zoomRect, edgePadding: padding)
+                    mapView.setVisibleMapRect(visibleRect, animated: animated)
+                } else if let region = TripDetailMapPresentation.fittingRegion(for: pins) {
+                    mapView.setRegion(region.mkCoordinateRegion, animated: animated)
+                }
+                return
             }
+
+            guard let focusRegion else { return }
+            if hasMeasuredBounds {
+                let padding = TripDetailMapPresentation.uiCountryMapFitEdgeInsets(for: fitLayout)
+                let visibleRect = mapView.mapRectThatFits(focusRegion.mkMapRect, edgePadding: padding)
+                mapView.setVisibleMapRect(visibleRect, animated: animated)
+            } else {
+                mapView.setRegion(focusRegion.mkCoordinateRegion, animated: animated)
+            }
+        }
+
+        private static func focusRegionSignature(_ region: DiveLocationMapRegionSpec?) -> String {
+            guard let region else { return "none" }
+            return String(
+                format: "%.4f|%.4f|%.4f|%.4f",
+                region.centerLatitude,
+                region.centerLongitude,
+                region.latitudeDelta,
+                region.longitudeDelta
+            )
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
@@ -152,10 +193,11 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-            if let fitLayout = currentFitLayout, !pins.isEmpty {
+            if let fitLayout = currentFitLayout, !pins.isEmpty || currentFocusRegion != nil {
                 scheduleRegionApplyIfNeeded(
                     on: mapView,
                     pins: pins,
+                    focusRegion: currentFocusRegion,
                     fitLayout: fitLayout,
                     animated: false
                 )

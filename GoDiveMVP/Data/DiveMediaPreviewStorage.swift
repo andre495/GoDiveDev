@@ -13,7 +13,7 @@ enum DiveMediaPreviewStorage {
     #if canImport(UIKit)
     nonisolated static func hasStoredPreview(for media: DiveMediaPhoto) -> Bool {
         guard let data = media.previewJPEGData, !data.isEmpty else { return false }
-        return true
+        return !DiveMediaPreviewPersistence.isOversizedPreview(data)
     }
 
     /// Decoded stored previews keyed by **`DiveMediaPhoto.id`**. `previewJPEGData` is write-once

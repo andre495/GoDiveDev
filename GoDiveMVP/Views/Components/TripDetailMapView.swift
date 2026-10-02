@@ -4,6 +4,8 @@ import SwiftUI
 struct TripDetailMapView: View {
     let pins: [TripDetailMapPin]
     let fitLayout: TripDetailMapFitLayout
+    var focusRegion: DiveLocationMapRegionSpec? = nil
+    var focusedCountryNames: [String] = []
     var onSiteSelected: (UUID) -> Void
 
     var body: some View {
@@ -15,6 +17,7 @@ struct TripDetailMapView: View {
                 TripDetailGoogleMapRepresentable(
                     pins: pins,
                     fitLayout: fitLayout,
+                    focusRegion: focusRegion,
                     onSiteSelected: onSiteSelected
                 )
                 #else
@@ -25,6 +28,7 @@ struct TripDetailMapView: View {
                 TripDetailMapRepresentable(
                     pins: pins,
                     fitLayout: fitLayout,
+                    focusRegion: focusRegion,
                     onSiteSelected: onSiteSelected
                 )
                 #else
@@ -34,7 +38,12 @@ struct TripDetailMapView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .accessibilityLabel(TripDetailMapPresentation.accessibilityLabel(for: pins))
+        .accessibilityLabel(
+            TripDetailMapPresentation.accessibilityLabel(
+                for: pins,
+                focusedCountryNames: focusedCountryNames
+            )
+        )
         .accessibilityHint("Tap a site marker to preview its name, then open details from the callout")
         .accessibilityIdentifier("TripDetail.Map")
     }
@@ -50,7 +59,10 @@ struct TripDetailMapView: View {
 }
 
 extension TripDetailMapPresentation {
-    nonisolated static func accessibilityLabel(for pins: [TripDetailMapPin]) -> String {
+    nonisolated static func accessibilityLabel(
+        for pins: [TripDetailMapPin],
+        focusedCountryNames: [String] = []
+    ) -> String {
         if pins.contains(where: { $0.kind == .friendShared || $0.kind == .friendTogether }) {
             return FriendProfileSharedDiveMapPresentation.accessibilityLabel(for: pins)
         }
@@ -58,6 +70,9 @@ extension TripDetailMapPresentation {
         let completedCount = pins.filter { $0.kind == .completed }.count
         switch (plannedCount, completedCount) {
         case (0, 0):
+            if !focusedCountryNames.isEmpty {
+                return "Trip map, \(focusedCountryNames.joined(separator: ", "))"
+            }
             return "Trip map"
         case (_, 0):
             return "Trip map, \(plannedCount) planned dive sites"

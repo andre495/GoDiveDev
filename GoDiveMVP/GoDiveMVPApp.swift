@@ -24,6 +24,7 @@ struct GoDiveMVPApp: App {
         // still touches main-thread plist I/O when called before the delegate runs.
         AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()
+        GoDiveMediaDiskMaintenance.installSharedURLCacheLimits()
         guard GoDiveUITestConfiguration.isActive else {
             AppModelContainer.beginLoadingProductionIfNeeded()
             return
@@ -145,6 +146,9 @@ private struct ProductionAppRoot: View {
                     }
                     Task { @MainActor in
                         DiveMediaReferenceLoader.clearSessionMediaCaches()
+                    }
+                    Task {
+                        await GoDiveMediaDiskMaintenance.reclaimEphemeralMediaCaches()
                     }
                 }
             }

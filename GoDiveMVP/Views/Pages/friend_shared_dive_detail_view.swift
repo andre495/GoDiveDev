@@ -120,11 +120,6 @@ struct FriendSharedDiveDetailView: View {
         }
         .task(id: friendSharedMediaRefreshToken) {
             await refreshFriendSharedMediaDiveIfNeeded()
-            let items = friendSharedMediaDisplayItems
-            await FriendSharedMediaPresentation.prefetchContentIfAllowed(
-                urls: FriendSharedMediaPresentation.allPhotoContentPrefetchURLs(items: items)
-                    + FriendSharedMediaPresentation.allVideoContentPrefetchURLs(items: items)
-            )
         }
         .task(id: "scrollTaggedBuddies-\(dive.id)-\(scrollToTaggedBuddiesOnAppear)") {
             await scrollToTaggedBuddiesIfNeeded()
@@ -1339,10 +1334,6 @@ struct FriendSharedActivityMediaHeroView: View {
             remoteURLStrings: thumbURLs,
             tier: .thumb,
             allowsNetworkFetch: allowsNetwork
-        )
-        await FriendSharedMediaPresentation.prefetchContentIfAllowed(
-            urls: FriendSharedMediaPresentation.allPhotoContentPrefetchURLs(items: items)
-                + FriendSharedMediaPresentation.allVideoContentPrefetchURLs(items: items)
         )
         await prefetchContent(around: selectedMediaID)
     }

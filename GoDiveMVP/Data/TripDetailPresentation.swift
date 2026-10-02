@@ -40,15 +40,20 @@ enum TripDetailPresentation: Sendable {
     }
 
     /// Default hero mode: planned (not-yet-started) trips with mappable planned sites open on the map.
-    /// Otherwise map when pins exist and there is no trip media.
+    /// Upcoming / empty-log trips with a country focus also open on the map. Otherwise map when
+    /// pins exist and there is no trip media.
     nonisolated static func prefersMapHero(
         tripHasStarted: Bool,
         plannedSiteCount: Int,
         hasMapPins: Bool,
-        hasTripMedia: Bool
+        hasTripMedia: Bool,
+        hasCountryFocus: Bool = false
     ) -> Bool {
-        guard hasMapPins else { return false }
+        guard hasMapPins || hasCountryFocus else { return false }
         if !tripHasStarted, plannedSiteCount > 0 {
+            return true
+        }
+        if !tripHasStarted, hasCountryFocus {
             return true
         }
         return !hasTripMedia
