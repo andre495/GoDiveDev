@@ -1,0 +1,33 @@
+---
+description: User-facing commit subjects, User-facing line in body, and docs/ hygiene.
+alwaysApply: true
+---
+
+# Commits and user guide
+
+Commits should make user-facing changes easy to spot for doc reviewers.
+
+## Commit messages
+
+- **Subject line**: lead with what a user will notice, not implementation detail.
+  - Good: `Add manual snorkel entry`
+  - Avoid: `Refactor DiveStore to support snorkel type`
+- **Body**: include a `User-facing:` line summarizing the visible change.
+  - `User-facing: Users can now log snorkel dives from the + menu.`
+  - `User-facing: none` for refactors, tests, tooling, or agent rules.
+  - `User-facing: not yet live` when the feature is behind a flag, hidden, or unfinished.
+- When changing a default, count, data source, or privacy behavior that the guide states, note the old and new value in the body (e.g., `Max buddies per dive: 5 → 10`).
+
+## Branching
+
+- **Larger features**: prefer a feature branch + PR with a 1–3 sentence user-facing description.
+- **Small fixes**: may go straight to main.
+
+## docs/ (GitHub Pages user guide)
+
+`docs/` is published publicly. Keep it user-focused.
+
+- **Never** put internal notes, handoffs, local file paths, or dev plans in `docs/`. Use a non-published folder such as `dev-notes/` at the repo root instead.
+- Updating `docs/` alongside a feature is **optional** (guide updates are drafted separately). If you do edit the guide:
+  - Update **every page** that mentions the affected behavior, not just one.
+  - Keep `mkdocs.yml` nav valid after any file renames or additions.
