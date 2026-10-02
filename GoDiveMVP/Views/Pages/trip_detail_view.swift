@@ -279,7 +279,8 @@ struct TripDetailView: View {
             photos: contentSnapshot.mediaPhotos
         )
         let hasMedia = !contentSnapshot.mediaPhotos.isEmpty
-        let hasMap = !contentSnapshot.mapPins.isEmpty
+        let countryFocus = tripCountryMapFocus(trip: trip, mapPins: contentSnapshot.mapPins)
+        let hasMap = !contentSnapshot.mapPins.isEmpty || countryFocus != nil
         tripHeroMode = PushedDetailHeroModePresentation.resolvedMode(
             hasAssociatedMedia: hasMedia,
             hasMapContent: hasMap
@@ -358,10 +359,11 @@ struct TripDetailView: View {
     private func tripDetailBlueSheet(trip: DiveTrip) -> some View {
         let showsTripStats = DiveTripActivityLinking.hasStarted(trip: trip)
         let mapPins = contentSnapshot.mapPins
+        let countryFocus = tripCountryMapFocus(trip: trip, mapPins: mapPins)
         let hasTripMedia = !contentSnapshot.mediaPhotos.isEmpty
         let showsHeroModeToggle = PushedDetailHeroModePresentation.showsModeToggle(
             hasAssociatedMedia: hasTripMedia,
-            hasMapContent: !mapPins.isEmpty
+            hasMapContent: !mapPins.isEmpty || countryFocus != nil
         )
 
         BlueSheetDetailPage(
@@ -372,7 +374,8 @@ struct TripDetailView: View {
                 tripHeroBandContent(
                     context: context,
                     trip: trip,
-                    mapPins: mapPins
+                    mapPins: mapPins,
+                    countryFocus: countryFocus
                 )
             },
             heroOverlay: { _ in
@@ -476,14 +479,19 @@ struct TripDetailView: View {
     private func tripHeroBandContent(
         context: BlueSheetHeaderPageLayoutContext,
         trip: DiveTrip,
-        mapPins: [TripDetailMapPin]
+        mapPins: [TripDetailMapPin],
+        countryFocus: DiveLocationMapRegionSpec?
     ) -> some View {
         let heroFitLayout = context.mapFitLayout()
+        let hasMapContent = !mapPins.isEmpty || countryFocus != nil
         let heroModeBinding = PushedDetailHeroModePresentation.heroModeBinding(
             hasAssociatedMedia: !contentSnapshot.mediaPhotos.isEmpty,
-            hasMapContent: !mapPins.isEmpty,
+            hasMapContent: hasMapContent,
             mode: $tripHeroMode
         )
+        let focusedCountryNames = countryFocus == nil
+            ? []
+            : TripDetailCountryMapPresentation.focusedCountryNames(from: trip.countries)
 
         BlueSheetDetailHeroBandFill(accessibilityIdentifier: "TripDetail.HeroBand") {
             PushedDetailHeroHeaderView(
@@ -496,11 +504,13 @@ struct TripDetailView: View {
                     for: displayHeroTripMedia
                 ),
                 style: .trip,
+                mapFocusRegion: showsDeferredMap ? countryFocus : nil,
+                mapFocusedCountryNames: showsDeferredMap ? focusedCountryNames : [],
                 onSiteSelected: openDiveSiteFromMap,
                 selectedMode: heroModeBinding
             )
             .onAppear {
-                guard showsDeferredMap, !mapPins.isEmpty else { return }
+                guard showsDeferredMap, hasMapContent else { return }
                 TripDetailMapNavigationDebug.tripMapAppeared(
                     pinCount: mapPins.count,
                     openablePinCount: mapPins.filter { $0.siteID != nil }.count,
@@ -509,6 +519,18 @@ struct TripDetailView: View {
                 )
             }
         }
+    }
+
+    private func tripCountryMapFocus(
+        trip: DiveTrip,
+        mapPins: [TripDetailMapPin]
+    ) -> DiveLocationMapRegionSpec? {
+        TripDetailCountryMapPresentation.focusRegion(
+            countries: trip.countries,
+            isUpcoming: LogbookUpcomingTripPresentation.isUpcoming(trip: trip),
+            linkedActivityCount: trip.activityLinks.count,
+            hasMapPins: !mapPins.isEmpty
+        )
     }
 
     private func tripDetailPagerContent(

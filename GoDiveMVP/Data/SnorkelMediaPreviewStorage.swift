@@ -13,7 +13,7 @@ enum SnorkelMediaPreviewStorage {
     #if canImport(UIKit)
     nonisolated static func hasStoredPreview(for media: SnorkelMediaPhoto) -> Bool {
         guard let data = media.previewJPEGData, !data.isEmpty else { return false }
-        return true
+        return !DiveMediaPreviewPersistence.isOversizedPreview(data)
     }
 
     @MainActor

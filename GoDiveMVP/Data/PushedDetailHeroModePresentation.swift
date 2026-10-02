@@ -52,15 +52,18 @@ enum PushedDetailHeroModePresentation: Sendable {
     }
 
     /// When the user can choose media, fall back from an empty map after pins load — not during deferred map mount.
+    /// Country-level trip maps have no pins; **`hasMapFocusRegion`** keeps the map instead of the placeholder.
     nonisolated static func shouldFallBackFromMapToMedia(
         mapPinCount: Int,
         currentMode: PushedDetailHeroHeaderView.Mode,
         isMapContentReady: Bool,
-        hasAssociatedMedia: Bool
+        hasAssociatedMedia: Bool,
+        hasMapFocusRegion: Bool = false
     ) -> Bool {
         guard hasAssociatedMedia else { return false }
         guard isMapContentReady else { return false }
         guard currentMode == .map else { return false }
+        guard !hasMapFocusRegion else { return false }
         return mapPinCount == 0
     }
 

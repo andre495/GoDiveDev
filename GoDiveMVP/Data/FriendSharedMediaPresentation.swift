@@ -166,7 +166,9 @@ enum FriendSharedMediaPresentation: Sendable {
 
     @MainActor
     static func prefetchContentIfAllowed(urls: [String]) async {
-        let unique = Array(Set(urls))
+        let unique = Array(Set(urls)).filter {
+            GoDiveSharedMediaCache.shouldPersistOnDisk(remoteURLString: $0, tier: .content)
+        }
         guard !unique.isEmpty else { return }
         let snapshot = AppNetworkConnectivitySnapshot.shared
         let allowsContent = allowsContentDownload(
@@ -183,11 +185,6 @@ enum FriendSharedMediaPresentation: Sendable {
         )
     }
 
-    @MainActor
-    static func prefetchVideoContentIfAllowed(urls: [String]) async {
-        await prefetchContentIfAllowed(urls: urls)
-    }
-
     /// Cache-first playback URL for shared video **`contentURL`** strings.
     @MainActor
     static func resolvedVideoPlaybackURL(for contentURLString: String?) async -> URL? {
@@ -197,23 +194,6 @@ enum FriendSharedMediaPresentation: Sendable {
         return await GoDiveSharedMediaCache.shared.resolvedPlaybackURL(
             remoteURLString: contentURLString,
             tier: .content
-        )
-    }
-
-    @MainActor
-    static func prefetchVideoContentIfNeeded(
-        contentURLString: String?,
-        allowsNetworkFetch: Bool
-    ) async {
-        guard allowsNetworkFetch,
-              let contentURLString,
-              sanitizedContentURL(from: contentURLString) != nil
-        else { return }
-        await GoDiveSharedMediaCache.shared.prefetch(
-            remoteURLStrings: [contentURLString],
-            tier: .content,
-            allowsNetworkFetch: true,
-            maxConcurrent: 1
         )
     }
 

@@ -291,26 +291,6 @@ struct LogbookBuddyFeedTileView: View, Equatable {
         .task(id: row.id) {
             await loadHeroData()
         }
-        .task(id: buddyFeedFeaturedContentPrefetchToken) {
-            guard isTileVisible else { return }
-            var urls: [String] = []
-            if let photo = FriendSharedMediaPresentation.buddyFeedFeaturedPhotoContentPrefetchURL(
-                for: row.dive
-            ) {
-                urls.append(photo)
-            }
-            if let video = FriendSharedMediaPresentation.buddyFeedFeaturedVideoContentPrefetchURL(
-                for: row.dive
-            ) {
-                urls.append(video)
-            }
-            guard !urls.isEmpty else { return }
-            await FriendSharedMediaPresentation.prefetchContentIfAllowed(urls: urls)
-        }
-    }
-
-    private var buddyFeedFeaturedContentPrefetchToken: String {
-        "\(row.id)-\(isTileVisible)"
     }
 
     @ViewBuilder
@@ -672,7 +652,7 @@ struct LogbookBuddyFeedMediaHeroPage: View {
             } else {
                 FriendSharedMediaImageView(
                     item: item,
-                    fidelity: .progressive,
+                    fidelity: .thumbnailOnly,
                     showsVideoBadge: true
                 )
             }

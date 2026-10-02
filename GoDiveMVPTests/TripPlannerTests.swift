@@ -1239,6 +1239,116 @@ struct TripPlannerTests {
                     hasTripMedia: false
                 )
             )
+            #expect(
+                TripDetailPresentation.prefersMapHero(
+                    tripHasStarted: false,
+                    plannedSiteCount: 0,
+                    hasMapPins: false,
+                    hasTripMedia: false,
+                    hasCountryFocus: true
+                )
+            )
+            #expect(
+                !TripDetailPresentation.prefersMapHero(
+                    tripHasStarted: true,
+                    plannedSiteCount: 0,
+                    hasMapPins: false,
+                    hasTripMedia: true,
+                    hasCountryFocus: true
+                )
+            )
+        }
+
+        @Test func tripDetailCountryMapPresentation_combinesNearbyCountriesAndPicksFirstWhenSpread() {
+            #expect(
+                TripDetailCountryMapPresentation.shouldUseCountryFocus(
+                    isUpcoming: true,
+                    linkedActivityCount: 0,
+                    hasMapPins: false
+                )
+            )
+            #expect(
+                TripDetailCountryMapPresentation.shouldUseCountryFocus(
+                    isUpcoming: false,
+                    linkedActivityCount: 0,
+                    hasMapPins: false
+                )
+            )
+            #expect(
+                !TripDetailCountryMapPresentation.shouldUseCountryFocus(
+                    isUpcoming: false,
+                    linkedActivityCount: 2,
+                    hasMapPins: false
+                )
+            )
+            #expect(
+                !TripDetailCountryMapPresentation.shouldUseCountryFocus(
+                    isUpcoming: true,
+                    linkedActivityCount: 0,
+                    hasMapPins: true
+                )
+            )
+
+            let nearbyNames = TripDetailCountryMapPresentation.focusedCountryNames(
+                from: ["Indonesia", "Malaysia"]
+            )
+            #expect(nearbyNames == ["Indonesia", "Malaysia"])
+            let nearby = TripDetailCountryMapPresentation.fittingRegion(
+                countries: ["Indonesia", "Malaysia"]
+            )
+            let indonesia = TripDetailCountryMapPresentation.fittingRegion(countries: ["Indonesia"])
+            #expect(nearby != nil)
+            #expect(indonesia != nil)
+            #expect(nearby!.latitudeDelta > indonesia!.latitudeDelta)
+
+            let spreadNames = TripDetailCountryMapPresentation.focusedCountryNames(
+                from: ["United States", "China"]
+            )
+            #expect(spreadNames == ["United States"])
+            let unitedStates = TripDetailCountryMapPresentation.fittingRegion(countries: ["United States"])
+            let spread = TripDetailCountryMapPresentation.fittingRegion(
+                countries: ["United States", "China"]
+            )
+            #expect(unitedStates == spread)
+
+            #expect(
+                TripDetailCountryMapPresentation.focusRegion(
+                    countries: ["Aruba"],
+                    isUpcoming: false,
+                    linkedActivityCount: 3,
+                    hasMapPins: false
+                ) == nil
+            )
+            #expect(
+                TripDetailCountryMapPresentation.focusRegion(
+                    countries: ["Aruba"],
+                    isUpcoming: true,
+                    linkedActivityCount: 0,
+                    hasMapPins: true
+                ) == nil
+            )
+        }
+
+        @Test func tripDetailCountryMapPresentation_arubaStaysTightAndFramesInHeaderBand() {
+            let aruba = TripDetailCountryMapPresentation.fittingRegion(countries: ["Aruba"])
+            #expect(aruba != nil)
+            #expect(aruba!.latitudeDelta < 0.5)
+            #expect(aruba!.longitudeDelta < 0.5)
+            #expect(aruba!.latitudeDelta > 0.1)
+            #expect(
+                TripDetailCountryMapPresentation.approximateGoogleZoomLevel(for: aruba!)
+                    > TripDetailCountryMapPresentation.approximateGoogleZoomLevel(
+                        for: TripDetailCountryMapPresentation.fittingRegion(countries: ["United States"])!
+                    )
+            )
+
+            let layout = TripDetailMapFitLayout(
+                mapHeight: 400,
+                topObstructionHeight: 100,
+                panelOverlap: 187
+            )
+            #expect(TripDetailMapPresentation.mapFitEdgeInsetBottom(for: layout) == 219)
+            #expect(TripDetailMapPresentation.countryMapFitEdgeInsetBottom(for: layout) == 187)
         }
 
         @Test @MainActor func tripDetailMapPresentation_plannedBlueAndCompletedRedPins() throws {

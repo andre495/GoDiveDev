@@ -64,6 +64,7 @@ enum AppLaunchMaintenance: Sendable {
             try SnorkelSwimTrackBackfill.backfillIfNeeded(modelContext: context)
             try UserDiveSiteDuplicateConsolidation.consolidateIfNeeded(modelContext: context)
             #if canImport(UIKit)
+            await GoDiveMediaDiskMaintenance.reclaimEphemeralMediaCaches()
             await DiveMediaPreviewStorage.backfillMissingPreviews(modelContext: context)
             #endif
             // PhotoKit prune + cloud-id backfill: **`DiveMediaPhotoKitLaunchMaintenance`** (later).

@@ -75,6 +75,9 @@ struct PushedDetailHeroHeaderView: View {
     var isMapContentReady: Bool = true
     var shouldAutoPlaySelectedVideo: Bool = false
     var style: Style = .buddy
+    /// Country-level framing when the trip has destinations but no site pins yet.
+    var mapFocusRegion: DiveLocationMapRegionSpec? = nil
+    var mapFocusedCountryNames: [String] = []
     var onSiteSelected: (UUID) -> Void
     @Binding var selectedMode: Mode
 
@@ -87,6 +90,8 @@ struct PushedDetailHeroHeaderView: View {
         isMapContentReady: Bool = true,
         shouldAutoPlaySelectedVideo: Bool = false,
         style: Style = .buddy,
+        mapFocusRegion: DiveLocationMapRegionSpec? = nil,
+        mapFocusedCountryNames: [String] = [],
         onSiteSelected: @escaping (UUID) -> Void,
         selectedMode: Binding<Mode> = .constant(.media)
     ) {
@@ -98,6 +103,8 @@ struct PushedDetailHeroHeaderView: View {
         self.isMapContentReady = isMapContentReady
         self.shouldAutoPlaySelectedVideo = shouldAutoPlaySelectedVideo
         self.style = style
+        self.mapFocusRegion = mapFocusRegion
+        self.mapFocusedCountryNames = mapFocusedCountryNames
         self.onSiteSelected = onSiteSelected
         _selectedMode = selectedMode
     }
@@ -112,7 +119,8 @@ struct PushedDetailHeroHeaderView: View {
                     mapPinCount: count,
                     currentMode: selectedMode,
                     isMapContentReady: isMapContentReady,
-                    hasAssociatedMedia: media != nil || expectsTaggedMedia
+                    hasAssociatedMedia: media != nil || expectsTaggedMedia,
+                    hasMapFocusRegion: mapFocusRegion != nil
                 )
                 BuddiesListNavigationDiagnostics.logHeroMapPinCountChange(
                     stylePrefix: style.accessibilityPrefix,
@@ -175,6 +183,8 @@ struct PushedDetailHeroHeaderView: View {
             TripDetailMapView(
                 pins: mapPins,
                 fitLayout: mapFitLayout,
+                focusRegion: mapFocusRegion,
+                focusedCountryNames: mapFocusedCountryNames,
                 onSiteSelected: onSiteSelected
             )
             .accessibilityIdentifier("\(style.accessibilityPrefix).Map")

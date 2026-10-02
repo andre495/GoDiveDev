@@ -107,6 +107,8 @@ enum TripDetailMapPresentation: Sendable {
     /// Marker pins anchor at the tip; reserve space above the overlapping sheet.
     nonisolated static let mapMarkerGroundClearance: CGFloat = 32
     nonisolated static let mapFitEdgeInsetMinimumBottom: CGFloat = 56
+    /// Inner margin inside the visible header band for country-level framing (no pin-tip clearance).
+    nonisolated static let countryMapContentInset: CGFloat = 12
 
     /// Pin Y target in the hero (fraction from top) — midpoint of the band between top chrome and panel overlap.
     nonisolated static func targetPinScreenYFraction(for layout: TripDetailMapFitLayout) -> CGFloat {
@@ -129,6 +131,12 @@ enum TripDetailMapPresentation: Sendable {
         let height = max(layout.mapHeight, 1)
         let bottom = layout.panelOverlap + mapMarkerGroundClearance
         return min(max(bottom, mapFitEdgeInsetMinimumBottom), height * 0.65)
+    }
+
+    /// Country maps fill the band between top chrome and the sheet — omit pin-tip clearance.
+    nonisolated static func countryMapFitEdgeInsetBottom(for layout: TripDetailMapFitLayout) -> CGFloat {
+        let height = max(layout.mapHeight, 1)
+        return min(max(layout.panelOverlap, mapFitEdgeInsetMinimumBottom), height * 0.65)
     }
 
     nonisolated static func mapFitEdgeInsetValues(for layout: TripDetailMapFitLayout) -> (
@@ -309,6 +317,35 @@ extension TripDetailMapPresentation {
             left: mapFitEdgeInsetHorizontal,
             bottom: insets.bottom,
             right: mapFitEdgeInsetHorizontal
+        )
+    }
+
+    /// MapKit country framing: chrome + sheet overlap + a small content margin (no pin-tip clearance).
+    static func uiCountryMapFitEdgeInsets(for layout: TripDetailMapFitLayout) -> UIEdgeInsets {
+        UIEdgeInsets(
+            top: mapFitEdgeInsetTop(for: layout) + countryMapContentInset,
+            left: countryMapContentInset,
+            bottom: countryMapFitEdgeInsetBottom(for: layout) + countryMapContentInset,
+            right: countryMapContentInset
+        )
+    }
+
+    /// Google Maps country framing uses **`padding`** for chrome/sheet, then a small **`fit`** inset.
+    static func googleCountryMapViewportPadding(for layout: TripDetailMapFitLayout) -> UIEdgeInsets {
+        UIEdgeInsets(
+            top: mapFitEdgeInsetTop(for: layout),
+            left: 0,
+            bottom: countryMapFitEdgeInsetBottom(for: layout),
+            right: 0
+        )
+    }
+
+    static func googleCountryMapContentInsets() -> UIEdgeInsets {
+        UIEdgeInsets(
+            top: countryMapContentInset,
+            left: countryMapContentInset,
+            bottom: countryMapContentInset,
+            right: countryMapContentInset
         )
     }
 }

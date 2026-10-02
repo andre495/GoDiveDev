@@ -175,15 +175,6 @@ struct FriendSharedRemoteVideoPlayerView: View {
             guard shouldDisplayPlayerLayer else { return }
         }
 
-        if playbackURL.isFileURL == false, let contentURL = item.contentURL {
-            Task {
-                await FriendSharedMediaPresentation.prefetchVideoContentIfNeeded(
-                    contentURLString: contentURL,
-                    allowsNetworkFetch: allowsContent
-                )
-            }
-        }
-
         let playerItem = AVPlayerItem(url: playbackURL)
         if prefersFastPlaybackStart {
             playerItem.preferredForwardBufferDuration = 1
