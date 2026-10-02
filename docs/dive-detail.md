@@ -54,7 +54,7 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 - **Star** on a carousel preview marks the featured Logbook thumbnail (one per dive). Selected preview always shows a star (blue if featured, white if not — tap to toggle). Featured previews keep a smaller blue star when not selected; non-featured, unselected previews show no star.
 - At **medium**, tagged **Marine life** ovals and a **Buddies** row of profile avatars appear above the carousel (tap to open the large overview on that mode). Empty prompts invite tagging.
 - At **large**, Fishial **sparkles** and tag **+** sit upper-left (sparkles leads **+** on fish mode when AI identify is available). Upload (**photo +**) sits upper-right — same corner as the minimized carousel **+**.
-- Videos play **muted** and **loop** on the visible page; hold briefly to pause.
+- Videos play **muted** and **loop** on the visible page; hold briefly to pause. Videos from your library play at **medium quality** in-app to keep iCloud copies from piling up in Documents & Data — your full-quality originals in Photos remain untouched.
 
 ### Marine life on media
 
