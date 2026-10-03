@@ -77,11 +77,21 @@ On **your own** dive or snorkel (when sharing with friends is on), the same like
 
 ## Viewing friend photos and videos
 
-**Buddy Feed** loads small thumbnails first so the list stays fast. Friend profile photos (and tagged / commenter avatars from the friend graph) are cached on-device so the same buddy’s avatar does not re-download for every post. Your own avatar on tags and comments uses your local **Profile** photo so it stays in sync with Profile. When a post’s **featured** shared item is a photo, the hero crossfades to full quality when the content file is available. When it is a video, it **auto-plays once** (muted) after you scroll it into view — preferring a cached copy when one exists, otherwise streaming while the clip downloads. Tap an activity to open the same map / tank / media layout you use on your own dives — photos crossfade from the thumbnail to full quality when available, and videos play from the shared clip (poster thumbnail first). Opening a friend activity refreshes shared media from Firestore and starts loading **all** shared photos and videos in the background.
+**Buddy Feed** loads small thumbnails first so the list stays fast. Friend profile photos (and tagged / commenter avatars from the friend graph) are cached on-device so the same buddy’s avatar does not re-download for every post. Your own avatar on tags and comments uses your local **Profile** photo so it stays in sync with Profile. Featured **photos** in the feed stay at **thumbnail** fidelity while you scroll (no progressive crossfade to full quality in the list itself), so images may look a bit softer than the full-quality view you see when you open the activity. Featured **videos** **auto-play once** (muted) after you scroll them into view, streaming for playback rather than keeping a persistent copy on disk. Tap an activity to open the same map / tank / media layout you use on your own dives — photos crossfade from the thumbnail to full quality when available, and videos play from the shared clip (poster thumbnail first). Opening a friend activity refreshes shared media from Firestore and starts loading shared photos and videos in the background.
 
 Tap a photo in the media grid or on the hero to open **fullscreen** — same playback as local buddy tagged media: edge-to-edge stills and videos, horizontal swipe between items, swipe down (or **X**) to close, tap to show/hide chrome, and a center play/pause on videos.
 
 Buddy media downloads use **Wi‑Fi or cellular**. Use **Settings → Activity Sharing → Upload media on wifi only** if you want your own full-quality **uploads** to wait for Wi‑Fi.
+
+### Storage and offline access
+
+GoDive keeps friends' media **lightweight** on your phone:
+
+- **Videos stream** — friends' video clips play directly from the network and are never saved to disk.
+- **Full-size photos are temporary** — when you open a shared activity, GoDive downloads full-quality photos for viewing, but these are kept only while the app is open. When you leave the app (background or quit), full-size content is automatically purged to save space.
+- **Thumbnails persist** — small feed thumbnails stay in a compact on-device cache (up to about **80 MB** total for all friend media) so the Buddy Feed loads quickly on return.
+
+Because full-quality photos and videos are not kept long-term, **friends' media is not available offline** after you leave the app. Thumbnails remain visible, and tapping a post will re-download full-quality content when you are back online.
 
 Your own full logbook on your devices (and private iCloud sync) is unchanged — friends see a read-only shared copy, not co-edit rights. When you edit a shared dive (details, tags, buddies, media, and so on), GoDive updates that shared copy so friends see the latest info.
 

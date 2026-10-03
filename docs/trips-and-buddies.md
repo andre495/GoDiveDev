@@ -51,7 +51,8 @@ You remain the owner of trip details. If you change the **name, dates, countries
 
 Each trip opens a map-forward overview:
 
-- **Hero map** with planned (blue) and completed (red) site pins when applicable. On a **planned** (not-yet-started) trip with saved dive sites that have locations, the header opens on the **map** by default.  
+- **Hero map** with planned (blue) and completed (red) site pins when applicable. On a **planned** (not-yet-started) trip with saved dive sites that have locations, the header opens on the **map** by default. When a trip has selected **countries** but no site pins yet, and the trip is **upcoming** or has no linked activities, the hero shows a **country-framed map** (zoomed to the destination region, no pins) instead of treating the map as empty — so your destination is visible even before you add specific dive sites. If selected countries are geographically close, they share one frame; if they are too spread apart, only the first country is framed. Upcoming trips with a country focus also **open on the map by default**. VoiceOver reads the framed country names aloud (for example, "Trip map, Indonesia, Malaysia"). When site pins exist, the map shows pins as usual.
+    - Country maps cover about **100 countries**. "United States" frames only the contiguous 48 states, so a Hawaii trip will show the mainland framing rather than the islands. Fiji's map covers only islands west of 180° longitude.  
 - **Stats** — dive count, underwater time, deepest, longest (after the trip starts)  
 - **Pager pages** depend on trip phase:
 
