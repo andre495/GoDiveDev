@@ -74,6 +74,7 @@ Stop and ask when: ambiguous solution; >2 fix/test iterations needed; unrelated 
 |---|---|
 | **Commit / push / ship** | **`ship-workflow.mdc`** + **`xcode-workflow.mdc`** preflight — iteration cap does not apply |
 | **Run / build / test / launch** | **`xcode-workflow.mdc`** |
+| **Test the app / run on sim** | **`.cursor/skills/run-on-simulator/SKILL.md`** |
 | **Fix a specific bug or warning** | That issue is in scope; iteration limits apply to that fix only |
 | **Changelog / docs** | **`ship-workflow.mdc`** when the batch or commit requires them |
 

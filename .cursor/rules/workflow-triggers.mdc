@@ -7,6 +7,7 @@ alwaysApply: true
 
 When the user asks to **build**, **run**, **launch**, **test**, **commit**, **push**, or **ship**, follow:
 
+- **Test the app / run on sim / simulator** — **`.cursor/skills/run-on-simulator/SKILL.md`** (build, fix, launch on the latest iPhone simulator). Not the unit-test suite, commit preflight, or Dre's Phone.
 - **`xcode-workflow.mdc`** — Xcode CLI, destinations, build/deploy/test, warnings, Dre's Phone install+launch
 - **`ship-workflow.mdc`** — changelog, app summary, user guide, commit message body, changelog reset on push
 
