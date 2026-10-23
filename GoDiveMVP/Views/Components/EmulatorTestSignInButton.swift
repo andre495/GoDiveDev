@@ -42,7 +42,7 @@ struct EmulatorTestSignInButton: View {
                 showsEmailEntry = true
             }
         } label: {
-            HStack(spacing: AppTheme.Spacing.xs) {
+            HStack(spacing: AppTheme.Spacing.sm) {
                 Image(systemName: "flask")
                 Text("Emulator test sign-in")
             }
