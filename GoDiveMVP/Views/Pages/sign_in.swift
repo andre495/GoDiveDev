@@ -47,6 +47,10 @@ struct SignInView: View {
                 SignInWithAppleSection()
                     .padding(.horizontal, AppTheme.Spacing.lg)
 
+                #if DEBUG
+                EmulatorTestSignInButton()
+                #endif
+
                 if savedCrashReportCount > 0 {
                     Button(SignInPresentation.loggedOutCrashReportsLinkTitle) {
                         showsCrashReports = true
