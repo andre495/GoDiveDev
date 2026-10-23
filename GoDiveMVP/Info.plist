@@ -4,8 +4,6 @@
 <dict>
 	<key>FirebaseMessagingAutoInitEnabled</key>
 	<false/>
-	<key>FirebaseDataCollectionDefaultEnabled</key>
-	<false/>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>PrimoSoftware.GoDiveMVP.cloudkit-refresh</string>
