@@ -44,3 +44,9 @@ GoDiveMVP/Config/GoogleService-Info.plist
 .agents/
 skills-lock.json
 catalog-cdn/.firebase/
+
+# Service account key files
+*adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
+firebase-admin*.json
