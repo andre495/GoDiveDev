@@ -18,6 +18,7 @@ This starts:
 - Auth emulator on port `9099`
 - Firestore emulator on port `8080`
 - Storage emulator on port `9199`
+- Emulator UI on port `4000`
 
 ## Launch Arguments
 
@@ -32,26 +33,42 @@ Add these launch arguments in Xcode (Product → Scheme → Edit Scheme → Run 
 
 ```
 -GoDiveUseFirebaseEmulator
--GoDiveEmulatorTestSignIn qa-tester@example.com
+-GoDiveEmulatorTestSignIn qa@example.com
 ```
 
 On launch, the app will:
 1. Connect to the local Firebase emulators
-2. Create or sign in a user with `qa-tester@example.com` (fixed test password)
+2. Create or sign in a user with `qa@example.com` (fixed test password)
 3. Create a local `UserProfile` and attach it to the session
 4. Upload the FCM token to Firestore (if available)
+
+## Email Domain Restriction
+
+**Only `@example.com` emails are allowed.** This prevents accidental use of real email addresses during testing.
+
+Valid examples:
+- `qa@example.com`
+- `tester@example.com`
+- `user.name@example.com`
+
+Invalid (rejected):
+- `test@gmail.com`
+- `test@example.org`
+- `@example.com`
 
 ## Interactive Sign-In
 
 When running in DEBUG with the emulator enabled (`-GoDiveUseFirebaseEmulator`), a small "Emulator test sign-in" button appears on the sign-in screen below the Sign in with Apple button.
 
-Tap it to enter any test email address and sign in without using Apple ID.
+Tap it to enter a test email address (must end with `@example.com`) and sign in without using Apple ID.
 
 ## Guard Rails
 
 - **DEBUG-only**: All emulator sign-in code is wrapped in `#if DEBUG` and will not compile into Release builds
-- **Emulator check**: Sign-in only proceeds if Auth is actually pointed at the emulator host (runtime check)
-- **No production impact**: If the emulator flag is set but Firebase isn't configured for emulator, the app logs a warning and does nothing
+- **Single source of truth**: Gating uses `GoDiveFirebaseBootstrap.isEmulatorEnabled`, a flag set only when `useEmulator(withHost:port:)` is actually called
+- **Abort on misconfiguration**: If the emulator launch argument is present but `useEmulator` was never called, sign-in is blocked and an error is logged
+- **Email domain restriction**: Only `@example.com` addresses are accepted
+- **No production impact**: Without the emulator launch argument, test sign-in is completely disabled
 
 ## Testing FCM Token Upload
 
@@ -66,6 +83,6 @@ After emulator sign-in:
 | File | Purpose |
 |------|---------|
 | `GoDiveMVP/Data/GoDiveEmulatorTestSignIn.swift` | Sign-in logic (DEBUG-only) |
-| `GoDiveMVP/Data/GoDiveFirebaseBootstrap.swift` | Emulator configuration |
+| `GoDiveMVP/Data/GoDiveFirebaseBootstrap.swift` | Emulator configuration + `isEmulatorEnabled` flag |
 | `GoDiveMVP/Views/Components/EmulatorTestSignInButton.swift` | UI button (DEBUG-only) |
-| `GoDiveMVPTests/EmulatorTestSignInTests.swift` | Gating logic tests |
+| `GoDiveMVPTests/EmulatorTestSignInTests.swift` | Gating + email validation tests |

@@ -32,8 +32,14 @@ enum GoDiveFirebaseBootstrap: Sendable {
     }
 
     #if DEBUG
+    /// `true` only after `useEmulator(withHost:port:)` was called successfully.
     nonisolated static var isEmulatorEnabled: Bool {
         emulatorConfigured
+    }
+
+    /// `true` when the launch argument requests emulator mode (may not be configured yet).
+    nonisolated static var isEmulatorLaunchArgumentPresent: Bool {
+        ProcessInfo.processInfo.arguments.contains(emulatorLaunchArgument)
     }
     #endif
 
@@ -96,7 +102,6 @@ enum GoDiveFirebaseBootstrap: Sendable {
         }
 
         Auth.auth().useEmulator(withHost: emulatorHost, port: authEmulatorPort)
-        Auth.auth().settings?.isAppVerificationDisabledForTesting = true
 
         let firestoreSettings = Firestore.firestore().settings
         firestoreSettings.host = "\(emulatorHost):\(firestoreEmulatorPort)"

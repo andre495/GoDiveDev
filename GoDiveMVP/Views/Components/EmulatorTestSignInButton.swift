@@ -12,6 +12,10 @@ struct EmulatorTestSignInButton: View {
     @State private var errorMessage: String?
     @State private var showsEmailEntry = false
 
+    private var isEmailValid: Bool {
+        GoDiveEmulatorTestSignIn.isValidTestEmail(email)
+    }
+
     var body: some View {
         if GoDiveEmulatorTestSignIn.isAvailable {
             VStack(spacing: AppTheme.Spacing.sm) {
@@ -51,7 +55,7 @@ struct EmulatorTestSignInButton: View {
     private var emailEntryView: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
             HStack(spacing: AppTheme.Spacing.sm) {
-                TextField("test@example.com", text: $email)
+                TextField("qa@example.com", text: $email)
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.emailAddress)
                     .autocorrectionDisabled()
@@ -72,9 +76,13 @@ struct EmulatorTestSignInButton: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSigningIn)
+                .disabled(!isEmailValid || isSigningIn)
                 .accessibilityIdentifier("SignIn.EmulatorSignInButton")
             }
+
+            Text("Email must end with @example.com")
+                .font(.caption2)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
 
             Button("Cancel") {
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -91,6 +99,11 @@ struct EmulatorTestSignInButton: View {
     private func signIn() async {
         guard GoDiveEmulatorTestSignIn.isAvailable else {
             errorMessage = "Emulator not available"
+            return
+        }
+
+        guard isEmailValid else {
+            errorMessage = "Email must end with @example.com"
             return
         }
 

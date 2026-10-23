@@ -8,6 +8,9 @@ import SwiftData
 ///
 /// Use the launch argument `-GoDiveEmulatorTestSignIn <email>` to create or sign in a test user
 /// on launch. Requires the `-GoDiveUseFirebaseEmulator` flag to also be set.
+///
+/// **Safety**: Only `@example.com` emails are allowed. Sign-in is blocked if the emulator
+/// launch argument is present but `useEmulator` was never called.
 enum GoDiveEmulatorTestSignIn {
     nonisolated private static let log = Logger(
         subsystem: "PrimoSoftware.GoDiveMVP",
@@ -15,21 +18,16 @@ enum GoDiveEmulatorTestSignIn {
     )
 
     nonisolated private static let launchArgument = "-GoDiveEmulatorTestSignIn"
-    nonisolated private static let testPassword = "TestPassword123!"
+    nonisolated private static let testPassword = "EmulatorTestPass!2026"
+    nonisolated private static let allowedEmailDomain = "@example.com"
 
     nonisolated(unsafe) private static var didRunLaunchSignIn = false
 
-    /// `true` when both the emulator flag is active and Auth is pointed at the emulator host.
+    /// `true` when Firebase is configured AND `useEmulator` was called (the only safe state).
     nonisolated static var isAvailable: Bool {
         guard GoDiveFirebaseBootstrap.isConfigured else { return false }
         guard GoDiveFirebaseBootstrap.isEmulatorEnabled else { return false }
-        return isAuthUsingEmulator
-    }
-
-    /// Runtime check that Auth is actually pointed at the emulator (not production).
-    nonisolated private static var isAuthUsingEmulator: Bool {
-        guard let settings = Auth.auth().settings else { return false }
-        return settings.isAppVerificationDisabledForTesting
+        return true
     }
 
     /// Parses `-GoDiveEmulatorTestSignIn <email>` from launch arguments and returns the email.
@@ -43,6 +41,12 @@ enum GoDiveEmulatorTestSignIn {
         return email
     }
 
+    /// Validates email ends with `@example.com` (required for emulator test sign-in).
+    nonisolated static func isValidTestEmail(_ email: String) -> Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.hasSuffix(allowedEmailDomain) && trimmed.count > allowedEmailDomain.count
+    }
+
     /// Runs test sign-in on launch if the launch argument is present.
     /// Call from `AppSessionRootView` after session restore.
     @MainActor
@@ -52,13 +56,18 @@ enum GoDiveEmulatorTestSignIn {
 
         guard let email = launchArgumentEmail() else { return }
 
-        guard GoDiveFirebaseBootstrap.isEmulatorEnabled else {
-            log.warning("Emulator test sign-in requested but emulator is not configured (-GoDiveUseFirebaseEmulator missing)")
+        guard GoDiveFirebaseBootstrap.isEmulatorLaunchArgumentPresent else {
+            log.warning("Emulator test sign-in requested but -GoDiveUseFirebaseEmulator not set")
             return
         }
 
-        guard isAvailable else {
-            log.warning("Emulator test sign-in requested but Auth is not using emulator")
+        guard GoDiveFirebaseBootstrap.isEmulatorEnabled else {
+            log.error("Emulator launch argument present but useEmulator was never called — aborting to prevent production access")
+            return
+        }
+
+        guard isValidTestEmail(email) else {
+            log.error("Emulator test sign-in rejected: email must end with \(allowedEmailDomain)")
             return
         }
 
@@ -75,13 +84,21 @@ enum GoDiveEmulatorTestSignIn {
     /// Creates or signs in a test user with the given email on the emulator.
     @MainActor
     static func signIn(email: String, modelContext: ModelContext) async throws {
-        guard isAvailable else {
-            throw EmulatorTestSignInError.emulatorNotAvailable
+        guard GoDiveFirebaseBootstrap.isEmulatorLaunchArgumentPresent else {
+            throw EmulatorTestSignInError.emulatorNotRequested
+        }
+
+        guard GoDiveFirebaseBootstrap.isEmulatorEnabled else {
+            throw EmulatorTestSignInError.emulatorNotConfigured
         }
 
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else {
             throw EmulatorTestSignInError.invalidEmail
+        }
+
+        guard isValidTestEmail(trimmedEmail) else {
+            throw EmulatorTestSignInError.invalidEmailDomain
         }
 
         do {
@@ -136,16 +153,22 @@ enum GoDiveEmulatorTestSignIn {
     }
 
     enum EmulatorTestSignInError: Error, LocalizedError {
-        case emulatorNotAvailable
+        case emulatorNotRequested
+        case emulatorNotConfigured
         case invalidEmail
+        case invalidEmailDomain
         case signInFailed
 
         var errorDescription: String? {
             switch self {
-            case .emulatorNotAvailable:
-                return "Firebase Auth emulator is not available"
+            case .emulatorNotRequested:
+                return "Emulator launch argument (-GoDiveUseFirebaseEmulator) not set"
+            case .emulatorNotConfigured:
+                return "Emulator requested but useEmulator was never called"
             case .invalidEmail:
                 return "Invalid email address"
+            case .invalidEmailDomain:
+                return "Email must end with @example.com"
             case .signInFailed:
                 return "Sign-in failed"
             }
