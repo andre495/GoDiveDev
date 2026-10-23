@@ -15,8 +15,14 @@ enum GoDiveFirebaseBootstrap: Sendable {
 
     nonisolated(unsafe) private static var configuredSuccessfully = false
 
+    /// Non-logging check for whether a default Firebase app exists.
+    /// `FirebaseApp.app()` logs I-COR000003 when called before configure; avoid it.
+    nonisolated private static var hasDefaultApp: Bool {
+        !(FirebaseApp.allApps?.isEmpty ?? true)
+    }
+
     nonisolated static var isConfigured: Bool {
-        configuredSuccessfully && FirebaseApp.app() != nil
+        configuredSuccessfully && hasDefaultApp
     }
 
     /// Soft no-op when plist is missing or invalid (local dive app still works).
@@ -33,8 +39,8 @@ enum GoDiveFirebaseBootstrap: Sendable {
     }
 
     nonisolated private static func configureOnMain(bundle: Bundle) {
-        if configuredSuccessfully, FirebaseApp.app() != nil { return }
-        if FirebaseApp.app() != nil {
+        if configuredSuccessfully { return }
+        if hasDefaultApp {
             configuredSuccessfully = true
             log.notice("Firebase already configured")
             return
