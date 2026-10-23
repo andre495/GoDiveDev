@@ -332,6 +332,20 @@ struct GoDiveFriendInviteTests {
             #expect(!GoDiveFirebaseCloudMessaging.isPushDeviceDocumentID("appleLink"))
         }
 
+        @Test func friendInvitePush_fcmDocumentFields() {
+            #expect(GoDiveFirebaseCloudMessaging.pushDeviceDocumentIDPrefix == "fcm_")
+            #expect(GoDiveFirebaseCloudMessaging.pushDeviceDocumentFieldToken == "fcmToken")
+            #expect(GoDiveFirebaseCloudMessaging.pushDeviceDocumentFieldUpdatedAt == "updatedAt")
+            #expect(GoDiveFirebaseCloudMessaging.pushDeviceDocumentFieldPlatform == "platform")
+        }
+
+        @Test func friendInvitePush_fcmDeviceDocumentIDTrimsWhitespace() {
+            let id = GoDiveFirebaseCloudMessaging.pushDeviceDocumentID(installationID: "  DEF123  ")
+            #expect(id == "fcm_DEF123")
+            #expect(GoDiveFirebaseCloudMessaging.isPushDeviceDocumentID("fcm_"))
+            #expect(!GoDiveFirebaseCloudMessaging.isPushDeviceDocumentID("FCM_ABC"))
+        }
+
         @Test @MainActor func friendInvitePostRedeemNavigation_storesFriendEdge() {
             GoDiveFriendInvitePostRedeemNavigationStore.shared.clear()
             let profile = GoDiveFriendGraphService.PublicProfileSummary(

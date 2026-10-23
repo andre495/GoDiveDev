@@ -1,3 +1,7 @@
 # GoDive
 
 GoDive is a dive log for iPhone that helps you record dives and snorkels, import activities from your dive computer or MacDive, and keep trips, buddies, gear, and certifications organized on your device. Browse a marine life field guide, tag species on your dive photos, explore dive sites on a map, and search across everything in your logbook. Connect with dive buddies via QR code or invite link—friends see only what you choose to share, with notes and media staying opt-in. Your log syncs across your Apple devices through iCloud when you're signed in, while full photos and videos stay in your Photos library. For full walkthroughs of every feature, see the [GoDive user guide](https://andre495.github.io/GoDiveDev/).
+
+## Development setup
+
+See [dev-docs/dev-setup.md](dev-docs/dev-setup.md) for local development prerequisites.

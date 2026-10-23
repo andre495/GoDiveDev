@@ -2,7 +2,7 @@
 
 **Branch:** `feature/owasp-secure-coding` (from `main`)  
 **Reference:** [A guide to OWASP's secure coding (LevelBlue)](https://www.levelblue.com/blogs/levelblue-blog/a-guide-to-owasps-secure-coding)  
-**Related docs:** `owasp_access_control_policy.md` (Phase 0), `hybrid_cloud_sync_boundaries.md`, `firebase_user_profiles.md`, `catalog_cdn_publish.md`
+**Related docs:** `dev-docs/owasp_access_control_policy.md` (Phase 0), `hybrid_cloud_sync_boundaries.md`, `firebase_user_profiles.md`, `catalog_cdn_publish.md`
 
 This plan adapts the OWASP secure-coding checklist (web-oriented in the article) to GoDive’s real stack: **iOS SwiftUI / SwiftData**, **Sign in with Apple**, **private CloudKit dive log**, **Firebase Auth + Firestore/Storage (social)**, **catalog CDN**, **FIT/UDDF import**, **PhotoKit media refs**, **Fishial / Maps** client APIs.
 
@@ -43,7 +43,7 @@ Work lands on this branch in **phased PRs**. Prefer smallest correct controls + 
 
 **OWASP:** Access control policy, system configuration inventory.
 
-- [x] Write a short **Access Control Policy** — see **`owasp_access_control_policy.md`** (SwiftData / CloudKit / Firestore / Storage / CDN matrix).
+- [x] Write a short **Access Control Policy** — see **`dev-docs/owasp_access_control_policy.md`** (SwiftData / CloudKit / Firestore / Storage / CDN matrix).
 - [x] Freeze **in-scope / out-of-scope** for this branch (§4 of the policy doc).
 - [x] Checklist of **Release gates** (§5 of the policy doc).
 
@@ -202,7 +202,7 @@ Run **`xcodebuild`** only when asked to test/commit/push.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-07-18 | Branch `feature/owasp-secure-coding` from `main` | Isolate OWASP hardening from product WIP |
-| 2026-07-18 | Phase 0: publish `owasp_access_control_policy.md` | Freeze AuthZ matrix, branch scope, Release gates before code changes |
+| 2026-07-18 | Phase 0: publish `dev-docs/owasp_access_control_policy.md` | Freeze AuthZ matrix, branch scope, Release gates before code changes |
 | 2026-07-18 | Friends-only Firestore reads deferred | Product change; not required for Phases 1–2 |
 | 2026-07-18 | Encode Phase 0 policy as Cursor rules | Hybrid boundaries, owner scoping, secrets/Release gates always guide agents |
 | 2026-07-18 | Phase 1: Keychain + `DiveUnownedClaimGate` | Shared-device-safe orphan claims; session ids leave UserDefaults |
