@@ -341,12 +341,19 @@ enum GoDiveFriendShareRefreshLaunchEnqueue {
 
         didEnqueueThisLaunch = true
         log.info("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
-        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerID)
+        let context = ModelContext(container)
+        // Set up observers first (firebaseReadyObserver triggers drain when Firebase becomes ready).
         GoDiveFriendShareRefreshCoordinator.startObservingSaves(
             ownerProfileID: ownerID,
-            modelContext: ModelContext(container)
+            modelContext: context
         )
-        GoDiveFriendShareRefreshCoordinator.startDrainIfNeeded()
+        // scheduleRepublish sets pendingFullRepublish=true and schedules immediate flush.
+        // Without this, startDrainIfNeeded reads pendingFullRepublish=false and pending=0.
+        GoDiveFriendShareRefreshCoordinator.scheduleRepublish(
+            ownerProfileID: ownerID,
+            modelContext: context,
+            debounceNanoseconds: 0
+        )
     }
 
     /// Testable helper: checks if `arguments` contains the launch argument string.
