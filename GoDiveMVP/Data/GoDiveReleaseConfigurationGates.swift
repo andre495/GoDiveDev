@@ -5,10 +5,20 @@ import Foundation
 /// Runtime UITest activation remains **`GoDiveUITestConfiguration.isActive`** (launch flag only).
 enum GoDiveReleaseConfigurationGates: Sendable {
 
-    /// **R1** — mock launch seeding must stay off for ship.
+    /// **R1** — mock launch seeding must stay off for ship (Release) or off by default (Debug).
+    ///
+    /// In Release, **`MockDataSeeding.isLaunchSeedingEnabled`** is compile-time **`false`**.
+    /// In Debug, it checks for **`-GoDiveMockSeed`** launch argument (default off).
     nonisolated static var isLaunchSeedingDisabled: Bool {
         !MockDataSeeding.isLaunchSeedingEnabled
     }
+
+    #if DEBUG
+    /// **R1** — whether mock seeding would activate for the given arguments (Debug-only, testable).
+    nonisolated static func mockSeedingWouldBeActive(arguments: [String]) -> Bool {
+        arguments.contains(MockDataSeeding.launchArgument)
+    }
+    #endif
 
     /// **R7** — crash CloudKit share reads as off when the key is unset (UserDefaults bool default).
     nonisolated static func isCrashShareDefaultOff(userDefaults: UserDefaults) -> Bool {
