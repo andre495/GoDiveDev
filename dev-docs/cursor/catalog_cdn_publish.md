@@ -55,4 +55,4 @@ npx firebase-tools@latest deploy --only hosting:catalog,storage --project godive
 
 ## Out of scope (this document)
 
-App Store binary thinning (removing bundled assets), Android. Social profiles (Auth + Firestore) are documented in **`cursor/firebase_user_profiles.md`**.
+App Store binary thinning (removing bundled assets), Android. Social profiles (Auth + Firestore) are documented in **`firebase_user_profiles.md`**.

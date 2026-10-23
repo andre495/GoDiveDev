@@ -26,4 +26,4 @@ Add a **filter component** on **Logbook** so divers can narrow the dive list to 
 
 Automatically import new dives when they sync to Garmin Connect (OAuth + Activity API + small backend). GoDive already decodes `.fit` via FITSwiftSDK; sync is the missing layer.
 
-**Full research:** **`cursor/garmin_connect_auto_import.md`**
+**Full research:** **`garmin_connect_auto_import.md`**

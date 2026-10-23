@@ -20,7 +20,7 @@ The **Garmin FIT SDK does not connect to Garmin Connect**. GoDive already uses *
 | `.fit` decode | ✅ Single `Sport.diving` session per file | `Data/Import/FitDiveFileDecoder.swift` |
 | Import + persist | ✅ Duplicate check, sites, buddies, photos | `Data/Import/FitDiveFileImport.swift` |
 | Manual UI | ✅ Logbook → **+** → **Garmin** → file picker | `Views/Pages/activity_upload.swift` |
-| Garmin Connect sync | ❌ Not built | Deferred in `cursor/rules.md` |
+| Garmin Connect sync | ❌ Not built | Deferred in `rules.md` |
 
 **Manual flow today:** Export a `.fit` from Garmin Connect → pick it in GoDive. The decode/persist pipeline is reusable for auto-sync by feeding it `Data` from the API instead of the file picker (`FitDiveFileImport.importFitData(_:)`).
 
@@ -166,7 +166,7 @@ Full cloud logbook sync is **not** required for v1.
 | Duplicates | `DiveActivityDuplicateMatcher` |
 | Manual import UI | `Views/Pages/activity_upload.swift` |
 | User guide | `docs/import.md` |
-| Deferral note | `cursor/rules.md` |
+| Deferral note | `rules.md` |
 
 **New work (future):** Settings connect flow, backend service, webhook handlers, pending-import sync layer in app.
 
@@ -184,7 +184,7 @@ Full cloud logbook sync is **not** required for v1.
 
 ## Related docs
 
-- `cursor/backlog.md` — backlog entry  
-- `cursor/rules.md` — “no full Garmin device sync beyond `.fit` file MVP”  
-- `cursor/app_summary.md` — current FIT import architecture  
+- `backlog.md` — backlog entry  
+- `rules.md` — “no full Garmin device sync beyond `.fit` file MVP”  
+- `app_summary.md` — current FIT import architecture  
 - `docs/import.md` — user-facing manual import guide  

@@ -145,7 +145,7 @@ Work lands on this branch in **phased PRs**. Prefer smallest correct controls + 
 | Remote URLs | **Done** — **`GoDiveRemoteURLPolicy`** gates AsyncImage + Storage/CDN downloads |
 | WebView | **Confirmed absent** — rule forbids `loadHTMLString` of user content without review |
 
-**Exit:** Audit complete (**`cursor/owasp_phase6_output_encoding_audit.md`**). **Done 2026-07-18.** Cursor rule: **`godive-output-encoding.mdc`**.
+**Exit:** Audit complete (**`owasp_phase6_output_encoding_audit.md`**). **Done 2026-07-18.** Cursor rule: **`godive-output-encoding.mdc`**.
 
 ---
 

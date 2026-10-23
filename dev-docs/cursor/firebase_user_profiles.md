@@ -1,6 +1,6 @@
 # Firebase user profiles (friends-ready)
 
-Firebase project: **`godive-1cff8`**. **Apple CloudKit** `UserProfile` remains the dive-log account. **Firestore** holds a **social directory** only (no dives, sites, media, or catalog). Architecture overview (CloudKit vs Firebase): **`cursor/hybrid_cloud_sync_boundaries.md`**, **`cursor/app_summary.md`** → **External dependencies**.
+Firebase project: **`godive-1cff8`**. **Apple CloudKit** `UserProfile` remains the dive-log account. **Firestore** holds a **social directory** only (no dives, sites, media, or catalog). Architecture overview (CloudKit vs Firebase): **`hybrid_cloud_sync_boundaries.md`**, **`app_summary.md`** → **External dependencies**.
 
 ## One-time Console / CLI
 

@@ -28,7 +28,7 @@ Use this layout for full-screen **pushed** detail pages and the **Home** tab roo
 4. **Tab bar clearance** — bottom inset on `HomeLifetimeStatsPanel` for root tab bar.
 5. **Empty state** — no hero/sheet when logbook is empty.
 
-Proportions must match Home — see **`GoDiveMVP/cursor/blue_sheet_detail_customizations.md`** § Home.
+Proportions must match Home — see **`dev-docs/cursor/blue_sheet_detail_customizations.md`** § Home.
 
 ## Hero band
 
@@ -43,8 +43,8 @@ Proportions must match Home — see **`GoDiveMVP/cursor/blue_sheet_detail_custom
 
 ## Full reference
 
-Read **`GoDiveMVP/cursor/blue_sheet_header_page.md`** before implementing a new page.  
-Per-page slot customizations: **`GoDiveMVP/cursor/blue_sheet_detail_customizations.md`**.
+Read **`dev-docs/cursor/blue_sheet_header_page.md`** before implementing a new page.  
+Per-page slot customizations: **`dev-docs/cursor/blue_sheet_detail_customizations.md`**.
 
 ## Canonical examples
 

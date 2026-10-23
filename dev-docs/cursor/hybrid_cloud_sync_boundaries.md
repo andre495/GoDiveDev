@@ -119,7 +119,7 @@ Phase 4 app-owned catalog refresh uses a **Firebase Hosting** CDN (HTTPS manifes
 
 ## Social directory + friends (Firebase Auth + Firestore)
 
-Setup notes in **`cursor/firebase_user_profiles.md`**.
+Setup notes in **`firebase_user_profiles.md`**.
 
 | Doc | Path | Access |
 |-----|------|--------|
@@ -196,5 +196,5 @@ Shipped on `feature/icloud-hybrid-sync`:
 - Optional **`CatalogCDNSecrets.plist`** → **`ManifestBaseURL`** (Firebase Hosting).
 - Launch: bundled seed, then **`CatalogCDNRefresh.refreshIfNeeded`** (Marine Life upsert + OpenDiveMap reference disk cache; version gate + SHA-256).
 - Photos/USDZ: Firebase Storage URLs + on-demand disk cache; bundled offline-first.
-- Publish notes: **`cursor/catalog_cdn_publish.md`**. User sites stay CloudKit **`UserDiveSite`**.
+- Publish notes: **`catalog_cdn_publish.md`**. User sites stay CloudKit **`UserDiveSite`**.
 

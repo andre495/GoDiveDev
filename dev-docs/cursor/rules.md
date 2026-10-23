@@ -240,7 +240,7 @@ If unsure, choose the simplest correct solution.
 
 ## Tracking Changes in todo.md
 
-After every edit — new model, new view, new field, or structural change — update `/cursor/todo.md`.
+After every edit — new model, new view, new field, or structural change — update **`dev-docs/cursor/todo.md`**.
 
 Rules for updating todo.md:
 
@@ -256,7 +256,7 @@ Do NOT skip this step. `todo.md` is the single source of truth for project state
 
 ## Change log and app summary
 
-When work in **`GoDiveMVP/`** changes behavior, append **`cursor/change_log.md`** (unpushed batch). Update **`cursor/app_summary.md`** only for architecture or user-visible changes — brief surgical edits, not changelog dumps (**`.cursor/rules/ship-workflow.mdc`**).
+When work in **`GoDiveMVP/`** changes behavior, append **`GoDiveMVP/cursor/change_log.md`** (unpushed batch). Update **`app_summary.md`** only for architecture or user-visible changes — brief surgical edits, not changelog dumps (**`.cursor/rules/ship-workflow.mdc`**).
 
 ---
 

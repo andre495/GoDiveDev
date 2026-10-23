@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Reusable **blue sheet header page** shell: optional media/map hero, overlapping blue sheet, scrollable panel body.
 ///
-/// Reference: **`TripDetailView`**, **`ViewDiveBuddyDetails`**, **`GoDiveMVP/cursor/blue_sheet_header_page.md`**.
+/// Reference: **`TripDetailView`**, **`ViewDiveBuddyDetails`**, **`dev-docs/cursor/blue_sheet_header_page.md`**.
 struct BlueSheetHeaderPageLayout<
     Hero: View,
     HeroOverlay: View,
