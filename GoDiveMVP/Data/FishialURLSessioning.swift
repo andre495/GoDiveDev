@@ -2,10 +2,10 @@ import Foundation
 
 /// Injectable HTTP transport for **`FishialAPIClient`** tests.
 ///
-/// Methods are `nonisolated` because `URLSession.data(for:)` is nonisolated
-/// and callers may invoke from any isolation context.
-protocol FishialURLSessioning: Sendable {
-    nonisolated func data(for request: URLRequest) async throws -> (Data, URLResponse)
+/// Marked `nonisolated` so implementations (including `URLSession`) are not
+/// required to be `@MainActor`-isolated, allowing cross-isolation calls.
+nonisolated protocol FishialURLSessioning: Sendable {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
 extension URLSession: FishialURLSessioning {}

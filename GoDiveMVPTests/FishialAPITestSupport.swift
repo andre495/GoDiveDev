@@ -1,26 +1,25 @@
 import Foundation
+import os
 @testable import GoDiveMVP
 
-actor MockFishialURLSession: FishialURLSessioning {
-    private var handlers: [(URLRequest) throws -> (Data, URLResponse)]
+final class MockFishialURLSession: FishialURLSessioning, @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock<[(URLRequest) throws -> (Data, URLResponse)]>(initialState: [])
 
     init(handlers: [(URLRequest) throws -> (Data, URLResponse)]) {
-        self.handlers = handlers
+        lock.withLock { $0 = handlers }
     }
 
-    nonisolated func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        let handler = try await nextHandler()
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let handler = try lock.withLock { handlers -> (URLRequest) throws -> (Data, URLResponse) in
+            guard !handlers.isEmpty else {
+                throw FishialAPIError.invalidResponse
+            }
+            return handlers.removeFirst()
+        }
         return try handler(request)
     }
 
-    private func nextHandler() throws -> (URLRequest) throws -> (Data, URLResponse) {
-        guard !handlers.isEmpty else {
-            throw FishialAPIError.invalidResponse
-        }
-        return handlers.removeFirst()
-    }
-
-    nonisolated static func jsonResponse(
+    static func jsonResponse(
         statusCode: Int,
         body: String,
         url: URL = URL(string: "https://api.fishial.ai")!
