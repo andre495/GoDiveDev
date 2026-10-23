@@ -39,3 +39,46 @@ Introduced in commit **9033143** ("Home stats centering, blue sheet scale, and c
 
 Fixes #15.
 
+---
+
+## Fix Map tab crash with 'Invalid Region' (Issue #53)
+
+Fix crash when opening the Map tab with All Sites scope. MKMapView throws `NSException 'Invalid Region'` when `setRegion` receives a latitude span > 180 - 2*|centerLat| or longitude span > 360.
+
+### Root cause
+
+`ExploreCatalogMapPresentation.boundingRegion` (line 94-95) and `TripDetailMapPresentation.regionSpec` (line 258) compute spans as `max(range * 1.35, 0.04)` with no upper limit. When the All Sites scope fits the worldwide catalog, longitude span can reach ~486° and latitude span can exceed 180°.
+
+### Bug fix
+
+- Added `sanitized` computed property to `DiveLocationMapRegionSpec` that clamps center/spans to MapKit-valid ranges:
+  - Center latitude clamped to [-90, 90]
+  - Center longitude wrapped to [-180, 180]
+  - Latitude span clamped to `min(inputSpan, 180 - 2*|centerLat|)` (prevents poles overflow)
+  - Longitude span clamped to <= 360
+  - Falls back to `worldFallbackRegion` on NaN, infinity, zero, or negative spans
+- `mkCoordinateRegion` and `mkMapRect` now go through `sanitized` automatically
+- Google Maps `gmsCoordinateBounds` extensions also use sanitized values
+- `DiveSiteCoordinatePickerPresentation.region` now uses `DiveLocationMapRegionSpec.mkCoordinateRegion`
+
+### Call sites now sanitized
+
+- `ExploreCatalogMapRepresentable.applyRegion` (Explore tab MapKit)
+- `ExploreCatalogGoogleMapRepresentable.applyRegion` (Explore tab Google Maps)
+- `TripDetailMapRepresentable.applyRegion` (Trip detail MapKit)
+- `TripDetailGoogleMapRepresentable.applyRegion` (Trip detail Google Maps)
+- `OnboardingExploreSitesMapRepresentable` (onboarding scripted map)
+- `OnboardingLogEveryDiveMapRepresentable` (onboarding demo)
+- `DiveSiteCoordinatePickerMapRepresentable` (coordinate picker)
+
+### Tests
+
+- Unit tests for sanitization: worldwide spread, date-line wrap, polar latitude, single site, empty spans, NaN/infinity, negative spans, longitude overflow
+- UI test that opens Explore Map tab with All Sites scope and verifies no crash
+
+### Verification
+
+On simulator: Explore → Map segment → All Sites toggle. Map should display the world view without crashing.
+
+Fixes #53.
+

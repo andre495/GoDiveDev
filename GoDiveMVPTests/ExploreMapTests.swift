@@ -2799,4 +2799,208 @@ struct ExploreMapTests {
             @Test func diveMapCoordinateResolver_rejectsNullIsland() {
                 #expect(!DiveMapCoordinateResolver.isUsable(DiveCoordinate(latitude: 0, longitude: 0)))
             }
+
+    // MARK: - DiveLocationMapRegionSpec Sanitization (Issue #53)
+
+    @Test func diveLocationMapRegionSpec_sanitized_clampsWorldwideSpread() {
+        let worldwide = DiveLocationMapRegionSpec(
+            centerLatitude: 20,
+            centerLongitude: 0,
+            latitudeDelta: 200,
+            longitudeDelta: 486
+        )
+        let safe = worldwide.sanitized
+        #expect(safe.latitudeDelta <= 180 - 2 * abs(safe.centerLatitude))
+        #expect(safe.longitudeDelta <= 360)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_handlesSitesBothSidesOfDateLine() {
+        let acrossDateLine = DiveLocationMapRegionSpec(
+            centerLatitude: 0,
+            centerLongitude: 180,
+            latitudeDelta: 20,
+            longitudeDelta: 40
+        )
+        let safe = acrossDateLine.sanitized
+        #expect(safe.centerLongitude >= -180 && safe.centerLongitude <= 180)
+        #expect(safe.latitudeDelta > 0)
+        #expect(safe.longitudeDelta > 0)
+        #expect(safe.longitudeDelta <= 360)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_handlesExtremePolarLatitude() {
+        let nearPole = DiveLocationMapRegionSpec(
+            centerLatitude: 89,
+            centerLongitude: 0,
+            latitudeDelta: 10,
+            longitudeDelta: 120
+        )
+        let safe = nearPole.sanitized
+        let maxAllowedLatSpan = 180.0 - 2.0 * abs(safe.centerLatitude)
+        #expect(safe.latitudeDelta <= maxAllowedLatSpan)
+        #expect(safe.centerLatitude <= 90)
+        #expect(safe.centerLatitude >= -90)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_singleSiteMinimumSpan() {
+        let singleSite = DiveLocationMapRegionSpec(
+            centerLatitude: 12.08,
+            centerLongitude: -68.28,
+            latitudeDelta: 0.04,
+            longitudeDelta: 0.04
+        )
+        let safe = singleSite.sanitized
+        #expect(safe.latitudeDelta >= 0.01)
+        #expect(safe.longitudeDelta >= 0.01)
+        #expect(safe.centerLatitude == singleSite.centerLatitude)
+        #expect(safe.centerLongitude == singleSite.centerLongitude)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_fallsBackOnEmptySpans() {
+        let emptySpan = DiveLocationMapRegionSpec(
+            centerLatitude: 12.08,
+            centerLongitude: -68.28,
+            latitudeDelta: 0,
+            longitudeDelta: 0
+        )
+        let safe = emptySpan.sanitized
+        #expect(safe == DiveLocationMapRegionSpec.worldFallbackRegion)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_fallsBackOnNaN() {
+        let nanRegion = DiveLocationMapRegionSpec(
+            centerLatitude: .nan,
+            centerLongitude: 0,
+            latitudeDelta: 10,
+            longitudeDelta: 10
+        )
+        let safe = nanRegion.sanitized
+        #expect(safe == DiveLocationMapRegionSpec.worldFallbackRegion)
+
+        let nanSpan = DiveLocationMapRegionSpec(
+            centerLatitude: 20,
+            centerLongitude: 0,
+            latitudeDelta: .nan,
+            longitudeDelta: 10
+        )
+        #expect(nanSpan.sanitized == DiveLocationMapRegionSpec.worldFallbackRegion)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_fallsBackOnInfinity() {
+        let infRegion = DiveLocationMapRegionSpec(
+            centerLatitude: .infinity,
+            centerLongitude: 0,
+            latitudeDelta: 10,
+            longitudeDelta: 10
+        )
+        #expect(infRegion.sanitized == DiveLocationMapRegionSpec.worldFallbackRegion)
+
+        let negInfRegion = DiveLocationMapRegionSpec(
+            centerLatitude: 0,
+            centerLongitude: -.infinity,
+            latitudeDelta: 10,
+            longitudeDelta: 10
+        )
+        #expect(negInfRegion.sanitized == DiveLocationMapRegionSpec.worldFallbackRegion)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_wrapsLongitudeOverflow() {
+        let overflowLon = DiveLocationMapRegionSpec(
+            centerLatitude: 0,
+            centerLongitude: 200,
+            latitudeDelta: 10,
+            longitudeDelta: 20
+        )
+        let safe = overflowLon.sanitized
+        #expect(safe.centerLongitude >= -180 && safe.centerLongitude <= 180)
+        #expect(abs(safe.centerLongitude - (-160)) < 0.001)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_wrapsNegativeLongitudeOverflow() {
+        let underflowLon = DiveLocationMapRegionSpec(
+            centerLatitude: 0,
+            centerLongitude: -200,
+            latitudeDelta: 10,
+            longitudeDelta: 20
+        )
+        let safe = underflowLon.sanitized
+        #expect(safe.centerLongitude >= -180 && safe.centerLongitude <= 180)
+        #expect(abs(safe.centerLongitude - 160) < 0.001)
+    }
+
+    @Test func diveLocationMapRegionSpec_mkCoordinateRegion_usesSanitizedValues() {
+        let invalid = DiveLocationMapRegionSpec(
+            centerLatitude: 0,
+            centerLongitude: 0,
+            latitudeDelta: 500,
+            longitudeDelta: 500
+        )
+        let region = invalid.mkCoordinateRegion
+        #expect(region.span.latitudeDelta <= 180)
+        #expect(region.span.longitudeDelta <= 360)
+    }
+
+    @Test func exploreCatalogMapPresentation_boundingRegion_clampsWorldwideCatalog() {
+        let sites: [ExploreCatalogMapPresentation.PlottedSite] = [
+            .init(id: UUID(), siteName: "Fiji", coordinate: DiveCoordinate(latitude: -18, longitude: 179)),
+            .init(id: UUID(), siteName: "Bonaire", coordinate: DiveCoordinate(latitude: 12, longitude: -68)),
+            .init(id: UUID(), siteName: "Red Sea", coordinate: DiveCoordinate(latitude: 27, longitude: 34)),
+            .init(id: UUID(), siteName: "Indonesia", coordinate: DiveCoordinate(latitude: -8, longitude: 115)),
+        ]
+        guard let region = ExploreCatalogMapPresentation.boundingRegion(for: sites) else {
+            Issue.record("Expected a region for non-empty sites")
+            return
+        }
+        let safe = region.sanitized
+        #expect(safe.latitudeDelta <= 180 - 2 * abs(safe.centerLatitude))
+        #expect(safe.longitudeDelta <= 360)
+    }
+
+    @Test func tripDetailMapPresentation_boundingRegion_clampsPinSpread() {
+        let pins: [TripDetailMapPin] = [
+            TripDetailMapPin(id: "a", title: "East", coordinate: DiveCoordinate(latitude: 0, longitude: 170), kind: .planned, siteID: nil),
+            TripDetailMapPin(id: "b", title: "West", coordinate: DiveCoordinate(latitude: 0, longitude: -170), kind: .completed, siteID: nil),
+        ]
+        guard let region = TripDetailMapPresentation.boundingRegion(for: pins) else {
+            Issue.record("Expected a region for non-empty pins")
+            return
+        }
+        let safe = region.sanitized
+        #expect(safe.latitudeDelta <= 180 - 2 * abs(safe.centerLatitude))
+        #expect(safe.longitudeDelta <= 360)
+    }
+
+    @Test func diveLocationMapRegionSpec_sanitized_fallsBackOnNegativeSpans() {
+        let negative = DiveLocationMapRegionSpec(
+            centerLatitude: 20,
+            centerLongitude: 0,
+            latitudeDelta: -10,
+            longitudeDelta: 20
+        )
+        #expect(negative.sanitized == DiveLocationMapRegionSpec.worldFallbackRegion)
+
+        let bothNegative = DiveLocationMapRegionSpec(
+            centerLatitude: 20,
+            centerLongitude: 0,
+            latitudeDelta: -10,
+            longitudeDelta: -20
+        )
+        #expect(bothNegative.sanitized == DiveLocationMapRegionSpec.worldFallbackRegion)
+    }
+
+    @Test func exploreCatalogMapPresentation_boundingRegion_returnsNilForEmptySites() {
+        let empty: [ExploreCatalogMapPresentation.PlottedSite] = []
+        let region = ExploreCatalogMapPresentation.boundingRegion(for: empty)
+        #expect(region == nil)
+    }
+
+    @Test func diveLocationMapRegionSpec_worldFallbackRegion_isValidForMapKit() {
+        let world = DiveLocationMapRegionSpec.worldFallbackRegion
+        #expect(world.centerLatitude >= -90 && world.centerLatitude <= 90)
+        #expect(world.centerLongitude >= -180 && world.centerLongitude <= 180)
+        #expect(world.latitudeDelta > 0 && world.latitudeDelta <= 180)
+        #expect(world.longitudeDelta > 0 && world.longitudeDelta <= 360)
+        let maxLatSpan = 180.0 - 2.0 * abs(world.centerLatitude)
+        #expect(world.latitudeDelta <= maxLatSpan)
+    }
 }
