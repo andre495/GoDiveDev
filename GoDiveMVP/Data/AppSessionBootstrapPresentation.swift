@@ -11,8 +11,29 @@ enum AppSessionBootstrapPresentation: Sendable {
         isHomeLaunchChromeReady: Bool = false
     ) -> Bool {
         if isRestoringSession || isPopulatingRemoteAccountData { return true }
-        // Keep splash until Home first paint is ready — never reveal an empty dashboard.
         if showsMainAppShell && !isHomeLaunchChromeReady { return true }
+        return false
+    }
+
+    /// **`true`** while sync is in progress (gates not released) for returning accounts.
+    nonisolated static func showsAccountSyncOverlay(
+        syncStatus: AccountSyncState.Status
+    ) -> Bool {
+        switch syncStatus {
+        case .syncing:
+            true
+        case .failed:
+            true
+        case .idle, .ready, .timedOut:
+            false
+        }
+    }
+
+    /// **`true`** when sync timed out but gates are still pending (show banner on Home).
+    nonisolated static func showsSyncBanner(
+        syncStatus: AccountSyncState.Status
+    ) -> Bool {
+        if case .timedOut = syncStatus { return true }
         return false
     }
 
