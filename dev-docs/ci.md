@@ -50,7 +50,7 @@ Runs on `ubuntu-latest` with Node 20 and Java 21.
 `GoogleService-Info.plist` and `GoogleMapsSecrets.plist` are gitignored because they contain API keys. For CI builds to compile, the workflow creates placeholder files with clearly fake values:
 
 - **Project ID**: `demo-godive-ci`
-- **API keys**: `CI_PLACEHOLDER_API_KEY`, `CI_PLACEHOLDER_MAPS_API_KEY`
+- **API keys**: `YOUR_API_KEY`, `CI_PLACEHOLDER_MAPS_API_KEY` (patterns detected by app to skip Firebase init)
 - **GCM Sender ID**: `000000000000`
 - All optional features disabled
 
