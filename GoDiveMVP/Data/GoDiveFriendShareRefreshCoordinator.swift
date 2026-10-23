@@ -313,7 +313,8 @@ enum GoDiveFriendShareRefreshCoordinatorPresentation: Sendable {
 #if DEBUG
 /// DEBUG-only launch argument to enqueue a friend-share refresh for QA testing.
 /// Verifies that drain waits until Firebase and emulator are fully wired.
-enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
+@MainActor
+enum GoDiveFriendShareRefreshLaunchEnqueue {
     nonisolated static let launchArgument = "-GoDiveEnqueueFriendShareRefresh"
 
     /// `true` when the launch argument is present.
@@ -323,39 +324,34 @@ enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
 
     private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
 
-    /// Logs unconditionally to confirm the DEBUG task is reached.
-    @MainActor
-    static func logTaskReached() {
-        log.info("DEBUG task reached")
-    }
+    /// Tracks whether we've already enqueued this launch (at most once).
+    private static var didEnqueueThisLaunch = false
 
-    /// Logs whether the launch arg is present and whether a profile is available.
-    /// Always logs to diagnose when enqueue does not fire.
-    @MainActor
-    static func logLaunchState(hasProfile: Bool) {
+    /// Called from `.task(id: profile?.id)` — runs when profile changes.
+    /// Enqueues at most once per launch when profile becomes non-nil.
+    static func runOnceIfRequested(profile: UserProfile?, container: ModelContainer) {
         let requested = isRequested
-        log.info("Launch: requested=\(requested) hasProfile=\(hasProfile)")
+        let hasProfile = profile != nil
+        let isConfigured = GoDiveFirebaseBootstrap.isConfigured
+        log.info("Launch: requested=\(requested) hasProfile=\(hasProfile) configured=\(isConfigured)")
+
+        guard requested else { return }
+        guard !didEnqueueThisLaunch else { return }
+        guard let ownerID = profile?.id else { return }
+
+        didEnqueueThisLaunch = true
+        log.info("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
+        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerID)
+        GoDiveFriendShareRefreshCoordinator.startObservingSaves(
+            ownerProfileID: ownerID,
+            modelContext: ModelContext(container)
+        )
+        GoDiveFriendShareRefreshCoordinator.startDrainIfNeeded()
     }
 
     /// Testable helper: checks if `arguments` contains the launch argument string.
     nonisolated static func isArgumentPresent(in arguments: [String]) -> Bool {
         arguments.contains(launchArgument)
-    }
-
-    /// Enqueues a full republish for the given owner. Call once at launch when `isRequested`.
-    /// The refresh will drain only after `didConfigureNotification` fires.
-    @MainActor
-    static func enqueueIfRequested(ownerProfileID: UUID, modelContext: ModelContext) {
-        guard isRequested else { return }
-        let isConfigured = GoDiveFirebaseBootstrap.isConfigured
-        log.info("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
-        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
-        GoDiveFriendShareRefreshCoordinator.startObservingSaves(
-            ownerProfileID: ownerProfileID,
-            modelContext: modelContext
-        )
-        // Trigger immediate drain attempt so logs appear even if Firebase isn't configured.
-        GoDiveFriendShareRefreshCoordinator.startDrainIfNeeded()
     }
 }
 #endif

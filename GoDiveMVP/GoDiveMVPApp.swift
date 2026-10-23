@@ -217,20 +217,15 @@ private struct ProductionAppRoot: View {
             }
             #if DEBUG
             .task {
-                GoDiveFriendShareRefreshLaunchEnqueue.logTaskReached()
                 if MockDataSeeding.isLaunchSeedingEnabled {
                     await seedMockDataIfNeeded(container: container)
                 }
-                GoDiveFriendShareRefreshLaunchEnqueue.logLaunchState(
-                    hasProfile: accountSession.currentProfile != nil
+            }
+            .task(id: accountSession.currentProfile?.id) {
+                GoDiveFriendShareRefreshLaunchEnqueue.runOnceIfRequested(
+                    profile: accountSession.currentProfile,
+                    container: container
                 )
-                if GoDiveFriendShareRefreshLaunchEnqueue.isRequested,
-                   let ownerID = accountSession.currentProfile?.id {
-                    GoDiveFriendShareRefreshLaunchEnqueue.enqueueIfRequested(
-                        ownerProfileID: ownerID,
-                        modelContext: ModelContext(container)
-                    )
-                }
             }
             #endif
     }
