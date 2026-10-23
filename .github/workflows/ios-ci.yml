@@ -31,19 +31,20 @@ jobs:
 
       - name: Create placeholder GoogleService-Info.plist
         run: |
+          # Use YOUR_API_KEY pattern which GoDiveFirebaseBootstrap detects and skips
           cat > GoDiveMVP/Config/GoogleService-Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>API_KEY</key>
-              <string>CI_PLACEHOLDER_API_KEY</string>
+              <string>YOUR_API_KEY</string>
               <key>BUNDLE_ID</key>
               <string>PrimoSoftware.GoDiveMVP</string>
               <key>GCM_SENDER_ID</key>
               <string>000000000000</string>
               <key>GOOGLE_APP_ID</key>
-              <string>1:000000000000:ios:0000000000000000000000</string>
+              <string>YOUR_GOOGLE_APP_ID</string>
               <key>IS_ADS_ENABLED</key>
               <false/>
               <key>IS_ANALYTICS_ENABLED</key>
