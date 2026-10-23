@@ -17,8 +17,8 @@ Mock data seeding is now gated by the **`-GoDiveMockSeed`** Debug launch flag. S
 - **`MockDataSeeding.isLaunchSeedingEnabled`** is now a computed property in Debug (checks for `-GoDiveMockSeed` launch argument) and compile-time `false` in Release.
 - **`MockDataSeeder`** code is wrapped in `#if DEBUG` — no seeding logic in Release binary.
 - Added `EXCLUDED_SOURCE_FILE_NAMES = "MockData/*_sample.json"` to Release build settings — sample files don't ship.
-- Seeding is idempotent: runs once per install (UserDefaults marker).
-- Added unit tests for flag gating and idempotency marker.
+- Seeding is idempotent: skips if sample dive UUID exists in SwiftData (not UserDefaults — survives store erasure).
+- Added unit tests for flag gating and store-based idempotency.
 - Added `dev-docs/mock-data-seeding.md` with usage instructions and Release verification steps.
 
 ### Files

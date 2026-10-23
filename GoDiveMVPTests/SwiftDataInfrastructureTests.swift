@@ -50,15 +50,24 @@ struct SwiftDataInfrastructureTests {
         #endif
     }
 
-    @Test func mockDataSeeding_idempotencyMarker_preventsReseeding() throws {
+    @Test @MainActor func mockDataSeeding_idempotency_checksStoreForSampleDive() throws {
         #if DEBUG
-        let suiteName = "GoDiveMockSeedIdempotency-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
 
-        #expect(!MockDataSeeder.hasSeededBefore(userDefaults: defaults))
-        defaults.set(true, forKey: "GoDiveMockDataSeeded")
-        #expect(MockDataSeeder.hasSeededBefore(userDefaults: defaults))
+        #expect(!MockDataSeeder.hasSampleDive(in: context))
+
+        let sampleDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_698_094_650),
+            durationMinutes: 34,
+            maxDepthMeters: 7.89
+        )
+        sampleDive.id = UUID(uuidString: "5E7C0A43-DA58-4A7E-8754-C6C5F9CC9A5F")!
+        context.insert(sampleDive)
+        try context.save()
+
+        #expect(MockDataSeeder.hasSampleDive(in: context))
         #endif
     }
 

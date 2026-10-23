@@ -21,13 +21,15 @@ xcrun simctl launch booted PrimoSoftware.GoDiveMVP -GoDiveMockSeed
 When the flag is present in a **Debug** build:
 
 - `MockDataSeeder` loads `dives_sample.json` and `divesites_sample.json` into SwiftData.
-- Seeding runs once per app install (idempotency marker stored in UserDefaults).
+- Seeding is idempotent: skips if the sample dive (UUID `5E7C0A43-...`) already exists in the store.
 - After seeding, ownership is claimed for the signed-in profile.
 
 Without the flag (or in **Release**):
 
 - `MockDataSeeding.isLaunchSeedingEnabled` returns `false`.
 - No seeding code path runs.
+
+Erasing the SwiftData store allows reseeding on the next launch with the flag.
 
 ## Release Configuration
 

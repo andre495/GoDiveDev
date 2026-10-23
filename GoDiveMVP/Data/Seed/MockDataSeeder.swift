@@ -6,25 +6,25 @@ import SwiftData
 /// Skips silently when fixture resources are missing (Release builds exclude `*_sample.json`).
 enum MockDataSeeder {
     #if DEBUG
-    private static let seedingMarkerKey = "GoDiveMockDataSeeded"
+    /// Known UUID from the first dive in `dives_sample.json` — used to detect prior seeding.
+    nonisolated private static let sampleDiveUUID = UUID(uuidString: "5E7C0A43-DA58-4A7E-8754-C6C5F9CC9A5F")!
 
-    /// Returns **`true`** when the store has already been seeded during this app install.
-    nonisolated static func hasSeededBefore(userDefaults: UserDefaults = .standard) -> Bool {
-        userDefaults.bool(forKey: seedingMarkerKey)
-    }
-
-    /// Records that seeding completed successfully (idempotency marker).
-    private static func markSeeded(userDefaults: UserDefaults = .standard) {
-        userDefaults.set(true, forKey: seedingMarkerKey)
+    /// Returns **`true`** when the sample dive fixture already exists in the store.
+    static func hasSampleDive(in context: ModelContext) -> Bool {
+        let targetID = sampleDiveUUID
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == targetID }
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetchCount(descriptor)) ?? 0 > 0
     }
 
     static func seedIfNeeded(
         context: ModelContext,
         resourceName: String,
-        resourceExtension: String = "json",
-        userDefaults: UserDefaults = .standard
+        resourceExtension: String = "json"
     ) throws {
-        guard !hasSeededBefore(userDefaults: userDefaults) else { return }
+        guard !hasSampleDive(in: context) else { return }
 
         try seedDiveSitesIfNeeded(
             context: context,
@@ -42,7 +42,6 @@ enum MockDataSeeder {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: context)
             try context.save()
-            markSeeded(userDefaults: userDefaults)
             return
         }
 
@@ -60,7 +59,6 @@ enum MockDataSeeder {
         try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
         try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: context)
         try context.save()
-        markSeeded(userDefaults: userDefaults)
     }
     /// Inserts catalog `DiveSite` rows from bundled JSON when missing (matched by `id`).
     private static func seedDiveSitesIfNeeded(
