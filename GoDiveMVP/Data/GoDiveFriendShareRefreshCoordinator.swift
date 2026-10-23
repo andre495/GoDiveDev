@@ -16,6 +16,7 @@ enum GoDiveFriendShareRefreshCoordinator {
     private static var didSaveObserver: NSObjectProtocol?
     private static var explicitChangeObserver: NSObjectProtocol?
     private static var deferredMediaUploadObserver: NSObjectProtocol?
+    private static var firebaseReadyObserver: NSObjectProtocol?
     private static var observedOwnerProfileID: UUID?
     private static weak var observedModelContext: ModelContext?
 
@@ -70,6 +71,16 @@ enum GoDiveFriendShareRefreshCoordinator {
                 )
             }
         }
+
+        firebaseReadyObserver = NotificationCenter.default.addObserver(
+            forName: GoDiveFirebaseBootstrap.didConfigureNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                startDrainIfNeeded()
+            }
+        }
     }
 
     static func stopObservingSaves() {
@@ -84,6 +95,10 @@ enum GoDiveFriendShareRefreshCoordinator {
         if let deferredMediaUploadObserver {
             NotificationCenter.default.removeObserver(deferredMediaUploadObserver)
             self.deferredMediaUploadObserver = nil
+        }
+        if let firebaseReadyObserver {
+            NotificationCenter.default.removeObserver(firebaseReadyObserver)
+            self.firebaseReadyObserver = nil
         }
         observedOwnerProfileID = nil
         observedModelContext = nil
@@ -186,6 +201,7 @@ enum GoDiveFriendShareRefreshCoordinator {
 
     private static func startDrainIfNeeded() {
         guard drainTask == nil else { return }
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
         drainGeneration += 1
         let generation = drainGeneration
         drainTask = Task {
@@ -267,5 +283,14 @@ enum GoDiveFriendShareRefreshCoordinator {
                 ownerUID: ownerUID
             )
         }
+    }
+}
+
+/// Testable decision logic for friend share refresh coordination.
+enum GoDiveFriendShareRefreshCoordinatorPresentation: Sendable {
+    /// Returns whether draining should proceed based on Firebase configuration state.
+    /// When `false`, pending work should be kept and deferred until Firebase becomes ready.
+    nonisolated static func shouldDrain(firebaseConfigured: Bool) -> Bool {
+        firebaseConfigured
     }
 }

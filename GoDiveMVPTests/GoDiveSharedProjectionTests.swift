@@ -2021,4 +2021,19 @@ struct GoDiveSharedProjectionTests {
                 )
                 #expect(needing == [sharedID])
             }
+
+            // MARK: - Firebase configuration guard (issue #58)
+
+            @Test func friendShareRefreshCoordinator_shouldDrain_requiresFirebaseConfigured() {
+                #expect(
+                    !GoDiveFriendShareRefreshCoordinatorPresentation.shouldDrain(firebaseConfigured: false)
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.shouldDrain(firebaseConfigured: true)
+                )
+            }
+
+            @Test func firebaseBootstrap_didConfigureNotification_isDefined() {
+                #expect(GoDiveFirebaseBootstrap.didConfigureNotification.rawValue.isEmpty == false)
+            }
 }

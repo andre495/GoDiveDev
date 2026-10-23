@@ -403,6 +403,7 @@ enum GoDiveFriendGraphService: Sendable {
     }
 
     nonisolated static func fetchPublicProfile(uid: String) async -> PublicProfileSummary? {
+        guard GoDiveFirebaseBootstrap.isConfigured else { return nil }
         let trimmed = uid.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         do {
@@ -457,9 +458,10 @@ enum GoDiveFriendGraphService: Sendable {
     private static func resolvedCurrentUserDisplayName() -> String? {
         let profile = AccountSession.shared.currentProfile
         let appleID = profile?.appleUserIdentifier
+        let authDisplayName = GoDiveFirebaseBootstrap.isConfigured ? Auth.auth().currentUser?.displayName : nil
         return GoDiveFriendInviteMapping.resolvedPublisherDisplayName(
             localProfileName: profile?.displayName,
-            authDisplayName: Auth.auth().currentUser?.displayName,
+            authDisplayName: authDisplayName,
             cachedAppleName: appleID.flatMap { UserProfileStore.cachedDisplayName(forAppleUserIdentifier: $0) },
             returningHintName: appleID.flatMap {
                 ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: $0)
@@ -472,6 +474,7 @@ enum GoDiveFriendGraphService: Sendable {
     /// Never publishes the placeholder **Diver** — that would overwrite a real directory name.
     @MainActor
     private static func publishDirectoryDisplayNameIfNeeded(_ displayName: String?) async {
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
         guard let name = GoDiveFriendInviteMapping.sanitizedFromDisplayName(displayName) else { return }
         do {

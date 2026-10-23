@@ -4,6 +4,9 @@ import FirebaseCore
 
 /// Configures Firebase when **`GoogleService-Info.plist`** is present (gitignored secrets).
 enum GoDiveFirebaseBootstrap: Sendable {
+    /// Posted on the main queue after Firebase configuration succeeds.
+    /// Coordinators that defer work until Firebase is ready can observe this to drain pending tasks.
+    nonisolated static let didConfigureNotification = Notification.Name("GoDiveFirebaseBootstrap.didConfigure")
     nonisolated private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FirebaseBootstrap")
 
     nonisolated private static let plistResourceName = "GoogleService-Info"
@@ -69,6 +72,7 @@ enum GoDiveFirebaseBootstrap: Sendable {
         configuredSuccessfully = FirebaseApp.app() != nil
         if configuredSuccessfully {
             log.notice("Firebase configured (project/bundle redacted)")
+            NotificationCenter.default.post(name: didConfigureNotification, object: nil)
         } else {
             log.error("FirebaseApp.configure(options:) completed but FirebaseApp.app() is nil")
         }
