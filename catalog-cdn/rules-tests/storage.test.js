@@ -29,7 +29,6 @@ async function setFirestoreDoc(path, data) {
     }
     await ref.set(data);
   });
-  await new Promise((resolve) => setTimeout(resolve, 250));
 }
 
 async function deleteFirestoreDoc(path) {

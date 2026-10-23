@@ -17,9 +17,7 @@ npm run test:firestore  # 41 Firestore tests
 npm run test:storage    # 24 Storage tests (requires both emulators for cross-service rules)
 ```
 
-Tests run against the Firebase emulator with project ID `demo-godive-rules` (demo- prefix ensures no real project is affected).
-
-**Note:** Storage tests use cross-service rules (Storage rules reading Firestore data). When running both test suites together with `npm test`, there may be occasional timing-related flakiness due to emulator inter-process communication. All tests pass consistently when run separately.
+Tests run against the Firebase emulator with project ID `demo-godive-rules` (demo- prefix ensures no real project is affected). The combined test uses `--test-concurrency=1` to run files sequentially (Storage tests use cross-service rules that require Firestore data).
 
 ## Running emulators for app testing
 
