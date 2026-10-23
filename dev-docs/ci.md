@@ -16,7 +16,7 @@ It consists of two jobs:
 
 ## Build & Test Job
 
-Runs on `macos-27` with Xcode 27.1.
+Runs on `xcode-27` (preview image) with Xcode 27.1.
 
 ### Steps
 

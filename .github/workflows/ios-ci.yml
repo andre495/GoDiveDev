@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: macos-27
+    runs-on: xcode-27
     timeout-minutes: 45
 
     steps:
