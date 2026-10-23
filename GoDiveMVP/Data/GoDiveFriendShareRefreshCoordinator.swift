@@ -203,7 +203,7 @@ enum GoDiveFriendShareRefreshCoordinator {
 
     private static var drainGeneration = 0
 
-    private static func startDrainIfNeeded() {
+    fileprivate static func startDrainIfNeeded() {
         guard drainTask == nil else { return }
         let pendingCount = pendingFullRepublish ? 1 : pendingDiveIDs.count
         let isConfigured = GoDiveFirebaseBootstrap.isConfigured
