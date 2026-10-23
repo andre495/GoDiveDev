@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Owner-scoped dive data
 
-Source: **`GoDiveMVP/cursor/owasp_access_control_policy.md`** (§2.1, §3).
+Source: **`dev-docs/owasp_access_control_policy.md`** (§2.1, §3).
 
 ## Do
 
