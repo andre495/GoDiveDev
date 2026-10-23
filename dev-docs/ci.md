@@ -16,7 +16,7 @@ It consists of two jobs:
 
 ## Build & Test Job
 
-Runs on `macos-27` with Xcode 27.1.
+Runs on `xcode-27` (preview image) with Xcode 27.1.
 
 ### Steps
 
@@ -25,7 +25,7 @@ Runs on `macos-27` with Xcode 27.1.
 3. **Create placeholder plists** — generates fake `GoogleService-Info.plist` and `GoogleMapsSecrets.plist` for compilation (see below)
 4. **Cache SPM** — caches Swift Package Manager dependencies keyed on `project.pbxproj`
 5. **Resolve packages** — runs `xcodebuild -resolvePackageDependencies`
-6. **Build** — builds the app and test targets for iOS 26 Simulator
+6. **Build** — builds the app and test targets for iOS 27 Simulator
 7. **Test** — runs `GoDiveMVPTests` unit tests with parallel testing enabled
 8. **Upload results** — on failure, uploads `.xcresult` bundle for inspection
 
@@ -70,13 +70,13 @@ xcodebuild -resolvePackageDependencies \
 xcodebuild build-for-testing \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0'
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0'
 
 # Run unit tests with parallel testing
 xcodebuild test-without-building \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
   -parallel-testing-enabled YES \
   -only-testing:GoDiveMVPTests
 ```

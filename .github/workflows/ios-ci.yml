@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: macos-27
+    runs-on: xcode-27
     timeout-minutes: 45
 
     steps:
@@ -102,7 +102,7 @@ jobs:
           xcodebuild build-for-testing \
             -project GoDiveMVP.xcodeproj \
             -scheme GoDiveMVP \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
             -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages" \
             -derivedDataPath DerivedData \
             CODE_SIGN_IDENTITY=- \
@@ -117,7 +117,7 @@ jobs:
           xcodebuild test-without-building \
             -project GoDiveMVP.xcodeproj \
             -scheme GoDiveMVP \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
             -derivedDataPath DerivedData \
             -resultBundlePath TestResults.xcresult \
             -parallel-testing-enabled YES \
