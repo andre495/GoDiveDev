@@ -7,6 +7,8 @@ struct LogbookCollapsibleHeader: View {
     let isCollapsed: Bool
     let showsFeedScopeToggle: Bool
     let statusBarSafeAreaTop: CGFloat
+    /// When **`true`**, the parent provides the status-bar scrim (e.g. **`LogbookTopChromeScrim`** in Logbook).
+    var statusBarScrimIsProvidedExternally: Bool = true
 
     private var showsExpandedChromeBelowTitle: Bool {
         !isCollapsed && showsFeedScopeToggle
@@ -18,7 +20,8 @@ struct LogbookCollapsibleHeader: View {
                 title: LogbookCollapsibleHeaderPresentation.title,
                 isCollapsed: isCollapsed,
                 statusBarSafeAreaTop: statusBarSafeAreaTop,
-                titleAccessibilityIdentifier: LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier
+                titleAccessibilityIdentifier: LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier,
+                statusBarScrimIsProvidedExternally: statusBarScrimIsProvidedExternally
             ) {
                 logbookTripPlannerButton
             } trailing: {

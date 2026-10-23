@@ -4,6 +4,8 @@ import SwiftUI
 struct FieldGuideTopChrome: View {
     let isCollapsed: Bool
     let statusBarSafeAreaTop: CGFloat
+    /// When **`true`**, the parent provides the status-bar scrim (e.g. **`LogbookTopChromeScrim`** in Field Guide hub).
+    var statusBarScrimIsProvidedExternally: Bool = true
     let onAddSpecies: () -> Void
 
     var body: some View {
@@ -11,7 +13,8 @@ struct FieldGuideTopChrome: View {
             title: FieldGuideHubPresentation.tabTitle,
             isCollapsed: isCollapsed,
             statusBarSafeAreaTop: statusBarSafeAreaTop,
-            titleAccessibilityIdentifier: FieldGuideHubPresentation.titleAccessibilityIdentifier
+            titleAccessibilityIdentifier: FieldGuideHubPresentation.titleAccessibilityIdentifier,
+            statusBarScrimIsProvidedExternally: statusBarScrimIsProvidedExternally
         ) {
             Color.clear.accessibilityHidden(true)
         } trailing: {

@@ -10,6 +10,9 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
     /// Expanded (uncollapsed) title font — defaults to **`headerPageTitle`** (**`.title`**); screens with longer
     /// dynamic titles (e.g. Media browse counts) can pass a smaller font.
     var expandedTitleFont: Font = AppTheme.Typography.headerPageTitle
+    /// When **`true`**, the parent provides the status-bar scrim (e.g. **`LogbookTopChromeScrim`** in **`AppPage.scrollUnderHeaderBody`**).
+    /// Set this to avoid stacking two semi-transparent scrims, which creates visible banding.
+    var statusBarScrimIsProvidedExternally: Bool = false
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
@@ -47,7 +50,7 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
         .appTopChromeVerticalPadding()
         .fixedSize(horizontal: false, vertical: true)
         .background(alignment: .top) {
-            if statusBarSafeAreaTop > 0.5 {
+            if statusBarSafeAreaTop > 0.5, !statusBarScrimIsProvidedExternally {
                 AppStatusBarEdgeScrim(
                     safeAreaTop: statusBarSafeAreaTop,
                     usesListChromeFeather: true

@@ -6,6 +6,8 @@ struct FieldGuideBrowseCollapsibleHeader: View {
     let isCollapsed: Bool
     let statusBarSafeAreaTop: CGFloat
     let titleAccessibilityIdentifier: String
+    /// When **`true`**, the parent provides the status-bar scrim (e.g. **`LogbookTopChromeScrim`** in category browse).
+    var statusBarScrimIsProvidedExternally: Bool = true
     let onAddSpecies: () -> Void
 
     var body: some View {
@@ -14,7 +16,8 @@ struct FieldGuideBrowseCollapsibleHeader: View {
             isCollapsed: isCollapsed,
             statusBarSafeAreaTop: statusBarSafeAreaTop,
             titleAccessibilityIdentifier: titleAccessibilityIdentifier,
-            minimumTitleScaleFactor: CollapsibleInlineTitleHeaderPresentation.browseTitleMinimumScaleFactor
+            minimumTitleScaleFactor: CollapsibleInlineTitleHeaderPresentation.browseTitleMinimumScaleFactor,
+            statusBarScrimIsProvidedExternally: statusBarScrimIsProvidedExternally
         ) {
             SecondaryDestinationBackButton()
         } trailing: {
