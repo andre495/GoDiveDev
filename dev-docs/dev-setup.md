@@ -59,14 +59,26 @@ node speciesSimilarity.test.js
 
 ### Emulator for rules testing
 
-To run the Firebase emulators locally (Firestore, Storage, Functions):
+To run the Firebase emulators locally (Auth, Firestore, Storage):
 
 ```bash
 cd catalog-cdn
-firebase emulators:start
+firebase emulators:start --project demo-godive-rules
 ```
 
-The emulators use a demo project ID and do not require production credentials.
+The emulators use a demo project ID (`demo-` prefix) and do not require production credentials.
+
+### Running security rules unit tests
+
+```bash
+cd catalog-cdn/rules-tests
+npm install
+npm test              # Run all 65 tests
+npm run test:firestore  # 41 Firestore tests only
+npm run test:storage    # 24 Storage tests only (requires both emulators)
+```
+
+Tests run against temporary emulator instances and verify Firestore and Storage security rules. Storage tests include cross-service rules (Storage checking Firestore friendship data).
 
 ## GoogleService-Info.plist
 
@@ -106,7 +118,9 @@ The following launch arguments are available in **DEBUG builds only** (compiled 
 |---|---|
 | `-GoDiveUITest` | Activates UITest mode: shows stub `GoDiveUITestRootView` instead of the real app, disables animations, skips network/CloudKit. |
 | `-GoDiveOpenExploreMap` | Opens Explore → Map → All Sites on launch with real catalog sites. Bypasses onboarding and the UITest stub. Use for testing the map view with worldwide data. Combine with `-GoDiveMockSeed` to populate sample data. |
-| `-GoDiveMockSeed` | Seeds mock dive/site data from bundled JSON on launch (requires `MockDataSeeding.isLaunchSeedingEnabled = true` in code). |
+| `-GoDiveMockSeed` | Seeds mock dive/site data from bundled JSON on launch. See `dev-docs/mock-data-seeding.md`. |
+| `-GoDiveUseFirebaseEmulator` | Points Firebase SDKs at the local emulator (Auth, Firestore, Storage). Start the emulator first with `firebase emulators:start`. |
+| `-GoDiveEmulatorTestSignIn <email>` | Auto-signs in with the given `@example.com` email on launch. Requires `-GoDiveUseFirebaseEmulator`. See `dev-docs/emulator-test-signin.md`. |
 
 ### Testing the Explore Map (Issue #53)
 

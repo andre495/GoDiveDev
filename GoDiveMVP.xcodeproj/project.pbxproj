@@ -504,6 +504,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PV93U8CPLQ;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = "MockData/*_sample.json";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GoDiveMVP/Info.plist;
 				INFOPLIST_KEY_NSContactsUsageDescription = "GoDive uses contacts you choose to show dive buddy names and photos in your logbook.";

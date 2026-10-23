@@ -12,7 +12,7 @@ High-level architecture **map** — keep sections short; detail lives in **`curs
 - **Entry:** **`GoDiveMVPApp`** → Sign in with Apple → **`ContentView`**. Launch overlay until Home chrome is ready; deferred maintenance (catalog CDN, PhotoKit backfill, CloudKit kick) after first paint.
 - **Crash reporting:** MetricKit + local **`CrashReportRecord`** rows; opt-in upload to CloudKit public DB (**Settings → Share crash reports**).
 - **UI tests:** **`-GoDiveUITest`** → **`GoDiveUITestRootView`** only (no SwiftData / maps).
-- **Release:** **`MockDataSeeding.isLaunchSeedingEnabled`** stays **`false`**.
+- **Release:** **`MockDataSeeding.isLaunchSeedingEnabled`** compile-time **`false`**; **`*_sample.json`** excluded via `EXCLUDED_SOURCE_FILE_NAMES`. Debug: opt-in via **`-GoDiveMockSeed`** launch argument.
 
 ---
 
@@ -37,7 +37,7 @@ SPM pins: **`Package.resolved`** (often gitignored).
 
 ## App shell and navigation
 
-- **Account:** **`SignInView`** while logged out. New users: welcome interests → profile setup → permissions → optional import → celebration → Home. Returning users reuse local **`UserProfile`**.
+- **Account:** **`SignInView`** while logged out. New users: welcome interests → profile setup → permissions → optional import → celebration → Home. Returning users see sync loading screen with gate-based progress (**`AccountSyncState`**) until Firebase/CloudKit data lands; 20s timeout shows Home with banner.
 - **Root tabs** (all mounted — iOS 26 `TabView` lazy placeholders freeze): **Home**, **Logbook**, **Field Guide**, **Explore**, **Search** (native search role). Tab selection synced from UIKit **`didSelect`** when SwiftUI binding stalls.
 - **Navigation:** **`NavigationStack`** pushes; **`hidesBottomTabBarWhenPushed()`** on deep flows. **`NavigationStackPushCoalescing`** prevents double-push.
 - **Deep links:** Buddy-tag, like, comment, mention, gear, trip, friend-invite, and push notifications drain pending stores on shell appear / Home chrome ready.

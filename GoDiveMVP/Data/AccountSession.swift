@@ -13,6 +13,10 @@ final class AccountSession {
 
     private(set) var currentProfile: UserProfile?
     private(set) var isRestoringSession = true
+
+    /// Observable sync state for returning account sign-in.
+    let syncState = AccountSyncState()
+
     /// Brand-new account after Sign in with Apple — welcome screen before Contacts + Photos prompts.
     private(set) var showsNewAccountWelcome = false
     /// Brand-new account that skipped welcome interests — activity picker before profile photo.
@@ -442,6 +446,12 @@ final class AccountSession {
             appleUserIdentifier: appleUserID
         )
 
+        if treatAsNewAccount {
+            skipSyncForNewAccount()
+        } else {
+            beginReturningAccountSync(appleUserIdentifier: appleUserID)
+        }
+
         let pendingSelection = UserOnboardingActivitySelection.loadPending()
         let hadPendingWelcomeInterests = pendingSelection?.hasAnySelection == true
         if let pendingSelection, hadPendingWelcomeInterests {
@@ -815,6 +825,7 @@ final class AccountSession {
                 try? Auth.auth().signOut()
             }
         }
+        syncState.reset()
         GoDiveSecurityEvent.record(
             .signOut,
             ownerProfileID: ownerID,
@@ -950,6 +961,16 @@ final class AccountSession {
 
     nonisolated static let signInFailureUserMessage = "Sign-in could not be completed. Please try again."
 
+    #if DEBUG
+    /// Attaches a test profile for emulator sign-in flows. DEBUG-only.
+    func attachTestProfile(_ profile: UserProfile) {
+        currentProfile = profile
+        persistSession(profile: profile)
+        cachedSelfBuddyID = nil
+        cachedSelfBuddyProfileID = nil
+    }
+    #endif
+
     private func persistSession(profile: UserProfile) {
         AppLaunchSessionRestorePresentation.savePersistedProfileID(profile.id)
         ReturningAccountHints.remember(profile: profile)
@@ -964,5 +985,77 @@ final class AccountSession {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction, body)
+    }
+
+    // MARK: - Sync State
+
+    private var syncTimeoutTask: Task<Void, Never>?
+
+    /// Begins sync state tracking for a returning account.
+    func beginReturningAccountSync(appleUserIdentifier: String) {
+        let hasReturningHints = ReturningAccountHints.hasPriorSession(
+            forAppleUserIdentifier: appleUserIdentifier
+        )
+
+        guard AccountSyncState.shouldShowSyncScreen(
+            treatAsNewAccount: false,
+            hasReturningHints: hasReturningHints
+        ) else {
+            return
+        }
+
+        let gates = AccountSyncState.gatesForReturningAccount()
+        guard !gates.isEmpty else { return }
+
+        syncState.beginSync(gates: gates)
+        startSyncTimeout()
+    }
+
+    /// Called by population code when Firebase auth completes.
+    func releaseSyncGate(_ gate: AccountSyncState.Gate) {
+        syncState.releaseGate(gate)
+        if syncState.isReady {
+            cancelSyncTimeout()
+        }
+    }
+
+    /// Skips sync screen for new accounts.
+    func skipSyncForNewAccount() {
+        syncState.releaseAllGates()
+        cancelSyncTimeout()
+    }
+
+    private func startSyncTimeout() {
+        syncTimeoutTask?.cancel()
+        syncTimeoutTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(AccountSyncLoadingPresentation.timeoutSeconds))
+            guard !Task.isCancelled else { return }
+            guard syncState.isSyncing else { return }
+            syncState.timeout()
+        }
+    }
+
+    private func cancelSyncTimeout() {
+        syncTimeoutTask?.cancel()
+        syncTimeoutTask = nil
+    }
+
+    /// Called when background sync completes after timeout.
+    func completeSyncAfterTimeout() {
+        syncState.completeAfterTimeout()
+    }
+
+    /// Retries sync after a network failure.
+    func retrySyncAfterFailure(appleUserIdentifier: String, modelContext: ModelContext) async {
+        syncState.prepareForRetry()
+        beginReturningAccountSync(appleUserIdentifier: appleUserIdentifier)
+
+        let populationContext = activeModelContainer?.mainContext ?? modelContext
+        await AccountRemoteDataPopulation.populateSignedInAccount(
+            trigger: .sessionRestore,
+            modelContext: populationContext,
+            treatAsNewAccount: false,
+            mergedDuplicateCount: 0
+        )
     }
 }

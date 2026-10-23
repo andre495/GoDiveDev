@@ -6,6 +6,62 @@ Agents: append summaries and bullets here during work; refresh **`cursor/app_sum
 
 ---
 
+## Add loading screen for returning account sync
+
+When a user signs back in to an existing account (Sign in with Apple), a loading screen now appears while their data syncs, instead of showing an empty Home screen.
+
+### Changes
+
+- Added **`AccountSyncState`** observable class with gate-based sync tracking:
+  - Gates: **firebaseAuth**, **firestoreProfile**, **cloudKitImport**, **socialFirstSnapshot**
+  - States: **idle**, **syncing**, **ready**, **failed**, **timedOut**
+- Added **`AccountSyncLoadingOverlay`**: full-screen loading view matching launch screen style with progress messages ("Restoring your dives…", "Loading account…", "Loading friends…")
+- Added **`AccountSyncBanner`**: non-blocking banner shown after 20s timeout ("Still syncing…" → "Sync complete")
+- Modified **`AccountSession`** to track and coordinate sync state for returning accounts
+- Modified **`AccountRemoteDataPopulation`** to release gates as steps complete and run Firebase/CloudKit in parallel
+- Moved photo upload/restore, roster linking, and push token upload out of critical path (deferred to background)
+- Updated **`AppSessionBootstrapPresentation`** with sync overlay/banner helpers
+- Updated **`app_session_root.swift`** to show sync overlay during sync and banner after timeout
+- Added timeline log events for sync gates (sync.begin, sync.gate_released, sync.ready, sync.timeout, sync.failed)
+- Added comprehensive unit tests in **`AccountSyncStateTests`**
+
+### Behavior
+
+- **Returning accounts** (via ReturningAccountHints): Show sync loading screen until all gates release
+- **New accounts**: Skip sync screen, go directly to onboarding
+- **Timeout** (20s): Show Home with "Still syncing" banner that auto-dismisses when data lands
+- **Offline/iCloud unavailable**: Show failure screen with Retry and Continue buttons
+- **Accessibility**: VoiceOver labels on all interactive elements, Dynamic Type support
+
+Fixes #54.
+
+---
+
+## Exclude mock sample JSON from Release; add `-GoDiveMockSeed` flag
+
+### Summary
+
+Mock data seeding is now gated by the **`-GoDiveMockSeed`** Debug launch flag. Sample JSON files are excluded from Release builds entirely.
+
+### Changes
+
+- **`MockDataSeeding.isLaunchSeedingEnabled`** is now a computed property in Debug (checks for `-GoDiveMockSeed` launch argument) and compile-time `false` in Release.
+- **`MockDataSeeder`** code is wrapped in `#if DEBUG` — no seeding logic in Release binary.
+- Added `EXCLUDED_SOURCE_FILE_NAMES = "MockData/*_sample.json"` to Release build settings — sample files don't ship.
+- Seeding is idempotent: skips if sample dive UUID exists in SwiftData (not UserDefaults — survives store erasure).
+- Added unit tests for flag gating and store-based idempotency.
+- Added `dev-docs/mock-data-seeding.md` with usage instructions and Release verification steps.
+
+### Files
+
+- `GoDiveMVP/Data/Seed/MockDataSeeding.swift` — flag definition
+- `GoDiveMVP/Data/Seed/MockDataSeeder.swift` — Debug-only seeding logic + idempotency
+- `GoDiveMVP/Data/GoDiveReleaseConfigurationGates.swift` — testable helper
+- `GoDiveMVP.xcodeproj/project.pbxproj` — Release exclusion
+- `GoDiveMVPTests/SwiftDataInfrastructureTests.swift` — unit tests
+
+---
+
 ## Fix top gradient banding on scroll-under-header pages
 
 Fix visible horizontal bands (3-band effect) at the top of Notifications, Trips, Top Species, Field Guide, and other pages that use `scrollContentUnderHeader` or similar layouts.

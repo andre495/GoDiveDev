@@ -49,6 +49,7 @@ enum AccountSessionCloudKitIdentityObserver {
             Task { @MainActor in
                 guard let container = observedContainer else { return }
                 GoDiveCloudKitPrivateImportNotification.postImportSucceeded()
+                AccountSession.shared.releaseSyncGate(.cloudKitImport)
                 scheduleReconcileAfterCloudKitImport(container: container)
             }
         }
