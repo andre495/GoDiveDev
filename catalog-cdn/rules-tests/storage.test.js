@@ -19,10 +19,43 @@ function getUnauthStorage() {
   return testEnv.unauthenticatedContext().storage();
 }
 
+async function setFirestoreDoc(path, data) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    const segments = path.split("/");
+    let ref = db.collection(segments[0]).doc(segments[1]);
+    for (let i = 2; i < segments.length; i += 2) {
+      ref = ref.collection(segments[i]).doc(segments[i + 1]);
+    }
+    await ref.set(data);
+  });
+}
+
+async function deleteFirestoreDoc(path) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    const segments = path.split("/");
+    let ref = db.collection(segments[0]).doc(segments[1]);
+    for (let i = 2; i < segments.length; i += 2) {
+      ref = ref.collection(segments[i]).doc(segments[i + 1]);
+    }
+    await ref.delete();
+  });
+}
+
+function friendshipDocId(uidA, uidB) {
+  return uidA < uidB ? `${uidA}_${uidB}` : `${uidB}_${uidA}`;
+}
+
 describe("Storage security rules", () => {
   before(async () => {
     testEnv = await initializeTestEnvironment({
       projectId: PROJECT_ID,
+      firestore: {
+        rules: readFileSync("../firestore.rules", "utf8"),
+        host: "127.0.0.1",
+        port: 8080,
+      },
       storage: {
         rules: readFileSync("../storage.rules", "utf8"),
         host: "127.0.0.1",
@@ -37,6 +70,7 @@ describe("Storage security rules", () => {
 
   beforeEach(async () => {
     await testEnv.clearStorage();
+    await testEnv.clearFirestore();
   });
 
   describe("catalog assets", () => {
@@ -144,7 +178,45 @@ describe("Storage security rules", () => {
       await assertFails(ref.put(bytes, { contentType: "image/jpeg" }));
     });
 
-    it("denies other users from direct read of shared media", async () => {
+    it("allows accepted buddy to read shared media", async () => {
+      const docId = friendshipDocId(ownerUid, friendUid);
+      await setFirestoreDoc(`friendships/${docId}`, {
+        members: [friendUid, ownerUid].sort(),
+        status: "active",
+        inviteToken: "some-token",
+        createdAt: new Date(),
+      });
+
+      const ownerStorage = getStorage({ uid: ownerUid });
+      const ownerRef = ownerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      const bytes = new Uint8Array(1000);
+      await ownerRef.put(bytes, { contentType: "image/jpeg" });
+
+      const friendStorage = getStorage({ uid: friendUid });
+      const friendRef = friendStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      await assertSucceeds(friendRef.getDownloadURL());
+    });
+
+    it("denies non-friend from reading shared media", async () => {
+      const ownerStorage = getStorage({ uid: ownerUid });
+      const ownerRef = ownerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      const bytes = new Uint8Array(1000);
+      await ownerRef.put(bytes, { contentType: "image/jpeg" });
+
+      const strangerStorage = getStorage({ uid: strangerUid });
+      const strangerRef = strangerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      await assertFails(strangerRef.getDownloadURL());
+    });
+
+    it("denies user with pending invite (no active friendship) from reading shared media", async () => {
       const ownerStorage = getStorage({ uid: ownerUid });
       const ownerRef = ownerStorage.ref(
         `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
@@ -159,7 +231,30 @@ describe("Storage security rules", () => {
       await assertFails(friendRef.getDownloadURL());
     });
 
-    it("denies unauthenticated direct read of shared media", async () => {
+    it("denies user with removed friendship from reading shared media", async () => {
+      const docId = friendshipDocId(ownerUid, friendUid);
+      await setFirestoreDoc(`friendships/${docId}`, {
+        members: [friendUid, ownerUid].sort(),
+        status: "removed",
+        inviteToken: "some-token",
+        createdAt: new Date(),
+      });
+
+      const ownerStorage = getStorage({ uid: ownerUid });
+      const ownerRef = ownerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      const bytes = new Uint8Array(1000);
+      await ownerRef.put(bytes, { contentType: "image/jpeg" });
+
+      const friendStorage = getStorage({ uid: friendUid });
+      const friendRef = friendStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      await assertFails(friendRef.getDownloadURL());
+    });
+
+    it("denies unauthenticated read of shared media", async () => {
       const ownerStorage = getStorage({ uid: ownerUid });
       const ownerRef = ownerStorage.ref(
         `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
@@ -172,6 +267,29 @@ describe("Storage security rules", () => {
         `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
       );
       await assertFails(unauthRef.getDownloadURL());
+    });
+
+    it("denies non-owner from listing shared media even with friendship", async () => {
+      const docId = friendshipDocId(ownerUid, friendUid);
+      await setFirestoreDoc(`friendships/${docId}`, {
+        members: [friendUid, ownerUid].sort(),
+        status: "active",
+        inviteToken: "some-token",
+        createdAt: new Date(),
+      });
+
+      const ownerStorage = getStorage({ uid: ownerUid });
+      const ownerRef = ownerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}/thumb.jpg`
+      );
+      const bytes = new Uint8Array(1000);
+      await ownerRef.put(bytes, { contentType: "image/jpeg" });
+
+      const friendStorage = getStorage({ uid: friendUid });
+      const listRef = friendStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}`
+      );
+      await assertFails(listRef.listAll());
     });
 
     it("denies other users from deleting shared media", async () => {
@@ -192,7 +310,8 @@ describe("Storage security rules", () => {
 
   describe("legacy shared media", () => {
     const ownerUid = "owner-uid";
-    const otherUid = "other-uid";
+    const friendUid = "friend-uid";
+    const strangerUid = "stranger-uid";
     const activityId = "activity-123";
     const mediaId = "media-456";
 
@@ -215,7 +334,15 @@ describe("Storage security rules", () => {
       await assertSucceeds(ref.getDownloadURL());
     });
 
-    it("denies other users from direct read of legacy preview", async () => {
+    it("allows accepted buddy to read legacy preview", async () => {
+      const docId = friendshipDocId(ownerUid, friendUid);
+      await setFirestoreDoc(`friendships/${docId}`, {
+        members: [friendUid, ownerUid].sort(),
+        status: "active",
+        inviteToken: "some-token",
+        createdAt: new Date(),
+      });
+
       const ownerStorage = getStorage({ uid: ownerUid });
       const ownerRef = ownerStorage.ref(
         `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}.jpg`
@@ -223,11 +350,26 @@ describe("Storage security rules", () => {
       const bytes = new Uint8Array(1000);
       await ownerRef.put(bytes, { contentType: "image/jpeg" });
 
-      const otherStorage = getStorage({ uid: otherUid });
-      const otherRef = otherStorage.ref(
+      const friendStorage = getStorage({ uid: friendUid });
+      const friendRef = friendStorage.ref(
         `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}.jpg`
       );
-      await assertFails(otherRef.getDownloadURL());
+      await assertSucceeds(friendRef.getDownloadURL());
+    });
+
+    it("denies non-friend from reading legacy preview", async () => {
+      const ownerStorage = getStorage({ uid: ownerUid });
+      const ownerRef = ownerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}.jpg`
+      );
+      const bytes = new Uint8Array(1000);
+      await ownerRef.put(bytes, { contentType: "image/jpeg" });
+
+      const strangerStorage = getStorage({ uid: strangerUid });
+      const strangerRef = strangerStorage.ref(
+        `users/${ownerUid}/sharedMedia/${activityId}/${mediaId}.jpg`
+      );
+      await assertFails(strangerRef.getDownloadURL());
     });
   });
 
