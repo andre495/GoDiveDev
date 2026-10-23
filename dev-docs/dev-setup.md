@@ -116,8 +116,20 @@ The following launch arguments are available in DEBUG builds. Set them in Xcode:
 
 | Argument | Purpose |
 |----------|---------|
-| `-GoDiveUseFirebaseEmulator` | Point Auth, Firestore, and Storage at the local Firebase emulator suite instead of production. |
+| `-GoDiveUseFirebaseEmulator` | Point Auth, Firestore, and Storage at the local Firebase emulator suite instead of production. FCM token registration, APNs token forwarding, and device check-in are disabled in this mode to prevent any connections to the real Firebase project. |
 | `-GoDiveMockSeed` | Seed mock dive data from `dives_sample.json` at launch. |
-| `-GoDiveEnqueueFriendShareRefresh` | Enqueue a pending friend-share refresh at launch for the current account. Useful for QA: verifies the drain waits until Firebase (and emulator if enabled) is fully wired before contacting the backend. |
+| `-GoDiveEnqueueFriendShareRefresh` | Enqueue a pending friend-share refresh at launch for the current account. Useful for QA: verifies the drain waits until Firebase (and emulator if enabled) is fully wired before contacting the backend. Requires an active sign-in (profile must exist at launch). |
 
 These arguments compile out of Release builds.
+
+### Emulator Mode Network Isolation
+
+When `-GoDiveUseFirebaseEmulator` is set:
+
+- **Auth, Firestore, Storage** → routed to local emulator (`127.0.0.1`)
+- **FCM token registration** → disabled (no `Messaging.messaging().delegate` wired)
+- **APNs registration** → skipped (`registerForRemoteNotifications()` not called)
+- **APNs token forwarding** → skipped (`Messaging.messaging().apnsToken` not set)
+- **FCM auto-init** → disabled (`isAutoInitEnabled = false`)
+
+This ensures **zero remote connections** to the production Firebase project when testing with the emulator. Normal (non-emulator) launches continue to register for push notifications and write the `fcm_{deviceId}` document as expected.

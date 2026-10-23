@@ -11,7 +11,7 @@ import SwiftData
 @MainActor
 enum GoDiveFriendShareRefreshCoordinator {
     #if DEBUG
-    nonisolated private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
+    private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
     #endif
     private static var pendingTask: Task<Void, Never>?
     private static var drainTask: Task<Void, Never>?
@@ -209,12 +209,12 @@ enum GoDiveFriendShareRefreshCoordinator {
         let isConfigured = GoDiveFirebaseBootstrap.isConfigured
         guard isConfigured else {
             #if DEBUG
-            log.debug("Drain skip: configured=\(isConfigured) pending=\(pendingCount)")
+            log.info("Drain skip: configured=\(isConfigured) pending=\(pendingCount)")
             #endif
             return
         }
         #if DEBUG
-        log.debug("Drain start: configured=\(isConfigured) pending=\(pendingCount)")
+        log.info("Drain start: configured=\(isConfigured) pending=\(pendingCount)")
         #endif
         drainGeneration += 1
         let generation = drainGeneration
@@ -247,7 +247,8 @@ enum GoDiveFriendShareRefreshCoordinator {
             GoDiveBuddyShareBackgroundUpload.beginBackgroundExecution()
             await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
                 ownerProfileID: ownerProfileID,
-                modelContext: modelContext
+                modelContext: modelContext,
+                caller: "drain"
             )
             GoDiveBuddySharePendingWorkStore.clearFullRepublishPending(ownerProfileID: ownerProfileID)
             if let ownerUID = Auth.auth().currentUser?.uid {
@@ -322,13 +323,21 @@ enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
 
     private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
 
+    /// Logs whether the launch arg is present and whether a profile is available.
+    /// Called early to diagnose when enqueue does not fire.
+    @MainActor
+    static func logLaunchState(hasProfile: Bool) {
+        guard isRequested else { return }
+        log.info("Launch: requested=true hasProfile=\(hasProfile)")
+    }
+
     /// Enqueues a full republish for the given owner. Call once at launch when `isRequested`.
     /// The refresh will drain only after `didConfigureNotification` fires.
     @MainActor
     static func enqueueIfRequested(ownerProfileID: UUID, modelContext: ModelContext) {
         guard isRequested else { return }
         let isConfigured = GoDiveFirebaseBootstrap.isConfigured
-        log.debug("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
+        log.info("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
         GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
         GoDiveFriendShareRefreshCoordinator.startObservingSaves(
             ownerProfileID: ownerProfileID,

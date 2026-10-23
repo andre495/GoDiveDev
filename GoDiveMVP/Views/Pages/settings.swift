@@ -166,7 +166,8 @@ struct SettingsView: View {
         Task {
             await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
                 ownerProfileID: owner.id,
-                modelContext: modelContext
+                modelContext: modelContext,
+                caller: "settings"
             )
         }
     }

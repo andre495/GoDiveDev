@@ -77,7 +77,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         ownerProfileID: UUID,
         modelContext: ModelContext,
         userDefaults: UserDefaults = .standard,
-        assumeHasFriends: Bool = false
+        assumeHasFriends: Bool = false,
+        caller: String = "unknown"
     ) async {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
@@ -96,7 +97,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             await deleteAllSharedDivesForCurrentUser()
             return
         case .skipLeavingRemoteIntact:
-            log.notice("Friend-share republish skipped; leaving existing sharedDives intact")
+            log.notice("Friend-share republish skipped (caller=\(caller)); leaving existing sharedDives intact")
             return
         case .publishOwned:
             break
