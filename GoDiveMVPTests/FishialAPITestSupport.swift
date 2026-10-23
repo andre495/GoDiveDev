@@ -1,18 +1,21 @@
 import Foundation
+import os
 @testable import GoDiveMVP
 
-actor MockFishialURLSession: FishialURLSessioning {
-    private var handlers: [(URLRequest) throws -> (Data, URLResponse)]
+final class MockFishialURLSession: FishialURLSessioning, @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock<[(URLRequest) throws -> (Data, URLResponse)]>(initialState: [])
 
     init(handlers: [(URLRequest) throws -> (Data, URLResponse)]) {
-        self.handlers = handlers
+        lock.withLock { $0 = handlers }
     }
 
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        guard !handlers.isEmpty else {
-            throw FishialAPIError.invalidResponse
+        let handler = try lock.withLock { handlers -> (URLRequest) throws -> (Data, URLResponse) in
+            guard !handlers.isEmpty else {
+                throw FishialAPIError.invalidResponse
+            }
+            return handlers.removeFirst()
         }
-        let handler = handlers.removeFirst()
         return try handler(request)
     }
 
