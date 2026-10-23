@@ -30,13 +30,39 @@ import UIKit
 
 
 struct SwiftDataInfrastructureTests {
-        @Test func mockDataSeeding_launchSeedingDisabledByDefault() {
-            #expect(!MockDataSeeding.isLaunchSeedingEnabled)
-            #expect(GoDiveReleaseConfigurationGates.isLaunchSeedingDisabled)
-            #expect(GoDiveReleaseConfigurationGates.criticalStaticGatesPass)
-        }
+    @Test func mockDataSeeding_launchSeedingDisabledByDefault() {
+        #expect(!MockDataSeeding.isLaunchSeedingEnabled)
+        #expect(GoDiveReleaseConfigurationGates.isLaunchSeedingDisabled)
+        #expect(GoDiveReleaseConfigurationGates.criticalStaticGatesPass)
+    }
 
-            @Test func ontologySightingContributionSync_gateRespectsOptOutAndStableContributionId() throws {
+    @Test func mockDataSeeding_flagGatingActivatesOnlyWithArgument() {
+        #if DEBUG
+        #expect(!GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(arguments: []))
+        #expect(!GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(arguments: ["-OtherFlag"]))
+        #expect(GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(arguments: ["-GoDiveMockSeed"]))
+        #expect(GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(
+            arguments: ["-OtherFlag", "-GoDiveMockSeed", "-AnotherFlag"]
+        ))
+        #expect(MockDataSeeding.launchArgument == "-GoDiveMockSeed")
+        #else
+        #expect(!MockDataSeeding.isLaunchSeedingEnabled)
+        #endif
+    }
+
+    @Test func mockDataSeeding_idempotencyMarker_preventsReseeding() throws {
+        #if DEBUG
+        let suiteName = "GoDiveMockSeedIdempotency-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(!MockDataSeeder.hasSeededBefore(userDefaults: defaults))
+        defaults.set(true, forKey: "GoDiveMockDataSeeded")
+        #expect(MockDataSeeder.hasSeededBefore(userDefaults: defaults))
+        #endif
+    }
+
+    @Test func ontologySightingContributionSync_gateRespectsOptOutAndStableContributionId() throws {
                 let suiteName = "GoDiveOntologySyncGate-\(UUID().uuidString)"
                 let defaults = try #require(UserDefaults(suiteName: suiteName))
                 defer { defaults.removePersistentDomain(forName: suiteName) }

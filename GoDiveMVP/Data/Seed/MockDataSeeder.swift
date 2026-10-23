@@ -1,13 +1,31 @@
 import Foundation
 import SwiftData
 
-/// Loads bundled JSON fixtures into SwiftData. **MVP / mock only** — remove or replace when live imports exist.
+/// Loads bundled JSON fixtures into SwiftData. **Debug-only** with **`-GoDiveMockSeed`** flag.
+///
+/// Skips silently when fixture resources are missing (Release builds exclude `*_sample.json`).
 enum MockDataSeeder {
+    #if DEBUG
+    private static let seedingMarkerKey = "GoDiveMockDataSeeded"
+
+    /// Returns **`true`** when the store has already been seeded during this app install.
+    nonisolated static func hasSeededBefore(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: seedingMarkerKey)
+    }
+
+    /// Records that seeding completed successfully (idempotency marker).
+    private static func markSeeded(userDefaults: UserDefaults = .standard) {
+        userDefaults.set(true, forKey: seedingMarkerKey)
+    }
+
     static func seedIfNeeded(
         context: ModelContext,
         resourceName: String,
-        resourceExtension: String = "json"
+        resourceExtension: String = "json",
+        userDefaults: UserDefaults = .standard
     ) throws {
+        guard !hasSeededBefore(userDefaults: userDefaults) else { return }
+
         try seedDiveSitesIfNeeded(
             context: context,
             resourceName: "divesites_sample",
@@ -24,6 +42,7 @@ enum MockDataSeeder {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: context)
             try context.save()
+            markSeeded(userDefaults: userDefaults)
             return
         }
 
@@ -41,8 +60,8 @@ enum MockDataSeeder {
         try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
         try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: context)
         try context.save()
+        markSeeded(userDefaults: userDefaults)
     }
-
     /// Inserts catalog `DiveSite` rows from bundled JSON when missing (matched by `id`).
     private static func seedDiveSitesIfNeeded(
         context: ModelContext,
@@ -117,4 +136,5 @@ enum MockDataSeeder {
             }
         }
     }
+    #endif
 }

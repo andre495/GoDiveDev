@@ -269,7 +269,8 @@ private struct ProductionAppRoot: View {
             try MockDataSeeder.seedIfNeeded(
                 context: context,
                 resourceName: "dives_sample",
-                resourceExtension: "json"
+                resourceExtension: "json",
+                userDefaults: .standard
             )
             if let profile = accountSession.currentProfile {
                 try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: context)
