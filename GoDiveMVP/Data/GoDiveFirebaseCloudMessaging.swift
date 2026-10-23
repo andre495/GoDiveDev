@@ -101,7 +101,9 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     @MainActor
     static func uploadCurrentFCMTokenIfAvailable() async {
         #if canImport(FirebaseMessaging) && canImport(FirebaseAuth) && canImport(FirebaseFirestore)
-        guard let token = try? await Messaging.messaging().token(), !token.isEmpty else { return }
+        GoDiveFirebaseBootstrap.configureIfNeeded()
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
+        guard let token = Messaging.messaging().fcmToken, !token.isEmpty else { return }
         await persistFCMToken(token)
         #endif
     }
