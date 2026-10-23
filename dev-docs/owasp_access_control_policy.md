@@ -184,7 +184,7 @@ Fail closed on checksum mismatch / non-HTTPS base URL (Phase 2/3 may harden redi
 
 **Shipped (client hygiene):** secret inventory + handling doc; Maps/Fishial **`.example`** templates; ATS defaults enforced via **`AppTransportSecurityPolicy`**; Fishial bearer **memory-only** + client recognize rate limit; no token/`Authorization` logging (**`GoDiveSecretLogging`**); CDN SHA-256 remains fail-closed.
 
-**Follow-up (not blocking Phase 4+):** Fishial Cloud Function proxy (remove client secret from IPA), Firebase App Check, TLS pinning, signed CDN manifests. Tracked in **`cursor/todo.md`**.
+**Follow-up (not blocking Phase 4+):** Fishial Cloud Function proxy (remove client secret from IPA), Firebase App Check, TLS pinning, signed CDN manifests. Tracked in **`dev-docs/cursor/todo.md`**.
 
 ### Phase 4 stance
 

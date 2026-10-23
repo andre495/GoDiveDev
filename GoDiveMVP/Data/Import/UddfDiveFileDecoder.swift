@@ -2,7 +2,7 @@ import Foundation
 
 /// Parses **UDDF** (Universal Dive Data Format) XML — e.g. **MacDive** exports (`http://www.streit.cc/uddf/3.2/`) — into **`DiveActivity`** + **`DiveProfilePoint`** + **`DiveBuddyTag`** (not yet inserted).
 ///
-/// Uses **`XMLParser`** (iOS-safe; **`XMLDocument`** / **`XMLElement`** are not available on iOS). Unmapped UDDF fields are listed in **`cursor/todo.md`** (UDDF section). **Tank:** **`tankdata`** (volume m³, begin/end pressure Pa→psi, optional **`tankmaterial`**) and per-waypoint **`tankpressure`** (Pa→psi on **`DiveProfilePoint.tankPressurePSI`**).
+/// Uses **`XMLParser`** (iOS-safe; **`XMLDocument`** / **`XMLElement`** are not available on iOS). Unmapped UDDF fields are listed in **`dev-docs/cursor/todo.md`** (UDDF section). **Tank:** **`tankdata`** (volume m³, begin/end pressure Pa→psi, optional **`tankmaterial`**) and per-waypoint **`tankpressure`** (Pa→psi on **`DiveProfilePoint.tankPressurePSI`**).
 enum UddfDiveFileDecoder {
 
     /// Builds one **`DiveActivity`** per **`<dive>`** under **`profiledata`**, sorted by **`startTime`** (caller should insert in this order for chained **`diveNumber`**).

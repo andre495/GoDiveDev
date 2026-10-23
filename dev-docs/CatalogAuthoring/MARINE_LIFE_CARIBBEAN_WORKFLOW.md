@@ -31,7 +31,7 @@ Facts-only import from [FishBase](https://www.fishbase.se) (fish) and [SeaLifeBa
 ```bash
 cd /path/to/GoDiveMVP
 python3 -m venv GoDiveMVP/Scripts/.venv
-GoDiveMVP/Scripts/.venv/bin/pip install -r GoDiveMVP/Scripts/requirements-fishbase.txt
+GoDiveMVP/Scripts/.venv/bin/pip install -r dev-docs/Scripts/requirements-fishbase.txt
 ```
 
 ## Refresh facts from FishBase (fish)

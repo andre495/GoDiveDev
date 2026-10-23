@@ -4,8 +4,8 @@
 
 **Shell code:** `BlueSheetPageShell`, `BlueSheetPageLayoutBuilder`, `BlueSheetTabRootPage`, `BlueSheetDetailPage`  
 **Layout math:** `HomeOverviewLayout`, `BlueSheetPageProportions`, `HomeOverviewLayoutAnchor`  
-**Home vs detail measurements:** `GoDiveMVP/cursor/blue_sheet_home_vs_detail_layout.md`  
-**Living spec:** this doc + `GoDiveMVP/cursor/blue_sheet_header_page.md`
+**Home vs detail measurements:** `blue_sheet_home_vs_detail_layout.md`  
+**Living spec:** this doc + `blue_sheet_header_page.md`
 
 ---
 

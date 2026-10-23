@@ -33,7 +33,7 @@ GoDiveMVP/CatalogAuthoring/*_report.json
 # GoDiveMVP/CatalogAuthoring/   # uncomment to exclude all catalog authoring (~2.3MB)
 
 # ── Changelog archive (657KB; agents rarely need 4,600 lines of history) ──
-GoDiveMVP/cursor/change_log.md
+dev-docs/cursor/change_log.md
 
 # ── Binary assets in Xcode asset catalog (icons/screenshots; Swift refs names only) ──
 GoDiveMVP/Assets.xcassets/**/*.png

@@ -5,7 +5,7 @@ import Foundation
 /// Flow mirrors [Fishial API v2 reference](https://docs.fishial.ai/api/api_reference).
 ///
 /// **Security (Phase 3):** `ClientSecret` ships in the IPA until a proxy exists
-/// (`cursor/owasp_secrets_handling.md`). Bearer tokens stay **in memory only** — never log
+/// (`dev-docs/cursor/owasp_secrets_handling.md`). Bearer tokens stay **in memory only** — never log
 /// `Authorization`, `client_secret`, or access tokens.
 final class FishialAPIClient: @unchecked Sendable {
 

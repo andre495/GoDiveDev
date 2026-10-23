@@ -24,7 +24,7 @@ npx firebase-tools@latest deploy --only firestore:rules,storage --project godive
 
 3. **Confirm success** — report Deploy complete (or the error). Do not assume Console was updated manually.
 
-4. **Docs** — if the rule behavior is user- or agent-facing, keep **`cursor/firebase_user_profiles.md`** in sync.
+4. **Docs** — if the rule behavior is user- or agent-facing, keep **`dev-docs/cursor/firebase_user_profiles.md`** in sync.
 
 ## Do not
 

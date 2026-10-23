@@ -1,13 +1,13 @@
 # GoDive MVP App Summary
 
-High-level architecture **map** — keep sections short; detail lives in **`cursor/change_log.md`** (unpushed batch), **`docs/`**, and topic docs (**`hybrid_cloud_sync_boundaries.md`**, **`firebase_user_profiles.md`**, **`rules.md`**).
+High-level architecture **map** — keep sections short; detail lives in **`change_log.md`** (unpushed batch), **`docs/`**, and topic docs (**`hybrid_cloud_sync_boundaries.md`**, **`firebase_user_profiles.md`**, **`rules.md`**).
 
 ---
 
 ## Stack and entry
 
 - **SwiftUI** + **SwiftData** (multiple on-disk stores). **Deployment target: iOS 26**.
-- **Hybrid cloud:** **CloudKit** private DB = owner dive log (source of truth). **Firebase** (Auth, Firestore, Storage) = social directory, friends, friend-visible activity projections, catalog CDN, anonymized community sightings (Settings opt-out). See **`cursor/hybrid_cloud_sync_boundaries.md`**.
+- **Hybrid cloud:** **CloudKit** private DB = owner dive log (source of truth). **Firebase** (Auth, Firestore, Storage) = social directory, friends, friend-visible activity projections, catalog CDN, anonymized community sightings (Settings opt-out). See **`hybrid_cloud_sync_boundaries.md`**.
 - **Maps:** **MapKit** by default; **Google Maps SDK** when **`Config/GoogleMapsSecrets.plist`** has a valid key.
 - **Entry:** **`GoDiveMVPApp`** → Sign in with Apple → **`ContentView`**. Launch overlay until Home chrome is ready; deferred maintenance (catalog CDN, PhotoKit backfill, CloudKit kick) after first paint.
 - **Crash reporting:** MetricKit + local **`CrashReportRecord`** rows; opt-in upload to CloudKit public DB (**Settings → Share crash reports**).
@@ -31,7 +31,7 @@ SPM pins: **`Package.resolved`** (often gitignored).
 
 **Google Maps:** API-key tiles only today — no user Google OAuth. Revisit consent/privacy before Places, Routes, or Google Sign-In.
 
-**Fishial:** Off unless configured. User crops one JPEG per identify; results fuzzy-matched to Field Guide catalog. See **`cursor/owasp_secrets_handling.md`**.
+**Fishial:** Off unless configured. User crops one JPEG per identify; results fuzzy-matched to Field Guide catalog. See **`owasp_secrets_handling.md`**.
 
 ---
 
@@ -49,7 +49,7 @@ SPM pins: **`Package.resolved`** (often gitignored).
 
 - **`AppHeader`:** Home / **`AppPage`** roots — brand wordmark, status-bar scrim, measured clearance spacer (never outer top padding on lists).
 - **`AppHeaderlessPage`:** Full-bleed pushed flows (logbook, dive detail, Field Guide, trips) — custom top chrome, scroll-under lists.
-- **Blue sheet layout:** Home + pushed detail share hero band + overlapping stats panel (**`BlueSheetTabRootPage`** / **`BlueSheetDetailPage`**). Layout reference: **`cursor/blue_sheet_home_vs_detail_layout.md`**.
+- **Blue sheet layout:** Home + pushed detail share hero band + overlapping stats panel (**`BlueSheetTabRootPage`** / **`BlueSheetDetailPage`**). Layout reference: **`blue_sheet_home_vs_detail_layout.md`**.
 - **Sheets:** Modal **`.sheet`** uses **`appSheetPresentationChrome()`**; dive overview uses opaque blue embedded panel (**`DiveActivityOverviewEmbeddedPanel`**, minimized + large detents).
 
 ---
@@ -93,7 +93,7 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 - **Four SwiftData configurations:** **user** (private CloudKit), **user-local** (profile points only, no CloudKit), **catalog** (marine life + dive sites, local), **diagnostics** (crash reports, local).
 - **No retained import file bytes** after **`.fit`** / **`.uddf`** import.
 - **Media bytes** stay in Photos / iCloud Photos; CloudKit syncs pointers + small preview JPEGs.
-- **Firebase** holds social data and friend-visible **projections** — not a second dive account. Two-phase buddy media publish (thumbs first, full content background). See **`cursor/firebase_user_profiles.md`**, **`cursor/buddy_activity_push_notifications.md`**.
+- **Firebase** holds social data and friend-visible **projections** — not a second dive account. Two-phase buddy media publish (thumbs first, full content background). See **`firebase_user_profiles.md`**, **`buddy_activity_push_notifications.md`**.
 - **Community sightings:** anonymized SiteReports / sightings when enabled (default on).
 - **Catalog CDN:** optional Firebase Hosting/Storage refresh after bundled seed (**`CatalogCDNRefresh`**).
 - **Delete account:** revokes Apple via Firebase, wipes Firestore social data, clears local user store.
@@ -116,7 +116,7 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 - **UDDF:** **`UddfDiveFileDecoder`**; may import multiple dives per file; MacDive import guide for bulk.
 - **Options per import:** create dive sites, attach library media, duplicate detection (**`DiveActivityDuplicateMatcher`**).
 - **Post-import:** chained dive numbers, auto-link equipment with **`autoAdd`**, optional auto-renumber, site association, buddy consolidation.
-- **Gaps:** no merge-duplicate UX beyond import block; bulk UDDF does not import MacDive media/locker/certs yet. See **`cursor/todo.md`**.
+- **Gaps:** no merge-duplicate UX beyond import block; bulk UDDF does not import MacDive media/locker/certs yet. See **`todo.md`**.
 
 ---
 
@@ -160,7 +160,7 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 - Storing original FIT/UDDF attachments; export; merge/delete-duplicate beyond import guard.
 - Full MacDive export parity (media, locker, certs from UDDF bulk).
 - Garmin Connect auto-import; CloudKit Sharing (co-edit).
-- **`cursor/todo.md`** and **`cursor/rules.md`** for larger deferrals.
+- **`todo.md`** and **`rules.md`** for larger deferrals.
 
 ---
 
@@ -172,10 +172,10 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 - **Unit tests:** import decoders, duplicate matcher, formatting, deletion, navigation helpers, presentation logic.
 - **UI tests:** minimal launch shell test; scheme runs serially (not parallel across sims).
 - **Agent builds:** only when user asks or before commit/push (**`.cursor/rules/xcode-workflow.mdc`** via **`workflow-triggers.mdc`**).
-- **TestFlight:** **`cursor/testflight_setup.md`**.
+- **TestFlight:** **`testflight_setup.md`**.
 
 ---
 
 ## Documentation maintenance
 
-When **`GoDiveMVP/`** behavior changes: append **`cursor/change_log.md`** (cleared after push). Touch **`cursor/app_summary.md`** only for architecture / user-visible shifts — **≤2 short sentences** per batch (**`.cursor/rules/ship-workflow.mdc`**).
+When **`GoDiveMVP/`** behavior changes: append **`change_log.md`** (cleared after push). Touch **`app_summary.md`** only for architecture / user-visible shifts — **≤2 short sentences** per batch (**`.cursor/rules/ship-workflow.mdc`**).

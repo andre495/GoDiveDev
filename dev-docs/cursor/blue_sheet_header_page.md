@@ -8,8 +8,8 @@ Reusable layout for **Home**, **trip detail**, **buddy detail**, **species detai
 
 **Shells:** `BlueSheetDetailPage` (pushed detail); **`BlueSheetTabRootPage`** (Home, planned)  
 **Canonical implementations:** `LogOverviewView` (Home), `TripDetailView`, `ViewDiveBuddyDetails`, `FieldGuideMarineLifeDetailView`, `ExploreDiveSiteDetailView`, `ViewEquipmentDetails`, `ViewCertificationDetails`  
-**Per-page customizations:** `GoDiveMVP/cursor/blue_sheet_detail_customizations.md`  
-**Home vs detail measurements:** `GoDiveMVP/cursor/blue_sheet_home_vs_detail_layout.md`  
+**Per-page customizations:** `blue_sheet_detail_customizations.md`  
+**Home vs detail measurements:** `blue_sheet_home_vs_detail_layout.md`  
 **Shared components:** `BlueSheetHeaderPageLayout`, `BlueSheetHeaderPageLayoutBuilder`, `BlueSheetHeaderScrollPageLayout`, `HomeOverviewLayout`  
 **Agent rule:** `.cursor/rules/blue-sheet-header-page.mdc`
 

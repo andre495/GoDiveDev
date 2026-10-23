@@ -7,9 +7,9 @@ Update this file whenever a model, view, or feature is added or changed.
 
 ## OWASP secure coding (`feature/owasp-secure-coding`)
 
-**Plan:** `cursor/owasp_secure_coding_hardening_plan.md`  
+**Plan:** `owasp_secure_coding_hardening_plan.md`  
 **Policy:** `dev-docs/owasp_access_control_policy.md`  
-**Secrets:** `cursor/owasp_secrets_handling.md`
+**Secrets:** `owasp_secrets_handling.md`
 
 ### Phases
 
@@ -283,7 +283,7 @@ Use this when extending **`DiveActivity`** vs **`DiveProfilePoint`**. **Dive** =
 
 ---
 
-### App Summary (`cursor/app_summary.md`)
+### App Summary (`app_summary.md`)
 
 **Status:** Summary documentation created.
 

@@ -1,6 +1,6 @@
 ---
 description: Changelog, app summary, user guide, commit message body, and changelog reset on push.
-globs: GoDiveMVP/**,docs/**,mkdocs.yml,GoDiveMVP/cursor/**
+globs: GoDiveMVP/**,docs/**,mkdocs.yml,GoDiveMVP/cursor/**,dev-docs/cursor/**
 alwaysApply: false
 ---
 
@@ -10,8 +10,8 @@ alwaysApply: false
 
 After **meaningful** work in **`GoDiveMVP/`**, update docs in the **same effort**:
 
-1. **`GoDiveMVP/cursor/change_log.md`** — append unpushed batch: Summary line + bullets.
-2. **`GoDiveMVP/cursor/app_summary.md`** — only when architecture or user-visible behavior changes; **surgical** edit (≤2 short sentences per batch); do not mirror every changelog bullet.
+1. **`dev-docs/cursor/change_log.md`** — append unpushed batch: Summary line + bullets.
+2. **`dev-docs/cursor/app_summary.md`** — only when architecture or user-visible behavior changes; **surgical** edit (≤2 short sentences per batch); do not mirror every changelog bullet.
 
 **`change_log.md`:** one running batch only; shipped history lives in git. Reset only after successful commit+push you perform (**below**). Do not reset if push failed or user did not request ship.
 
@@ -65,7 +65,7 @@ Do not push without preflight. Do not use one-line subject only for multi-item b
 
 **Since last push** — running notes for the current batch. Cleared after each successful **commit + push**; shipped history lives in **git**.
 
-Agents: append summaries and bullets here during work; refresh **`cursor/app_summary.md`** for architecture.
+Agents: append summaries and bullets here during work; refresh **`dev-docs/cursor/app_summary.md`** for architecture.
 
 ---
 
