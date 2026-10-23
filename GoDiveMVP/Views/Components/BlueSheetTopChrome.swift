@@ -59,7 +59,6 @@ struct BlueSheetHomeTopChrome<Leading: View, Trailing: View>: View {
             title: title,
             showsBackButton: false,
             statusBarSafeAreaTop: safeTop,
-            statusBarScrimIsProvidedExternally: true,
             blocksHitsInEmptyChrome: BlueSheetTopChromePresentation.homeHeaderBlocksHitsInEmptyChrome,
             trailingContent: { trailingContent() },
             leadingContent: { leadingContent() }
