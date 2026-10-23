@@ -1,0 +1,184 @@
+name: iOS CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 27.1
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd
+        with:
+          xcode-version: "27.1"
+
+      - name: Create placeholder GoogleService-Info.plist
+        run: |
+          cat > GoDiveMVP/Config/GoogleService-Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>API_KEY</key>
+              <string>CI_PLACEHOLDER_API_KEY</string>
+              <key>BUNDLE_ID</key>
+              <string>PrimoSoftware.GoDiveMVP</string>
+              <key>GCM_SENDER_ID</key>
+              <string>000000000000</string>
+              <key>GOOGLE_APP_ID</key>
+              <string>1:000000000000:ios:0000000000000000000000</string>
+              <key>IS_ADS_ENABLED</key>
+              <false/>
+              <key>IS_ANALYTICS_ENABLED</key>
+              <false/>
+              <key>IS_APPINVITE_ENABLED</key>
+              <false/>
+              <key>IS_GCM_ENABLED</key>
+              <false/>
+              <key>IS_SIGNIN_ENABLED</key>
+              <false/>
+              <key>PLIST_VERSION</key>
+              <string>1</string>
+              <key>PROJECT_ID</key>
+              <string>godive-ci-demo-placeholder</string>
+              <key>STORAGE_BUCKET</key>
+              <string>godive-ci-demo-placeholder.firebasestorage.app</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Create placeholder GoogleMapsSecrets.plist
+        run: |
+          cat > GoDiveMVP/Config/GoogleMapsSecrets.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>APIKey</key>
+              <string>CI_PLACEHOLDER_MAPS_API_KEY</string>
+              <key>MapID</key>
+              <string></string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('GoDiveMVP.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: Resolve SPM packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project GoDiveMVP.xcodeproj \
+            -scheme GoDiveMVP \
+            -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages"
+
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild build-for-testing \
+            -project GoDiveMVP.xcodeproj \
+            -scheme GoDiveMVP \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages" \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log
+          # Show warnings but don't fail on them
+          grep -E "warning:" build.log || true
+
+      - name: Run unit tests
+        run: |
+          # TODO(#28): If FishialAPITestSupport causes build failures, exclude it with:
+          # -skip-testing:FishialAPITestSupport
+          xcodebuild test-without-building \
+            -project GoDiveMVP.xcodeproj \
+            -scheme GoDiveMVP \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages" \
+            -resultBundlePath TestResults.xcresult \
+            -only-testing:GoDiveMVPTests \
+            | tee test.log
+          # Show any test failures
+          grep -E "(Test Suite|Executed|failed|FAILED)" test.log || true
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 7
+
+  firebase-emulator-tests:
+    name: Firebase Emulator Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: catalog-cdn
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if catalog-cdn tests exist
+        id: check-tests
+        run: |
+          if [ -f "functions/speciesSimilarity.test.js" ]; then
+            echo "tests_exist=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests_exist=false" >> "$GITHUB_OUTPUT"
+            echo "No Firebase tests found, skipping"
+          fi
+        working-directory: ${{ github.workspace }}
+
+      - name: Setup Node.js
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Java 21
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install Firebase CLI
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        run: npm install -g firebase-tools
+
+      - name: Install functions dependencies
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        run: cd functions && npm ci
+
+      - name: Run emulator tests
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        run: |
+          firebase emulators:exec \
+            --project godive-ci-demo-placeholder \
+            "node functions/speciesSimilarity.test.js"
