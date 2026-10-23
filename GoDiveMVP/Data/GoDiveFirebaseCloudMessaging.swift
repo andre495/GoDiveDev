@@ -26,6 +26,10 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     nonisolated static let pushDeviceDocumentFieldUpdatedAt = "updatedAt"
     nonisolated static let pushDeviceDocumentFieldPlatform = "platform"
 
+    /// In-memory cache of the last FCM token received from the delegate, for use when
+    /// the token arrives before the user signs in.
+    @MainActor private static var pendingFCMToken: String?
+
     /// Posts when user taps a friend-invite-accepted notification — open Friends list.
     nonisolated static let openFriendsListNotification = Notification.Name(
         "GoDive.openFriendsListFromPush"
@@ -98,32 +102,47 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #endif
     }
 
+    /// Ensures FCM registration is triggered and persists any pending token.
+    /// Token arrives via `MessagingDelegate` callback; this method persists a cached
+    /// token that arrived before the user signed in.
     @MainActor
     static func uploadCurrentFCMTokenIfAvailable() async {
         #if canImport(FirebaseMessaging) && canImport(FirebaseAuth) && canImport(FirebaseFirestore)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard let token = await fetchRegistrationToken(), !token.isEmpty else { return }
-        await persistFCMToken(token)
+
+        // Trigger registration to ensure the delegate will receive a token.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            Messaging.messaging().register { error in
+                if let error {
+                    log.error("FCM registration failed: \(String(describing: error), privacy: .private)")
+                }
+                continuation.resume()
+            }
+        }
+
+        // Persist any token that arrived before sign-in.
+        if let cached = pendingFCMToken, !cached.isEmpty {
+            await persistFCMToken(cached)
+        }
         #endif
     }
 
-    /// Actively fetches the FCM registration token using the non-deprecated register API.
+    /// Called by the delegate when a token arrives. Persists immediately if signed in,
+    /// otherwise caches for later persistence after sign-in.
     @MainActor
-    private static func fetchRegistrationToken() async -> String? {
-        #if canImport(FirebaseMessaging)
-        await withCheckedContinuation { continuation in
-            Messaging.messaging().register { token, error in
-                if let error {
-                    log.error("FCM token fetch failed: \(String(describing: error), privacy: .private)")
-                    continuation.resume(returning: nil)
-                } else {
-                    continuation.resume(returning: token)
-                }
-            }
+    static func handleDelegateToken(_ token: String) async {
+        #if canImport(FirebaseAuth) && canImport(FirebaseFirestore)
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        pendingFCMToken = trimmed
+
+        guard Auth.auth().currentUser?.uid != nil else {
+            log.notice("FCM token cached (user not signed in)")
+            return
         }
-        #else
-        nil
+        await persistFCMToken(trimmed)
         #endif
     }
 
@@ -281,7 +300,7 @@ final class GoDiveFirebaseMessagingDelegate: NSObject, MessagingDelegate {
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let fcmToken, !fcmToken.isEmpty else { return }
         Task { @MainActor in
-            await GoDiveFirebaseCloudMessaging.persistFCMToken(fcmToken)
+            await GoDiveFirebaseCloudMessaging.handleDelegateToken(fcmToken)
         }
     }
 }
