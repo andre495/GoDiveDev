@@ -6,7 +6,7 @@ import {
 import { readFileSync } from "fs";
 import { describe, it, before, after, beforeEach } from "node:test";
 
-const PROJECT_ID = "godive-rules-test";
+const PROJECT_ID = "demo-godive-rules";
 
 let testEnv;
 
