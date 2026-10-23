@@ -1,5 +1,6 @@
 import FirebaseAuth
 import Foundation
+import os
 import SwiftData
 
 /// Debounced upsert / republish of friend-visible dive projections after local log changes.
@@ -9,6 +10,9 @@ import SwiftData
 /// seconds) is never cancelled mid-write — new work queues behind it and drains afterwards.
 @MainActor
 enum GoDiveFriendShareRefreshCoordinator {
+    #if DEBUG
+    nonisolated private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
+    #endif
     private static var pendingTask: Task<Void, Never>?
     private static var drainTask: Task<Void, Never>?
     private static var pendingDiveIDs: Set<UUID> = []
@@ -201,7 +205,17 @@ enum GoDiveFriendShareRefreshCoordinator {
 
     private static func startDrainIfNeeded() {
         guard drainTask == nil else { return }
-        guard GoDiveFirebaseBootstrap.isConfigured else { return }
+        let pendingCount = pendingFullRepublish ? 1 : pendingDiveIDs.count
+        let isConfigured = GoDiveFirebaseBootstrap.isConfigured
+        guard isConfigured else {
+            #if DEBUG
+            log.debug("Drain skip: configured=\(isConfigured) pending=\(pendingCount)")
+            #endif
+            return
+        }
+        #if DEBUG
+        log.debug("Drain start: configured=\(isConfigured) pending=\(pendingCount)")
+        #endif
         drainGeneration += 1
         let generation = drainGeneration
         drainTask = Task {
@@ -306,11 +320,15 @@ enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
         ProcessInfo.processInfo.arguments.contains(launchArgument)
     }
 
+    private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
+
     /// Enqueues a full republish for the given owner. Call once at launch when `isRequested`.
     /// The refresh will drain only after `didConfigureNotification` fires.
     @MainActor
     static func enqueueIfRequested(ownerProfileID: UUID, modelContext: ModelContext) {
         guard isRequested else { return }
+        let isConfigured = GoDiveFirebaseBootstrap.isConfigured
+        log.debug("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
         GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
         GoDiveFriendShareRefreshCoordinator.startObservingSaves(
             ownerProfileID: ownerProfileID,

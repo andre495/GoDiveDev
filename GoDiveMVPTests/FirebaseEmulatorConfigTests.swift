@@ -51,24 +51,4 @@ struct FirebaseEmulatorConfigTests {
             GoDiveFirebaseBootstrapPresentation.didConfigureNotificationPostsAfterEmulatorSetup
         )
     }
-
-    @Test("FCM auto-init is re-enabled after configure")
-    func fcmAutoInitReenabledAfterConfigure() {
-        // Contract: Info.plist sets FirebaseMessagingAutoInitEnabled=NO to prevent SDK
-        // from calling FirebaseApp.app() before configure() (avoids I-COR000005).
-        // GoDiveFirebaseCloudMessaging.configureAtLaunch() must set isAutoInitEnabled=true
-        // AFTER Firebase is configured so FCM token fetching works normally.
-        //
-        // Flow:
-        //   1. Info.plist: FirebaseMessagingAutoInitEnabled=NO (prevents early SDK access)
-        //   2. GoDiveGoogleMapsAppDelegate.init(): GoDiveFirebaseBootstrap.configureIfNeeded()
-        //   3. didFinishLaunchingWithOptions: configureAtLaunch()
-        //   4. configureAtLaunch: guard isConfigured, then Messaging.messaging().isAutoInitEnabled = true
-        //   5. FCM token is fetched normally via MessagingDelegate callback
-        //
-        // This test documents the contract; actual token fetch requires Firebase SDK.
-        #expect(
-            GoDiveFirebaseCloudMessagingPresentation.reenablesAutoInitAfterConfigure
-        )
-    }
 }

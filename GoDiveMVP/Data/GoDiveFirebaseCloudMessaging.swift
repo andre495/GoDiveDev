@@ -54,12 +54,9 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #if canImport(FirebaseMessaging)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         UNUserNotificationCenter.current().delegate = GoDivePushNotificationCenterDelegate.shared
-        // Only wire Messaging delegate if Firebase configured — avoids I-COR000005 when plist is missing.
+        // Only wire Messaging delegate if Firebase configured — avoids crash when plist is missing.
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
         Messaging.messaging().delegate = GoDiveFirebaseMessagingDelegate.shared
-        // Info.plist sets FirebaseMessagingAutoInitEnabled=NO to prevent SDK from calling
-        // FirebaseApp.app() before configure(). Re-enable here so FCM token is fetched.
-        Messaging.messaging().isAutoInitEnabled = true
         // Defer APNs registration until after the launch overlay so it does not contend with store open.
         #endif
     }
@@ -343,10 +340,3 @@ final class GoDivePushNotificationCenterDelegate: NSObject, UNUserNotificationCe
     }
 }
 #endif
-
-/// Testable contract for FCM configuration.
-enum GoDiveFirebaseCloudMessagingPresentation: Sendable {
-    /// `true` documents that `configureAtLaunch` sets `isAutoInitEnabled = true` after configure.
-    /// Info.plist disables auto-init to prevent I-COR000005; this re-enables FCM token fetching.
-    nonisolated static let reenablesAutoInitAfterConfigure = true
-}
