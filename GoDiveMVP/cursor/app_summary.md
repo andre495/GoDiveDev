@@ -12,7 +12,7 @@ High-level architecture **map** — keep sections short; detail lives in **`curs
 - **Entry:** **`GoDiveMVPApp`** → Sign in with Apple → **`ContentView`**. Launch overlay until Home chrome is ready; deferred maintenance (catalog CDN, PhotoKit backfill, CloudKit kick) after first paint.
 - **Crash reporting:** MetricKit + local **`CrashReportRecord`** rows; opt-in upload to CloudKit public DB (**Settings → Share crash reports**).
 - **UI tests:** **`-GoDiveUITest`** → **`GoDiveUITestRootView`** only (no SwiftData / maps).
-- **Release:** **`MockDataSeeding.isLaunchSeedingEnabled`** stays **`false`**.
+- **Release:** **`MockDataSeeding.isLaunchSeedingEnabled`** compile-time **`false`**; **`*_sample.json`** excluded via `EXCLUDED_SOURCE_FILE_NAMES`. Debug: opt-in via **`-GoDiveMockSeed`** launch argument.
 
 ---
 
