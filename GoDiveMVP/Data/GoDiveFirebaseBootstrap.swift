@@ -38,8 +38,14 @@ enum GoDiveFirebaseBootstrap: Sendable {
     }
 
     #if DEBUG
+    /// `true` only after `useEmulator(withHost:port:)` was called successfully.
     nonisolated static var isEmulatorEnabled: Bool {
         emulatorConfigured
+    }
+
+    /// `true` when the launch argument requests emulator mode (may not be configured yet).
+    nonisolated static var isEmulatorLaunchArgumentPresent: Bool {
+        ProcessInfo.processInfo.arguments.contains(emulatorLaunchArgument)
     }
     #endif
 
@@ -89,11 +95,21 @@ enum GoDiveFirebaseBootstrap: Sendable {
             log.notice("Firebase configured (project/bundle redacted)")
             #if DEBUG
             configureEmulatorIfRequested()
+            clearStaleEmulatorSessionIfNeeded()
+            GoDiveEmulatorSessionGuard.logWarningIfTestSignInWithoutEmulator()
             #endif
         } else {
             log.error("FirebaseApp.configure(options:) completed but FirebaseApp.app() is nil")
         }
     }
+
+    #if DEBUG
+    /// Clears any emulator Auth session when running without the emulator flag.
+    /// Must run after `configureEmulatorIfRequested()` so `emulatorConfigured` is set.
+    nonisolated private static func clearStaleEmulatorSessionIfNeeded() {
+        GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeededOnMain(isEmulatorEnabled: emulatorConfigured)
+    }
+    #endif
 
     #if DEBUG
     nonisolated private static func configureEmulatorIfRequested() {
