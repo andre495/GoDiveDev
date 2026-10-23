@@ -1,7 +1,7 @@
 # Friend-Shared Activity Media — High-Quality Design
 
 **Status:** Approved for implementation (design locked).  
-**Related:** `hybrid_cloud_sync_boundaries.md`, `owasp_access_control_policy.md`, `GoDiveSharedMediaStorage.swift`, `GoDiveProfileHeroMediaExport.swift`.
+**Related:** `hybrid_cloud_sync_boundaries.md`, `dev-docs/owasp_access_control_policy.md`, `GoDiveSharedMediaStorage.swift`, `GoDiveProfileHeroMediaExport.swift`.
 
 ## Goal
 

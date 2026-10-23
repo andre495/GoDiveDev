@@ -5,7 +5,7 @@ alwaysApply: true
 
 # GoDive hybrid trust boundaries
 
-Source: **`GoDiveMVP/cursor/owasp_access_control_policy.md`**, **`hybrid_cloud_sync_boundaries.md`**.
+Source: **`dev-docs/owasp_access_control_policy.md`**, **`hybrid_cloud_sync_boundaries.md`**.
 
 ## Ownership of data
 
