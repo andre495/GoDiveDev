@@ -2043,5 +2043,15 @@ struct GoDiveSharedProjectionTests {
                     GoDiveFriendShareRefreshLaunchEnqueue.launchArgument == "-GoDiveEnqueueFriendShareRefresh"
                 )
             }
+
+            @Test func friendShareRefreshLaunchEnqueue_isArgumentPresent_matchesExactString() {
+                let exactArg = "-GoDiveEnqueueFriendShareRefresh"
+                #expect(GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: [exactArg]))
+                #expect(GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["other", exactArg, "args"]))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: []))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["GoDiveEnqueueFriendShareRefresh"]))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["-godiveenqueuefriendsharerefresh"]))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["-GoDiveEnqueueFriendShareRefresh "]))
+            }
             #endif
 }

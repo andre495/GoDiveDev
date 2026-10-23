@@ -323,12 +323,23 @@ enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
 
     private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
 
+    /// Logs unconditionally to confirm the DEBUG task is reached.
+    @MainActor
+    static func logTaskReached() {
+        log.info("DEBUG task reached")
+    }
+
     /// Logs whether the launch arg is present and whether a profile is available.
-    /// Called early to diagnose when enqueue does not fire.
+    /// Always logs to diagnose when enqueue does not fire.
     @MainActor
     static func logLaunchState(hasProfile: Bool) {
-        guard isRequested else { return }
-        log.info("Launch: requested=true hasProfile=\(hasProfile)")
+        let requested = isRequested
+        log.info("Launch: requested=\(requested) hasProfile=\(hasProfile)")
+    }
+
+    /// Testable helper: checks if `arguments` contains the launch argument string.
+    nonisolated static func isArgumentPresent(in arguments: [String]) -> Bool {
+        arguments.contains(launchArgument)
     }
 
     /// Enqueues a full republish for the given owner. Call once at launch when `isRequested`.
@@ -343,6 +354,8 @@ enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
             ownerProfileID: ownerProfileID,
             modelContext: modelContext
         )
+        // Trigger immediate drain attempt so logs appear even if Firebase isn't configured.
+        GoDiveFriendShareRefreshCoordinator.startDrainIfNeeded()
     }
 }
 #endif

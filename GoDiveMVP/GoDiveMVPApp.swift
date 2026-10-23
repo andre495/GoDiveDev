@@ -217,6 +217,7 @@ private struct ProductionAppRoot: View {
             }
             #if DEBUG
             .task {
+                GoDiveFriendShareRefreshLaunchEnqueue.logTaskReached()
                 if MockDataSeeding.isLaunchSeedingEnabled {
                     await seedMockDataIfNeeded(container: container)
                 }
