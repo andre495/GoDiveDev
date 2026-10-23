@@ -220,6 +220,13 @@ private struct ProductionAppRoot: View {
                 if MockDataSeeding.isLaunchSeedingEnabled {
                     await seedMockDataIfNeeded(container: container)
                 }
+                if GoDiveFriendShareRefreshLaunchEnqueue.isRequested,
+                   let ownerID = accountSession.currentProfile?.id {
+                    GoDiveFriendShareRefreshLaunchEnqueue.enqueueIfRequested(
+                        ownerProfileID: ownerID,
+                        modelContext: ModelContext(container)
+                    )
+                }
             }
             #endif
     }

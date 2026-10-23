@@ -294,3 +294,28 @@ enum GoDiveFriendShareRefreshCoordinatorPresentation: Sendable {
         firebaseConfigured
     }
 }
+
+#if DEBUG
+/// DEBUG-only launch argument to enqueue a friend-share refresh for QA testing.
+/// Verifies that drain waits until Firebase and emulator are fully wired.
+enum GoDiveFriendShareRefreshLaunchEnqueue: Sendable {
+    nonisolated static let launchArgument = "-GoDiveEnqueueFriendShareRefresh"
+
+    /// `true` when the launch argument is present.
+    nonisolated static var isRequested: Bool {
+        ProcessInfo.processInfo.arguments.contains(launchArgument)
+    }
+
+    /// Enqueues a full republish for the given owner. Call once at launch when `isRequested`.
+    /// The refresh will drain only after `didConfigureNotification` fires.
+    @MainActor
+    static func enqueueIfRequested(ownerProfileID: UUID, modelContext: ModelContext) {
+        guard isRequested else { return }
+        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
+        GoDiveFriendShareRefreshCoordinator.startObservingSaves(
+            ownerProfileID: ownerProfileID,
+            modelContext: modelContext
+        )
+    }
+}
+#endif

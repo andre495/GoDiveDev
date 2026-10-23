@@ -109,3 +109,15 @@ Do not create, commit, or request these files for local development.
 ## Swift Package Manager
 
 SPM dependencies resolve automatically when you open the project in Xcode. No manual `swift package resolve` is required.
+
+## DEBUG Launch Arguments
+
+The following launch arguments are available in DEBUG builds. Set them in Xcode: **Product > Scheme > Edit Scheme > Run > Arguments Passed On Launch**.
+
+| Argument | Purpose |
+|----------|---------|
+| `-GoDiveUseFirebaseEmulator` | Point Auth, Firestore, and Storage at the local Firebase emulator suite instead of production. |
+| `-GoDiveMockSeed` | Seed mock dive data from `dives_sample.json` at launch. |
+| `-GoDiveEnqueueFriendShareRefresh` | Enqueue a pending friend-share refresh at launch for the current account. Useful for QA: verifies the drain waits until Firebase (and emulator if enabled) is fully wired before contacting the backend. |
+
+These arguments compile out of Release builds.

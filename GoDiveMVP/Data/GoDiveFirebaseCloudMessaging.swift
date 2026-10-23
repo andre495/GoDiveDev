@@ -54,6 +54,8 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #if canImport(FirebaseMessaging)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         UNUserNotificationCenter.current().delegate = GoDivePushNotificationCenterDelegate.shared
+        // Only wire Messaging delegate if Firebase configured — avoids I-COR000005 when plist is missing.
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
         Messaging.messaging().delegate = GoDiveFirebaseMessagingDelegate.shared
         // Defer APNs registration until after the launch overlay so it does not contend with store open.
         #endif
@@ -71,6 +73,7 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     @MainActor
     static func setAPNSToken(_ deviceToken: Data) {
         #if canImport(FirebaseMessaging)
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
         Messaging.messaging().apnsToken = deviceToken
         #endif
     }

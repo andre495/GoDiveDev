@@ -2036,4 +2036,12 @@ struct GoDiveSharedProjectionTests {
             @Test func firebaseBootstrap_didConfigureNotification_isDefined() {
                 #expect(GoDiveFirebaseBootstrap.didConfigureNotification.rawValue.isEmpty == false)
             }
+
+            #if DEBUG
+            @Test func friendShareRefreshLaunchEnqueue_launchArgumentDefined() {
+                #expect(
+                    GoDiveFriendShareRefreshLaunchEnqueue.launchArgument == "-GoDiveEnqueueFriendShareRefresh"
+                )
+            }
+            #endif
 }
