@@ -95,7 +95,7 @@ describe("Firestore security rules", () => {
       await assertSucceeds(inviteRef.get());
     });
 
-    it("denies listing invites for any signed-in user", async () => {
+    it("allows owner to list their own invites (filtered by fromUid)", async () => {
       await setAdminDoc(`friendInvites/${tokenId}`, {
         fromUid: ownerUid,
         status: "open",
@@ -103,8 +103,36 @@ describe("Firestore security rules", () => {
         createdAt: new Date(),
       });
 
-      const db = getFirestore({ uid: redeemerUid });
+      const db = getFirestore({ uid: ownerUid });
+      await assertSucceeds(
+        db.collection("friendInvites").where("fromUid", "==", ownerUid).get()
+      );
+    });
+
+    it("denies unfiltered list of invites", async () => {
+      await setAdminDoc(`friendInvites/${tokenId}`, {
+        fromUid: ownerUid,
+        status: "open",
+        expiresAt: new Date(Date.now() + 86400000),
+        createdAt: new Date(),
+      });
+
+      const db = getFirestore({ uid: ownerUid });
       await assertFails(db.collection("friendInvites").get());
+    });
+
+    it("denies listing invites filtered by another user's uid", async () => {
+      await setAdminDoc(`friendInvites/${tokenId}`, {
+        fromUid: ownerUid,
+        status: "open",
+        expiresAt: new Date(Date.now() + 86400000),
+        createdAt: new Date(),
+      });
+
+      const db = getFirestore({ uid: strangerUid });
+      await assertFails(
+        db.collection("friendInvites").where("fromUid", "==", ownerUid).get()
+      );
     });
 
     it("denies unauthenticated get of invite", async () => {
@@ -414,6 +442,34 @@ describe("Firestore security rules", () => {
       const friendshipRef = db.collection("friendships").doc(friendshipId);
       await assertFails(friendshipRef.delete());
     });
+
+    it("allows member to list friendships by array-contains (account delete query)", async () => {
+      await setAdminDoc(`friendships/${friendshipId}`, {
+        members: [ownerUid, redeemerUid],
+        status: "active",
+        inviteToken: tokenId,
+        createdAt: new Date(),
+      });
+
+      const db = getFirestore({ uid: ownerUid });
+      await assertSucceeds(
+        db.collection("friendships").where("members", "array-contains", ownerUid).get()
+      );
+    });
+
+    it("denies stranger from listing friendships by array-contains on another user", async () => {
+      await setAdminDoc(`friendships/${friendshipId}`, {
+        members: [ownerUid, redeemerUid],
+        status: "active",
+        inviteToken: tokenId,
+        createdAt: new Date(),
+      });
+
+      const db = getFirestore({ uid: strangerUid });
+      await assertFails(
+        db.collection("friendships").where("members", "array-contains", ownerUid).get()
+      );
+    });
   });
 
   describe("sharedDives", () => {
@@ -460,6 +516,36 @@ describe("Firestore security rules", () => {
       const db = getFirestore({ uid: strangerUid });
       const diveRef = db.collection("users").doc(ownerUid).collection("sharedDives").doc(diveId);
       await assertFails(diveRef.get());
+    });
+
+    it("allows friend to list owner's shared dives (buddy feed query)", async () => {
+      await setAdminDoc(`friendships/${friendshipId}`, {
+        members: [friendUid, ownerUid],
+        status: "active",
+        inviteToken: "some-token",
+        createdAt: new Date(),
+      });
+      await setAdminDoc(`users/${ownerUid}/sharedDives/${diveId}`, {
+        title: "Test dive",
+        startTime: new Date(),
+      });
+
+      const db = getFirestore({ uid: friendUid });
+      await assertSucceeds(
+        db.collection("users").doc(ownerUid).collection("sharedDives").get()
+      );
+    });
+
+    it("denies stranger from listing shared dives", async () => {
+      await setAdminDoc(`users/${ownerUid}/sharedDives/${diveId}`, {
+        title: "Test dive",
+        startTime: new Date(),
+      });
+
+      const db = getFirestore({ uid: strangerUid });
+      await assertFails(
+        db.collection("users").doc(ownerUid).collection("sharedDives").get()
+      );
     });
 
     it("allows owner to create shared dive", async () => {
