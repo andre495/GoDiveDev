@@ -9,14 +9,11 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// Configure Firebase at module-load time, before any other Firebase-importing module
-/// (AccountSession, etc.) can trigger SDK initialization that logs I-COR000003.
-private let _ensureFirebaseConfigured: Void = {
-    GoDiveFirebaseBootstrap.configureIfNeeded()
-}()
-
 @main
 struct GoDiveMVPApp: App {
+    // Firebase is configured in GoDiveGoogleMapsAppDelegate.init(), which runs when this
+    // adaptor creates the delegate instance — before init() body and before any Firebase
+    // SDK method swizzling can trigger I-COR000003.
     #if canImport(UIKit)
     @UIApplicationDelegateAdaptor(GoDiveGoogleMapsAppDelegate.self) private var googleMapsAppDelegate
     #endif
@@ -25,8 +22,7 @@ struct GoDiveMVPApp: App {
     @State private var productionContainer: ModelContainer?
 
     init() {
-        // Touch the module-level constant to ensure Firebase is configured.
-        _ = _ensureFirebaseConfigured
+        // Firebase already configured by the adaptor's delegate init above.
         _accountSession = State(initialValue: AccountSession.shared)
         AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()
