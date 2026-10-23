@@ -9,7 +9,7 @@
   "scripts": {
     "test": "npx firebase emulators:exec --config ../firebase.json --only firestore,storage --project demo-godive-rules 'node --test *.test.js'",
     "test:firestore": "npx firebase emulators:exec --config ../firebase.json --only firestore --project demo-godive-rules 'node --test firestore.test.js'",
-    "test:storage": "npx firebase emulators:exec --config ../firebase.json --only storage --project demo-godive-rules 'node --test storage.test.js'"
+    "test:storage": "npx firebase emulators:exec --config ../firebase.json --only firestore,storage --project demo-godive-rules 'node --test storage.test.js'"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",

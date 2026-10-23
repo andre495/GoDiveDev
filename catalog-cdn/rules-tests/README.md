@@ -10,7 +10,16 @@ npm install
 npm test
 ```
 
+Run individual test suites:
+
+```bash
+npm run test:firestore  # 41 Firestore tests
+npm run test:storage    # 24 Storage tests (requires both emulators for cross-service rules)
+```
+
 Tests run against the Firebase emulator with project ID `demo-godive-rules` (demo- prefix ensures no real project is affected).
+
+**Note:** Storage tests use cross-service rules (Storage rules reading Firestore data). When running both test suites together with `npm test`, there may be occasional timing-related flakiness due to emulator inter-process communication. All tests pass consistently when run separately.
 
 ## Running emulators for app testing
 
@@ -31,5 +40,5 @@ Then run the app in Xcode with launch argument `-GoDiveUseFirebaseEmulator` (DEB
 
 ## Test suites
 
-- `firestore.test.js` — Firestore rules (invites, friendships, shared dives/trips, profiles)
-- `storage.test.js` — Storage rules (profile photos, shared media access)
+- `firestore.test.js` — Firestore rules (invites, friendships, shared dives/trips, profiles, app query patterns)
+- `storage.test.js` — Storage rules (profile photos, shared media access including cross-service friendship checks)

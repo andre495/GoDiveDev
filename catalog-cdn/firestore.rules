@@ -190,13 +190,14 @@ service cloud.firestore {
       }
     }
 
-    // QR / link invites — creator writes; signed-in users may get by known token (no list).
+    // QR / link invites — creator writes; signed-in users may get by known token.
+    // List allowed only when query filters to fromUid == requester (account delete cleanup).
     match /friendInvites/{token} {
       allow create: if signedIn()
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.status == 'open';
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if signedIn() && resource.data.fromUid == request.auth.uid;
       allow update: if signedIn() && (
         resource.data.fromUid == request.auth.uid
         || (
