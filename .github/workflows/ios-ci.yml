@@ -55,9 +55,9 @@ jobs:
               <key>PLIST_VERSION</key>
               <string>1</string>
               <key>PROJECT_ID</key>
-              <string>godive-ci-demo-placeholder</string>
+              <string>demo-godive-ci</string>
               <key>STORAGE_BUCKET</key>
-              <string>godive-ci-demo-placeholder.firebasestorage.app</string>
+              <string>demo-godive-ci.firebasestorage.app</string>
           </dict>
           </plist>
           EOF
@@ -180,5 +180,6 @@ jobs:
         if: steps.check-tests.outputs.tests_exist == 'true'
         run: |
           firebase emulators:exec \
-            --project godive-ci-demo-placeholder \
+            --project demo-godive-ci \
+            --only firestore,functions \
             "node functions/speciesSimilarity.test.js"
