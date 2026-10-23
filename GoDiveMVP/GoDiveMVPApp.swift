@@ -11,17 +11,19 @@ import UIKit
 
 @main
 struct GoDiveMVPApp: App {
+    // Firebase is configured in GoDiveGoogleMapsAppDelegate.init(), which runs when this
+    // adaptor creates the delegate instance — before init() body and before any Firebase
+    // SDK method swizzling can trigger I-COR000003.
     #if canImport(UIKit)
     @UIApplicationDelegateAdaptor(GoDiveGoogleMapsAppDelegate.self) private var googleMapsAppDelegate
     #endif
 
-    @State private var accountSession = AccountSession.shared
+    @State private var accountSession: AccountSession
     @State private var productionContainer: ModelContainer?
 
     init() {
-        // Firebase configure stays in GoDiveGoogleMapsAppDelegate (required before FCM
-        // delegate wiring). Avoid a second configureIfNeeded here — it is idempotent but
-        // still touches main-thread plist I/O when called before the delegate runs.
+        // Firebase already configured by the adaptor's delegate init above.
+        _accountSession = State(initialValue: AccountSession.shared)
         AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()
         GoDiveMediaDiskMaintenance.installSharedURLCacheLimits()

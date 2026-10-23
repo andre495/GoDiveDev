@@ -92,11 +92,19 @@ import UIKit
 
 /// Initializes Google Maps before the first **`GMSMapView`** when the engine flag is on.
 final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
+
+    override init() {
+        // Configure Firebase in the delegate's init, which runs when @UIApplicationDelegateAdaptor
+        // creates the instance — before any Firebase SDK method swizzling can trigger I-COR000003.
+        GoDiveFirebaseBootstrap.configureIfNeeded()
+        super.init()
+    }
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        // Firebase Auth/Firestore may touch the default app during launch swizzling — configure first.
+        // Idempotent — already configured in init().
         GoDiveFirebaseBootstrap.configureIfNeeded()
         GoDiveCloudKitBackgroundSync.registerTasksIfNeeded()
         GoDiveBuddyShareBackgroundUpload.registerTasksIfNeeded()

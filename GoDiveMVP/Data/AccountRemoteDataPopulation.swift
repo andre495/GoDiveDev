@@ -178,6 +178,7 @@ enum AccountRemoteDataPopulation: Sendable {
             profile: profile,
             modelContext: modelContext
         )
+        await GoDiveFirebaseCloudMessaging.uploadCurrentFCMTokenIfAvailable()
     }
 
     @MainActor
@@ -213,6 +214,7 @@ enum AccountRemoteDataPopulation: Sendable {
             owner: profile,
             modelContext: modelContext
         )
+        await GoDiveFirebaseCloudMessaging.uploadCurrentFCMTokenIfAvailable()
     }
 
     @MainActor
