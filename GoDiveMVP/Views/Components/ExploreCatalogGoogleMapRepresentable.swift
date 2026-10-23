@@ -485,15 +485,16 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
 
 private extension DiveLocationMapRegionSpec {
     var gmsCoordinateBounds: GMSCoordinateBounds {
-        let halfLatitude = latitudeDelta / 2
-        let halfLongitude = longitudeDelta / 2
+        let safe = sanitized
+        let halfLatitude = safe.latitudeDelta / 2
+        let halfLongitude = safe.longitudeDelta / 2
         let northEast = CLLocationCoordinate2D(
-            latitude: centerLatitude + halfLatitude,
-            longitude: centerLongitude + halfLongitude
+            latitude: safe.centerLatitude + halfLatitude,
+            longitude: safe.centerLongitude + halfLongitude
         )
         let southWest = CLLocationCoordinate2D(
-            latitude: centerLatitude - halfLatitude,
-            longitude: centerLongitude - halfLongitude
+            latitude: safe.centerLatitude - halfLatitude,
+            longitude: safe.centerLongitude - halfLongitude
         )
         return GMSCoordinateBounds(coordinate: northEast, coordinate: southWest)
     }
