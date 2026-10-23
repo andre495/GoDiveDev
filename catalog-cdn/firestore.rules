@@ -190,12 +190,13 @@ service cloud.firestore {
       }
     }
 
-    // QR / link invites — creator writes; any signed-in user can read by token; redeem updates status.
+    // QR / link invites — creator writes; signed-in users may get by known token (no list).
     match /friendInvites/{token} {
       allow create: if signedIn()
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.status == 'open';
-      allow read: if signedIn();
+      allow get: if signedIn();
+      allow list: if false;
       allow update: if signedIn() && (
         resource.data.fromUid == request.auth.uid
         || (
@@ -218,6 +219,7 @@ service cloud.firestore {
         && request.resource.data.inviteToken is string
         && exists(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken))
         && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.status == 'open'
+        && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.expiresAt > request.time
         && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.fromUid in friendshipMembers()
         && request.auth.uid != get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.fromUid;
       allow delete: if signedIn() && request.auth.uid in resource.data.members;

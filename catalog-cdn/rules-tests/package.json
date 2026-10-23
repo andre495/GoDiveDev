@@ -1,0 +1,19 @@
+{
+  "name": "godive-rules-tests",
+  "description": "Firebase security rules unit tests",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "npx firebase emulators:exec --config ../firebase.json --only firestore,storage --project godive-rules-test 'node --test *.test.js'",
+    "test:firestore": "npx firebase emulators:exec --config ../firebase.json --only firestore --project godive-rules-test 'node --test firestore.test.js'",
+    "test:storage": "npx firebase emulators:exec --config ../firebase.json --only storage --project godive-rules-test 'node --test storage.test.js'"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase-admin": "^13.0.0",
+    "firebase-tools": "^15.34.1"
+  }
+}
