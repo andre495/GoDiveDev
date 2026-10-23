@@ -8,15 +8,19 @@ actor MockFishialURLSession: FishialURLSessioning {
         self.handlers = handlers
     }
 
-    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        guard !handlers.isEmpty else {
-            throw FishialAPIError.invalidResponse
-        }
-        let handler = handlers.removeFirst()
+    nonisolated func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let handler = try await nextHandler()
         return try handler(request)
     }
 
-    static func jsonResponse(
+    private func nextHandler() throws -> (URLRequest) throws -> (Data, URLResponse) {
+        guard !handlers.isEmpty else {
+            throw FishialAPIError.invalidResponse
+        }
+        return handlers.removeFirst()
+    }
+
+    nonisolated static func jsonResponse(
         statusCode: Int,
         body: String,
         url: URL = URL(string: "https://api.fishial.ai")!
