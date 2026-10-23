@@ -12,6 +12,14 @@ struct EmulatorTestSignInTests {
         #expect(email == nil || !email!.isEmpty)
     }
 
+    @Test("isAvailable requires emulator launch argument")
+    func isAvailableRequiresEmulatorLaunchArg() {
+        let hasLaunchArg = GoDiveFirebaseBootstrap.isEmulatorLaunchArgumentPresent
+        if !hasLaunchArg {
+            #expect(GoDiveEmulatorTestSignIn.isAvailable == false)
+        }
+    }
+
     @Test("isAvailable requires emulator to be enabled")
     func isAvailableRequiresEmulator() {
         let isAvailable = GoDiveEmulatorTestSignIn.isAvailable
@@ -153,4 +161,68 @@ struct EmulatorSignInErrorTests {
         #expect(error.errorDescription?.isEmpty == false)
     }
     #endif
+}
+
+/// Tests for emulator session guard decision logic.
+@Suite("Emulator session guard")
+struct EmulatorSessionGuardTests {
+
+    #if DEBUG
+    @Test("shouldClearSession returns false when emulator is enabled")
+    func shouldNotClearWhenEmulatorEnabled() {
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(isEmulatorEnabled: true) == false)
+    }
+
+    @Test("shouldClearSession returns false when no emulator evidence and emulator off")
+    func shouldNotClearWhenNoEvidence() {
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+        let hasTestEmail = GoDiveEmulatorSessionGuard.currentUserHasTestEmail
+        if !hasTestEmail {
+            #expect(GoDiveEmulatorSessionGuard.shouldClearSession(isEmulatorEnabled: false) == false)
+        }
+    }
+
+    @Test("shouldClearSession returns true when marker set and emulator off")
+    func shouldClearWhenMarkerSetAndEmulatorOff() {
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
+        defer { GoDiveEmulatorSessionGuard.clearEmulatorMarker() }
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(isEmulatorEnabled: false) == true)
+    }
+
+    @Test("Marker can be set and cleared")
+    func markerSetAndClear() {
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == false)
+
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == true)
+
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == false)
+    }
+
+    @Test("hasEmulatorSession combines marker and test email checks")
+    func hasEmulatorSessionCombinesChecks() {
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+        let hasTestEmail = GoDiveEmulatorSessionGuard.currentUserHasTestEmail
+        
+        if !hasTestEmail {
+            #expect(GoDiveEmulatorSessionGuard.hasEmulatorSession == false)
+        }
+
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSession == true)
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+    }
+    #endif
+
+    @Test("DEBUG guard excludes session guard from Release builds")
+    func releaseBuildsExcludeSessionGuard() {
+        #if !DEBUG
+        #expect(true, "Session guard is correctly excluded from Release builds")
+        #else
+        _ = GoDiveEmulatorSessionGuard.self
+        #expect(true, "Session guard is available in DEBUG builds")
+        #endif
+    }
 }

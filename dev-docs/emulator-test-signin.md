@@ -69,6 +69,7 @@ Tap it to enter a test email address (must end with `@example.com`) and sign in 
 - **Abort on misconfiguration**: If the emulator launch argument is present but `useEmulator` was never called, sign-in is blocked and an error is logged
 - **Email domain restriction**: Only `@example.com` addresses are accepted
 - **No production impact**: Without the emulator launch argument, test sign-in is completely disabled
+- **Session isolation**: Emulator sessions are marked and automatically cleared on non-emulator launches to prevent cross-contamination
 
 ## Testing FCM Token Upload
 
@@ -83,6 +84,23 @@ After emulator sign-in:
 | File | Purpose |
 |------|---------|
 | `GoDiveMVP/Data/GoDiveEmulatorTestSignIn.swift` | Sign-in logic (DEBUG-only) |
+| `GoDiveMVP/Data/GoDiveEmulatorSessionGuard.swift` | Session isolation + cleanup (DEBUG-only) |
 | `GoDiveMVP/Data/GoDiveFirebaseBootstrap.swift` | Emulator configuration + `isEmulatorEnabled` flag |
 | `GoDiveMVP/Views/Components/EmulatorTestSignInButton.swift` | UI button (DEBUG-only) |
-| `GoDiveMVPTests/EmulatorTestSignInTests.swift` | Gating + email validation tests |
+| `GoDiveMVPTests/EmulatorTestSignInTests.swift` | Gating, email validation, and session guard tests |
+
+## Why Not Demo Project ID
+
+Firebase supports `demo-*` project IDs for fully offline emulator use. However, GoDive uses the production `GoogleService-Info.plist` for configuration, and switching project IDs at runtime would require:
+
+1. Reconfiguring `FirebaseApp` with different options
+2. Potentially invalidating existing Auth state
+3. Handling edge cases where production and demo states conflict
+
+The current approach provides equivalent safety through:
+- Emulator flag gating (SDKs point at localhost)
+- Session markers cleared on non-emulator launches
+- `@example.com` email restriction
+- All code excluded from Release builds
+
+These measures ensure emulator sessions cannot reach production without the added complexity of project ID switching.

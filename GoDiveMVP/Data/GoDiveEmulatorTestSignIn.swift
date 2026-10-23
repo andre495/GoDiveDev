@@ -23,9 +23,10 @@ enum GoDiveEmulatorTestSignIn {
 
     nonisolated(unsafe) private static var didRunLaunchSignIn = false
 
-    /// `true` when Firebase is configured AND `useEmulator` was called (the only safe state).
+    /// `true` when Firebase is configured, emulator launch arg is present, AND `useEmulator` was called.
     nonisolated static var isAvailable: Bool {
         guard GoDiveFirebaseBootstrap.isConfigured else { return false }
+        guard GoDiveFirebaseBootstrap.isEmulatorLaunchArgumentPresent else { return false }
         guard GoDiveFirebaseBootstrap.isEmulatorEnabled else { return false }
         return true
     }
@@ -116,6 +117,8 @@ enum GoDiveEmulatorTestSignIn {
         guard let currentUser = Auth.auth().currentUser else {
             throw EmulatorTestSignInError.signInFailed
         }
+
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
 
         let profile = try createOrFetchTestProfile(
             firebaseUID: currentUser.uid,
