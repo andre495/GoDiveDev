@@ -59,9 +59,30 @@ When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDi
 - On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**) over Wi‑Fi or cellular, including in the background when iOS allows.
 - GoDive may also create a lightweight **Firebase** social profile (display name, optional photo) used for [Friends](friends.md) — QR invites, Buddy Feed, and what you choose to share. That is separate from your private dive log. See the [Privacy Policy](privacy-and-data.md).
 
-### First-time welcome
+### Returning account sync
 
-Returning sign-ins skip profile setup and open Home after the bubble celebration. Permissions for **Contacts** and **Photos** are requested during new-account onboarding (after profile setup, before the optional import slide).
+When you sign back in to an existing GoDive account (an Apple ID that previously used the app), GoDive shows a full-screen loading screen while it restores your data:
+
+- **Restoring your dives…** — syncing your dive log from iCloud
+- **Loading account…** — connecting your profile
+- **Loading friends…** — refreshing your buddy network
+
+Once sync completes, the bubble celebration plays and Home opens.
+
+If sync takes longer than about 20 seconds, GoDive opens Home with a **Still syncing…** banner at the top so you can start using the app. When sync finishes in the background, the banner switches to **Sync complete** and dismisses automatically (or tap **×** to close it early).
+
+#### Offline or iCloud unavailable
+
+If your device is offline or iCloud is unavailable during a returning sign-in, GoDive shows a failure screen:
+
+- **You're offline** — "Connect to the internet to sync your account."
+- **iCloud unavailable** — "Sign in to iCloud to sync your dives."
+
+Tap **Retry** to try again, or **Continue** to open Home without waiting for sync (your data will sync later when connectivity is restored).
+
+### New account welcome
+
+New accounts (first time using GoDive with this Apple ID) skip the sync screen and go straight to the setup flow described above. Permissions for **Contacts** and **Photos** are requested during new-account onboarding (after profile setup, before the optional import slide).
 
 ## Your first dive
 
