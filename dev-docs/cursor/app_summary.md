@@ -1,6 +1,6 @@
 # GoDive MVP App Summary
 
-High-level architecture **map** — keep sections short; detail lives in **`GoDiveMVP/cursor/change_log.md`** (unpushed batch), **`docs/`**, and topic docs (**`hybrid_cloud_sync_boundaries.md`**, **`firebase_user_profiles.md`**, **`rules.md`**).
+High-level architecture **map** — keep sections short; detail lives in **`change_log.md`** (unpushed batch), **`docs/`**, and topic docs (**`hybrid_cloud_sync_boundaries.md`**, **`firebase_user_profiles.md`**, **`rules.md`**).
 
 ---
 
@@ -178,4 +178,4 @@ Canonical fields stored in **metric** (m, °C, psi where applicable); UI formats
 
 ## Documentation maintenance
 
-When **`GoDiveMVP/`** behavior changes: append **`GoDiveMVP/cursor/change_log.md`** (cleared after push). Touch **`app_summary.md`** only for architecture / user-visible shifts — **≤2 short sentences** per batch (**`.cursor/rules/ship-workflow.mdc`**).
+When **`GoDiveMVP/`** behavior changes: append **`change_log.md`** (cleared after push). Touch **`app_summary.md`** only for architecture / user-visible shifts — **≤2 short sentences** per batch (**`.cursor/rules/ship-workflow.mdc`**).

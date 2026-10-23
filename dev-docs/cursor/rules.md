@@ -256,7 +256,7 @@ Do NOT skip this step. `todo.md` is the single source of truth for project state
 
 ## Change log and app summary
 
-When work in **`GoDiveMVP/`** changes behavior, append **`GoDiveMVP/cursor/change_log.md`** (unpushed batch). Update **`app_summary.md`** only for architecture or user-visible changes — brief surgical edits, not changelog dumps (**`.cursor/rules/ship-workflow.mdc`**).
+When work in **`GoDiveMVP/`** changes behavior, append **`change_log.md`** (unpushed batch). Update **`app_summary.md`** only for architecture or user-visible changes — brief surgical edits, not changelog dumps (**`.cursor/rules/ship-workflow.mdc`**).
 
 ---
 
@@ -282,7 +282,7 @@ The repo root [`.cursorignore`](../../.cursorignore) excludes ~900MB of bundled 
 
 | Work | Comment out in `.cursorignore` |
 |------|-------------------------------|
-| Commit/push changelog updates | `GoDiveMVP/cursor/change_log.md` |
+| Commit/push changelog updates | `dev-docs/cursor/change_log.md` |
 | Firebase CDN rules / deploy | `catalog-cdn/` |
 | Marine KG / R2RML | `marine life ontology/` |
 | Full catalog authoring | `# GoDiveMVP/CatalogAuthoring/` (uncomment that line) |
