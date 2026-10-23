@@ -9,6 +9,12 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// Configure Firebase at module-load time, before any other Firebase-importing module
+/// (AccountSession, etc.) can trigger SDK initialization that logs I-COR000003.
+private let _ensureFirebaseConfigured: Void = {
+    GoDiveFirebaseBootstrap.configureIfNeeded()
+}()
+
 @main
 struct GoDiveMVPApp: App {
     #if canImport(UIKit)
@@ -19,9 +25,8 @@ struct GoDiveMVPApp: App {
     @State private var productionContainer: ModelContainer?
 
     init() {
-        // Configure Firebase before accessing AccountSession to avoid I-COR000003 warnings
-        // from SDK initialization triggered by FirebaseAuth import.
-        GoDiveFirebaseBootstrap.configureIfNeeded()
+        // Touch the module-level constant to ensure Firebase is configured.
+        _ = _ensureFirebaseConfigured
         _accountSession = State(initialValue: AccountSession.shared)
         AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()

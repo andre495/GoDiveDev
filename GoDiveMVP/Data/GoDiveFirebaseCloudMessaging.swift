@@ -26,9 +26,8 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     nonisolated static let pushDeviceDocumentFieldUpdatedAt = "updatedAt"
     nonisolated static let pushDeviceDocumentFieldPlatform = "platform"
 
-    /// In-memory cache of the last FCM token received from the delegate, for use when
-    /// the token arrives before the user signs in.
-    @MainActor private static var pendingFCMToken: String?
+    /// UserDefaults key for persisting the FCM token across launches.
+    nonisolated private static let pendingTokenDefaultsKey = "godive.fcm.pendingToken"
 
     /// Posts when user taps a friend-invite-accepted notification — open Friends list.
     nonisolated static let openFriendsListNotification = Notification.Name(
@@ -102,41 +101,31 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #endif
     }
 
-    /// Ensures FCM registration is triggered and persists any pending token.
-    /// Token arrives via `MessagingDelegate` callback; this method persists a cached
-    /// token that arrived before the user signed in.
+    /// Persists any pending FCM token that arrived before sign-in.
+    /// Token arrives via `MessagingDelegate` callback; this method is called after
+    /// sign-in to persist a token that was cached while signed out.
     @MainActor
     static func uploadCurrentFCMTokenIfAvailable() async {
         #if canImport(FirebaseMessaging) && canImport(FirebaseAuth) && canImport(FirebaseFirestore)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
 
-        // Trigger registration to ensure the delegate will receive a token.
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            Messaging.messaging().register { error in
-                if let error {
-                    log.error("FCM registration failed: \(String(describing: error), privacy: .private)")
-                }
-                continuation.resume()
-            }
-        }
-
-        // Persist any token that arrived before sign-in.
-        if let cached = pendingFCMToken, !cached.isEmpty {
+        // Persist any token that arrived before sign-in (from delegate or previous launch).
+        if let cached = loadPendingToken(), !cached.isEmpty {
             await persistFCMToken(cached)
         }
         #endif
     }
 
     /// Called by the delegate when a token arrives. Persists immediately if signed in,
-    /// otherwise caches for later persistence after sign-in.
+    /// otherwise caches to UserDefaults for later persistence after sign-in.
     @MainActor
     static func handleDelegateToken(_ token: String) async {
         #if canImport(FirebaseAuth) && canImport(FirebaseFirestore)
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        pendingFCMToken = trimmed
+        savePendingToken(trimmed)
 
         guard Auth.auth().currentUser?.uid != nil else {
             log.notice("FCM token cached (user not signed in)")
@@ -144,6 +133,25 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         }
         await persistFCMToken(trimmed)
         #endif
+    }
+
+    /// Loads the pending FCM token from UserDefaults.
+    @MainActor
+    private static func loadPendingToken(defaults: UserDefaults = .standard) -> String? {
+        defaults.string(forKey: pendingTokenDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Saves the pending FCM token to UserDefaults for persistence across launches.
+    @MainActor
+    private static func savePendingToken(_ token: String, defaults: UserDefaults = .standard) {
+        defaults.set(token, forKey: pendingTokenDefaultsKey)
+    }
+
+    /// Clears the pending FCM token from UserDefaults (called after successful persist or sign-out).
+    @MainActor
+    private static func clearPendingToken(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: pendingTokenDefaultsKey)
     }
 
     @MainActor
@@ -169,6 +177,7 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
                 ],
                 merge: true
             )
+            clearPendingToken()
             log.notice("FCM token stored for push")
         } catch {
             log.error("FCM token store failed: \(String(describing: error), privacy: .private)")
