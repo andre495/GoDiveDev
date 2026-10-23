@@ -11,7 +11,7 @@ The `ios-ci.yml` workflow runs on every pull request to `main` and can be trigge
 
 ## Build & Test Job
 
-Runs on `macos-15` with Xcode 27.1.
+Runs on `macos-27` with Xcode 27.1.
 
 ### Steps
 

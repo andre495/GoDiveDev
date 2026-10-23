@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: macos-15
+    runs-on: macos-27
     timeout-minutes: 45
 
     steps:
@@ -147,7 +147,7 @@ jobs:
       - name: Check if catalog-cdn tests exist
         id: check-tests
         run: |
-          if [ -f "functions/speciesSimilarity.test.js" ]; then
+          if [ -f "catalog-cdn/functions/speciesSimilarity.test.js" ]; then
             echo "tests_exist=true" >> "$GITHUB_OUTPUT"
           else
             echo "tests_exist=false" >> "$GITHUB_OUTPUT"
