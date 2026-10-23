@@ -30,13 +30,48 @@ import UIKit
 
 
 struct SwiftDataInfrastructureTests {
-        @Test func mockDataSeeding_launchSeedingDisabledByDefault() {
-            #expect(!MockDataSeeding.isLaunchSeedingEnabled)
-            #expect(GoDiveReleaseConfigurationGates.isLaunchSeedingDisabled)
-            #expect(GoDiveReleaseConfigurationGates.criticalStaticGatesPass)
-        }
+    @Test func mockDataSeeding_launchSeedingDisabledByDefault() {
+        #expect(!MockDataSeeding.isLaunchSeedingEnabled)
+        #expect(GoDiveReleaseConfigurationGates.isLaunchSeedingDisabled)
+        #expect(GoDiveReleaseConfigurationGates.criticalStaticGatesPass)
+    }
 
-            @Test func ontologySightingContributionSync_gateRespectsOptOutAndStableContributionId() throws {
+    @Test func mockDataSeeding_flagGatingActivatesOnlyWithArgument() {
+        #if DEBUG
+        #expect(!GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(arguments: []))
+        #expect(!GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(arguments: ["-OtherFlag"]))
+        #expect(GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(arguments: ["-GoDiveMockSeed"]))
+        #expect(GoDiveReleaseConfigurationGates.mockSeedingWouldBeActive(
+            arguments: ["-OtherFlag", "-GoDiveMockSeed", "-AnotherFlag"]
+        ))
+        #expect(MockDataSeeding.launchArgument == "-GoDiveMockSeed")
+        #else
+        #expect(!MockDataSeeding.isLaunchSeedingEnabled)
+        #endif
+    }
+
+    @Test @MainActor func mockDataSeeding_idempotency_checksStoreForSampleDive() throws {
+        #if DEBUG
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        #expect(!MockDataSeeder.hasSampleDive(in: context))
+
+        let sampleDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_698_094_650),
+            durationMinutes: 34,
+            maxDepthMeters: 7.89
+        )
+        sampleDive.id = UUID(uuidString: "5E7C0A43-DA58-4A7E-8754-C6C5F9CC9A5F")!
+        context.insert(sampleDive)
+        try context.save()
+
+        #expect(MockDataSeeder.hasSampleDive(in: context))
+        #endif
+    }
+
+    @Test func ontologySightingContributionSync_gateRespectsOptOutAndStableContributionId() throws {
                 let suiteName = "GoDiveOntologySyncGate-\(UUID().uuidString)"
                 let defaults = try #require(UserDefaults(suiteName: suiteName))
                 defer { defaults.removePersistentDomain(forName: suiteName) }
