@@ -1,13 +1,31 @@
 import Foundation
 import SwiftData
 
-/// Loads bundled JSON fixtures into SwiftData. **MVP / mock only** — remove or replace when live imports exist.
+/// Loads bundled JSON fixtures into SwiftData. **Debug-only** with **`-GoDiveMockSeed`** flag.
+///
+/// Skips silently when fixture resources are missing (Release builds exclude `*_sample.json`).
 enum MockDataSeeder {
+    #if DEBUG
+    /// Known UUID from the first dive in `dives_sample.json` — used to detect prior seeding.
+    nonisolated private static let sampleDiveUUID = UUID(uuidString: "5E7C0A43-DA58-4A7E-8754-C6C5F9CC9A5F")!
+
+    /// Returns **`true`** when the sample dive fixture already exists in the store.
+    static func hasSampleDive(in context: ModelContext) -> Bool {
+        let targetID = sampleDiveUUID
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == targetID }
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetchCount(descriptor)) ?? 0 > 0
+    }
+
     static func seedIfNeeded(
         context: ModelContext,
         resourceName: String,
         resourceExtension: String = "json"
     ) throws {
+        guard !hasSampleDive(in: context) else { return }
+
         try seedDiveSitesIfNeeded(
             context: context,
             resourceName: "divesites_sample",
@@ -42,7 +60,6 @@ enum MockDataSeeder {
         try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: context)
         try context.save()
     }
-
     /// Inserts catalog `DiveSite` rows from bundled JSON when missing (matched by `id`).
     private static func seedDiveSitesIfNeeded(
         context: ModelContext,
@@ -117,4 +134,5 @@ enum MockDataSeeder {
             }
         }
     }
+    #endif
 }

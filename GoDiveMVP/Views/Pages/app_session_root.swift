@@ -98,6 +98,9 @@ struct AppSessionRootView: View {
             guard !didRunInitialSessionRestore else { return }
             didRunInitialSessionRestore = true
             await accountSession.restoreSession(modelContext: modelContext)
+            #if DEBUG
+            await GoDiveEmulatorTestSignIn.runLaunchSignInIfNeeded(modelContext: modelContext)
+            #endif
             presentPendingFriendInviteIfNeeded()
         }
         .onOpenURL { url in

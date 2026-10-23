@@ -59,14 +59,24 @@ node speciesSimilarity.test.js
 
 ### Emulator for rules testing
 
-To run the Firebase emulators locally (Firestore, Storage, Functions):
+To run the Firebase emulators locally (Auth, Firestore, Storage):
 
 ```bash
 cd catalog-cdn
-firebase emulators:start
+firebase emulators:start --project demo-godive-rules
 ```
 
-The emulators use a demo project ID and do not require production credentials.
+The emulators use a demo project ID (`demo-` prefix) and do not require production credentials.
+
+### Running security rules unit tests
+
+```bash
+cd catalog-cdn/rules-tests
+npm install
+npm test
+```
+
+Tests run against temporary emulator instances and verify Firestore and Storage security rules.
 
 ## GoogleService-Info.plist
 
