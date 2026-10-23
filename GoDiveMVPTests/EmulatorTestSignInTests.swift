@@ -168,26 +168,77 @@ struct EmulatorSignInErrorTests {
 struct EmulatorSessionGuardTests {
 
     #if DEBUG
+    // MARK: - Pure Decision Logic Tests (no Auth dependency)
+
     @Test("shouldClearSession returns false when emulator is enabled")
     func shouldNotClearWhenEmulatorEnabled() {
-        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(isEmulatorEnabled: true) == false)
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: true,
+            hasMarker: true,
+            currentUserEmail: "test@example.com"
+        ) == false)
     }
 
-    @Test("shouldClearSession returns false when no emulator evidence and emulator off")
+    @Test("shouldClearSession returns false when no evidence and emulator off")
     func shouldNotClearWhenNoEvidence() {
-        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
-        let hasTestEmail = GoDiveEmulatorSessionGuard.currentUserHasTestEmail
-        if !hasTestEmail {
-            #expect(GoDiveEmulatorSessionGuard.shouldClearSession(isEmulatorEnabled: false) == false)
-        }
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: false,
+            currentUserEmail: nil
+        ) == false)
+
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: false,
+            currentUserEmail: "user@gmail.com"
+        ) == false)
     }
 
     @Test("shouldClearSession returns true when marker set and emulator off")
     func shouldClearWhenMarkerSetAndEmulatorOff() {
-        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
-        defer { GoDiveEmulatorSessionGuard.clearEmulatorMarker() }
-        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(isEmulatorEnabled: false) == true)
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: true,
+            currentUserEmail: nil
+        ) == true)
     }
+
+    @Test("shouldClearSession returns true when test email present and emulator off")
+    func shouldClearWhenTestEmailAndEmulatorOff() {
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: false,
+            currentUserEmail: "qa@example.com"
+        ) == true)
+    }
+
+    @Test("shouldClearSession returns true when both marker and test email present and emulator off")
+    func shouldClearWhenBothEvidenceAndEmulatorOff() {
+        #expect(GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: true,
+            currentUserEmail: "test@example.com"
+        ) == true)
+    }
+
+    // MARK: - Email Detection Tests
+
+    @Test("isTestEmail detects @example.com emails")
+    func isTestEmailDetectsExampleCom() {
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail("test@example.com") == true)
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail("QA@EXAMPLE.COM") == true)
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail("user.name@example.com") == true)
+    }
+
+    @Test("isTestEmail rejects non @example.com emails")
+    func isTestEmailRejectsOtherDomains() {
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail("test@gmail.com") == false)
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail("test@example.org") == false)
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail(nil) == false)
+        #expect(GoDiveEmulatorSessionGuard.isTestEmail("") == false)
+    }
+
+    // MARK: - Marker Tests
 
     @Test("Marker can be set and cleared")
     func markerSetAndClear() {
@@ -199,20 +250,6 @@ struct EmulatorSessionGuardTests {
 
         GoDiveEmulatorSessionGuard.clearEmulatorMarker()
         #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == false)
-    }
-
-    @Test("hasEmulatorSession combines marker and test email checks")
-    func hasEmulatorSessionCombinesChecks() {
-        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
-        let hasTestEmail = GoDiveEmulatorSessionGuard.currentUserHasTestEmail
-        
-        if !hasTestEmail {
-            #expect(GoDiveEmulatorSessionGuard.hasEmulatorSession == false)
-        }
-
-        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
-        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSession == true)
-        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
     }
     #endif
 

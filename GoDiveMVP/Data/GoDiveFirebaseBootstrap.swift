@@ -107,7 +107,7 @@ enum GoDiveFirebaseBootstrap: Sendable {
     /// Clears any emulator Auth session when running without the emulator flag.
     /// Must run after `configureEmulatorIfRequested()` so `emulatorConfigured` is set.
     nonisolated private static func clearStaleEmulatorSessionIfNeeded() {
-        GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeeded(isEmulatorEnabled: emulatorConfigured)
+        GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeededOnMain(isEmulatorEnabled: emulatorConfigured)
     }
     #endif
 
