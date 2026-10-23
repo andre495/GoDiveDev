@@ -4,7 +4,7 @@ Reference for putting **GoDive** (`PrimoSoftware.GoDiveMVP`) on Apple **TestFlig
 
 Related:
 
-- Release gates — **`owasp_access_control_policy.md`** §5, **`.cursor/rules/godive-secrets-release-gates.mdc`**
+- Release gates — **`dev-docs/owasp_access_control_policy.md`** §5, **`.cursor/rules/godive-secrets-release-gates.mdc`**
 - Push (APNs / FCM) — **`friend_invite_push_notifications.md`**, **`buddy_activity_push_notifications.md`**
 - Secrets — **`owasp_secrets_handling.md`**
 - Hybrid boundaries — **`hybrid_cloud_sync_boundaries.md`**
@@ -72,7 +72,7 @@ Only **`.example`** templates are committed. Restrict Maps / API keys to this iO
 | Crash share | Opt-in only; scrubbed uploads |
 | Firebase rules | Deployed if rules changed (`firebase-rules-deploy.mdc`) |
 
-Full checklist: **`owasp_access_control_policy.md`** §5.
+Full checklist: **`dev-docs/owasp_access_control_policy.md`** §5.
 
 ### Push (if testers should get notifications)
 

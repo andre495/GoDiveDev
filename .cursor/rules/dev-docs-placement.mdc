@@ -1,0 +1,27 @@
+---
+description: Where developer docs, plans, and policies belong in the repo
+alwaysApply: true
+---
+
+# Developer and agent docs placement
+
+Keep non-app files out of the app bundle.
+
+## Directory roles
+
+| Directory | Content | Bundled |
+|-----------|---------|---------|
+| `dev-docs/` | Developer / agent docs: plans, policies, checklists, notes, internal references | No |
+| `docs/` | User-facing guide content (GitHub Pages / MkDocs) | No |
+| `GoDiveMVP/` | App source, resources, assets — anything that ships in the `.ipa` | Yes |
+
+## Do
+
+- Put new developer plans, OWASP policies, design docs, agent notes, and internal checklists in **`dev-docs/`**.
+- Put user-facing guide pages in **`docs/`** (see **`commits-and-user-guide.mdc`**).
+- Keep **`GoDiveMVP/`** for Swift source, XIBs, assets, plists, localizations, and other files the app needs at runtime.
+
+## Do not
+
+- Add `.md`, `.txt`, plans, or internal notes under **`GoDiveMVP/`** — they inflate the app bundle and ship to users.
+- Put internal dev docs in **`docs/`** — that folder is publicly published.

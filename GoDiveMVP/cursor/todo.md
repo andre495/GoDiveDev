@@ -8,7 +8,7 @@ Update this file whenever a model, view, or feature is added or changed.
 ## OWASP secure coding (`feature/owasp-secure-coding`)
 
 **Plan:** `cursor/owasp_secure_coding_hardening_plan.md`  
-**Policy:** `cursor/owasp_access_control_policy.md`  
+**Policy:** `dev-docs/owasp_access_control_policy.md`  
 **Secrets:** `cursor/owasp_secrets_handling.md`
 
 ### Phases

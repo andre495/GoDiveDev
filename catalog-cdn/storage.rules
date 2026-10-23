@@ -33,8 +33,10 @@ service firebase.storage {
     }
 
     // Schema v3 friend-shared activity media (thumb / full photo / 1080p video).
+    // Friends access via signed download URLs; direct path read restricted to owner.
     match /users/{userId}/sharedMedia/{activityId}/{mediaId}/{fileName} {
-      allow read: if true;
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow list: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null && request.auth.uid == userId
                    && (
                      (fileName == 'thumb.jpg'
@@ -53,16 +55,20 @@ service firebase.storage {
     }
 
     // Legacy v2 flat preview JPEG (`{mediaId}.jpg` directly under activity folder).
+    // Friends access via signed download URLs; direct path read restricted to owner.
     match /users/{userId}/sharedMedia/{activityId}/{legacyFileName} {
-      allow read: if true;
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow list: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Catch-all for other user paths — owner read/delete only.
     match /users/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow list: if request.auth != null && request.auth.uid == userId;
       allow write: if false;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
