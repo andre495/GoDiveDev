@@ -15,13 +15,14 @@ struct GoDiveMVPApp: App {
     @UIApplicationDelegateAdaptor(GoDiveGoogleMapsAppDelegate.self) private var googleMapsAppDelegate
     #endif
 
-    @State private var accountSession = AccountSession.shared
+    @State private var accountSession: AccountSession
     @State private var productionContainer: ModelContainer?
 
     init() {
-        // Firebase configure stays in GoDiveGoogleMapsAppDelegate (required before FCM
-        // delegate wiring). Avoid a second configureIfNeeded here — it is idempotent but
-        // still touches main-thread plist I/O when called before the delegate runs.
+        // Configure Firebase before accessing AccountSession to avoid I-COR000003 warnings
+        // from SDK initialization triggered by FirebaseAuth import.
+        GoDiveFirebaseBootstrap.configureIfNeeded()
+        _accountSession = State(initialValue: AccountSession.shared)
         AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()
         GoDiveMediaDiskMaintenance.installSharedURLCacheLimits()

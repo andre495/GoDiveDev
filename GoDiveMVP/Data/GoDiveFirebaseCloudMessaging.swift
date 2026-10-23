@@ -103,8 +103,27 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #if canImport(FirebaseMessaging) && canImport(FirebaseAuth) && canImport(FirebaseFirestore)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard let token = Messaging.messaging().fcmToken, !token.isEmpty else { return }
+        guard let token = await fetchRegistrationToken(), !token.isEmpty else { return }
         await persistFCMToken(token)
+        #endif
+    }
+
+    /// Actively fetches the FCM registration token using the non-deprecated completion API.
+    @MainActor
+    private static func fetchRegistrationToken() async -> String? {
+        #if canImport(FirebaseMessaging)
+        await withCheckedContinuation { continuation in
+            Messaging.messaging().token { token, error in
+                if let error {
+                    log.error("FCM token fetch failed: \(String(describing: error), privacy: .private)")
+                    continuation.resume(returning: nil)
+                } else {
+                    continuation.resume(returning: token)
+                }
+            }
+        }
+        #else
+        nil
         #endif
     }
 
