@@ -70,13 +70,13 @@ xcodebuild -resolvePackageDependencies \
 xcodebuild build-for-testing \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=27.0'
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0'
 
 # Run unit tests with parallel testing
 xcodebuild test-without-building \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=27.0' \
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
   -parallel-testing-enabled YES \
   -only-testing:GoDiveMVPTests
 ```
