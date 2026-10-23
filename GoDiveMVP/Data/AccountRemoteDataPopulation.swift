@@ -167,18 +167,47 @@ enum AccountRemoteDataPopulation: Sendable {
             interests: request.interests,
             deferProfileDocumentWrite: request.deferFirestoreProfileDocumentWrite
         )
+
+        AccountSession.shared.releaseSyncGate(.firebaseAuth)
+
         if case let .upserted(_, remoteDisplayName) = outcome {
             AccountSession.shared.applyRemoteDisplayNameIfNeeded(
                 profileID: request.profileID,
                 remoteDisplayName: remoteDisplayName,
                 modelContext: modelContext
             )
+            AccountSession.shared.releaseSyncGate(.firestoreProfile)
+        } else {
+            AccountSession.shared.releaseSyncGate(.firestoreProfile)
         }
-        _ = await GoDiveFirestoreProfilePhotoRestore.restoreIntoLocalProfileIfNeeded(
-            profile: profile,
-            modelContext: modelContext
-        )
-        await GoDiveFirebaseCloudMessaging.uploadCurrentFCMTokenIfAvailable()
+
+        scheduleDeferredPostSyncWork(profile: profile, modelContext: modelContext)
+    }
+
+    @MainActor
+    private static func scheduleDeferredPostSyncWork(
+        profile: UserProfile,
+        modelContext: ModelContext
+    ) {
+        Task(priority: .utility) { @MainActor in
+            _ = await GoDiveFirestoreProfilePhotoRestore.restoreIntoLocalProfileIfNeeded(
+                profile: profile,
+                modelContext: modelContext
+            )
+            await GoDiveFriendBuddyLinking.syncRosterLinksIfPossible(
+                owner: profile,
+                modelContext: modelContext
+            )
+            await GoDiveFirebaseCloudMessaging.uploadCurrentFCMTokenIfAvailable()
+        }
+    }
+
+    @MainActor
+    static func releaseSocialSnapshotGateAfterDelay() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(AccountSyncLoadingPresentation.socialSnapshotDelayMilliseconds))
+            AccountSession.shared.releaseSyncGate(.socialFirstSnapshot)
+        }
     }
 
     @MainActor
@@ -194,6 +223,9 @@ enum AccountRemoteDataPopulation: Sendable {
                 predicate: #Predicate { $0.ownerProfileID == sessionProfileID }
             )
         )) ?? 0
+
+        AccountSession.shared.releaseSyncGate(.firebaseAuth)
+
         if case let .upserted(_, remoteDisplayName) = await GoDiveFirestoreUserProfileSync.syncIfAuthenticated(
             displayName: profile.displayName,
             appleUserIdentifier: profile.appleUserIdentifier,
@@ -205,16 +237,12 @@ enum AccountRemoteDataPopulation: Sendable {
                 remoteDisplayName: remoteDisplayName,
                 modelContext: modelContext
             )
+            AccountSession.shared.releaseSyncGate(.firestoreProfile)
+        } else {
+            AccountSession.shared.releaseSyncGate(.firestoreProfile)
         }
-        _ = await GoDiveFirestoreProfilePhotoRestore.restoreIntoLocalProfileIfNeeded(
-            profile: profile,
-            modelContext: modelContext
-        )
-        await GoDiveFriendBuddyLinking.syncRosterLinksIfPossible(
-            owner: profile,
-            modelContext: modelContext
-        )
-        await GoDiveFirebaseCloudMessaging.uploadCurrentFCMTokenIfAvailable()
+
+        scheduleDeferredPostSyncWork(profile: profile, modelContext: modelContext)
     }
 
     @MainActor
@@ -231,13 +259,6 @@ enum AccountRemoteDataPopulation: Sendable {
             container: modelContext.container
         )
 
-        if trigger == .signInWithApple {
-            await GoDiveFriendBuddyLinking.syncRosterLinksIfPossible(
-                owner: profile,
-                modelContext: modelContext
-            )
-        }
-
         let ownedProfileID = profile.id
         let ownedDives = (try? modelContext.fetchCount(
             FetchDescriptor<DiveActivity>(
@@ -249,10 +270,17 @@ enum AccountRemoteDataPopulation: Sendable {
                 predicate: #Predicate { $0.ownerProfileID == ownedProfileID }
             )
         )) ?? 0
+
+        if ownedDives + ownedSnorkels > 0 {
+            AccountSession.shared.releaseSyncGate(.cloudKitImport)
+        }
+
         if ownedDives + ownedSnorkels == 0 || trigger == .signInWithApple {
             AccountSessionCloudKitIdentityObserver.schedulePostSignInReconcileRetries(
                 container: modelContext.container
             )
         }
+
+        releaseSocialSnapshotGateAfterDelay()
     }
 }

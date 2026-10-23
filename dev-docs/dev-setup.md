@@ -73,10 +73,12 @@ The emulators use a demo project ID (`demo-` prefix) and do not require producti
 ```bash
 cd catalog-cdn/rules-tests
 npm install
-npm test
+npm test              # Run all 65 tests
+npm run test:firestore  # 41 Firestore tests only
+npm run test:storage    # 24 Storage tests only (requires both emulators)
 ```
 
-Tests run against temporary emulator instances and verify Firestore and Storage security rules.
+Tests run against temporary emulator instances and verify Firestore and Storage security rules. Storage tests include cross-service rules (Storage checking Firestore friendship data).
 
 ## GoogleService-Info.plist
 
