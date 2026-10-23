@@ -4,10 +4,15 @@ This document describes the CI workflow for GoDiveMVP.
 
 ## Overview
 
-The `ios-ci.yml` workflow runs on every pull request to `main` and can be triggered manually via `workflow_dispatch`. It consists of two jobs:
+The `ios-ci.yml` workflow runs on:
+- Every push to `main`
+- Every pull request targeting `main`
+- Manual trigger via `workflow_dispatch`
 
-1. **Build & Test** — builds the iOS app and runs unit tests on a macOS runner
-2. **Firebase Emulator Tests** — runs Firestore rules and function tests using the Firebase emulator
+It consists of two jobs:
+
+1. **Build & Test** — builds the iOS app and runs unit tests on a macOS runner with Xcode 27.1
+2. **Firebase Rules Tests** — runs Firestore and Storage security rules tests using the Firebase emulator
 
 ## Build & Test Job
 
@@ -20,30 +25,25 @@ Runs on `macos-27` with Xcode 27.1.
 3. **Create placeholder plists** — generates fake `GoogleService-Info.plist` and `GoogleMapsSecrets.plist` for compilation (see below)
 4. **Cache SPM** — caches Swift Package Manager dependencies keyed on `project.pbxproj`
 5. **Resolve packages** — runs `xcodebuild -resolvePackageDependencies`
-6. **Build** — builds the app and test targets for iOS Simulator
-7. **Test** — runs `GoDiveMVPTests` unit tests
+6. **Build** — builds the app and test targets for iOS 26 Simulator
+7. **Test** — runs `GoDiveMVPTests` unit tests with parallel testing enabled
 8. **Upload results** — on failure, uploads `.xcresult` bundle for inspection
 
-### Runtime
+### Test Target Dependency
 
-- Full run (cold cache): ~15-25 minutes
-- With SPM cache hit: ~8-12 minutes
+The test target requires PR #60 (`cursor/xcode-27-upgrade-3f93`) for Swift 6 actor isolation fixes. Until that PR merges, CI builds on this branch alone will fail at the test compilation step.
 
-## Firebase Emulator Tests Job
+## Firebase Rules Tests Job
 
 Runs on `ubuntu-latest` with Node 20 and Java 21.
 
 ### Steps
 
-1. **Check for tests** — skips cleanly if `catalog-cdn/functions/speciesSimilarity.test.js` doesn't exist
-2. **Setup Node/Java** — installs Node 20 and Temurin Java 21
-3. **Install Firebase CLI** — installs `firebase-tools` globally
-4. **Install dependencies** — runs `npm ci` in `catalog-cdn/functions`
-5. **Run tests** — executes tests via `firebase emulators:exec`
-
-### Runtime
-
-- Typical run: ~3-5 minutes
+1. **Check for tests** — skips cleanly if `catalog-cdn/rules-tests/` doesn't exist
+2. **Setup Node/Java** — installs Node 20 (with npm cache) and Temurin Java 21
+3. **Install dependencies** — runs `npm ci` in `catalog-cdn/rules-tests`
+4. **Run Firestore tests** — validates Firestore security rules
+5. **Run Storage tests** — validates Storage security rules
 
 ## Placeholder Plist Approach
 
@@ -66,36 +66,41 @@ xcodebuild -resolvePackageDependencies \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP
 
-# Build for testing
+# Build for testing (iOS 26 simulator)
 xcodebuild build-for-testing \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+  -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0'
 
-# Run unit tests
+# Run unit tests with parallel testing
 xcodebuild test-without-building \
   -project GoDiveMVP.xcodeproj \
   -scheme GoDiveMVP \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+  -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
+  -parallel-testing-enabled YES \
   -only-testing:GoDiveMVPTests
 ```
 
-### Firebase Emulator Tests
+### Firebase Rules Tests
 
 ```bash
-cd catalog-cdn
+cd catalog-cdn/rules-tests
 
 # Install dependencies
-cd functions && npm ci && cd ..
+npm ci
 
-# Run tests with emulator (firestore + functions only)
-firebase emulators:exec \
-  --project demo-godive-ci \
-  --only firestore,functions \
-  "node functions/speciesSimilarity.test.js"
+# Run all rules tests
+npm test
+
+# Or run individually
+npm run test:firestore
+npm run test:storage
 ```
 
-## Known Issues
+## Configuration
 
-- **FishialAPITestSupport** (tracked in [#28](https://github.com/andre495/GoDiveDev/issues/28)): This test target may fail to build. If it does, exclude it with `-skip-testing:FishialAPITestSupport`.
-- **Warnings**: Build warnings are logged but do not fail the workflow. Review them periodically.
+- **Concurrency**: Cancels superseded runs per branch
+- **Timeout**: 45 minutes (Build & Test), 15 minutes (Firebase Rules)
+- **Permissions**: `contents: read` only
+- **Secrets**: None required
+- **Actions**: All pinned to commit SHAs for reproducibility

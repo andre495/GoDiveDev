@@ -1,6 +1,8 @@
 name: iOS CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -20,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Select Xcode 27.1
-        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
         with:
           xcode-version: "27.1"
 
@@ -78,14 +80,14 @@ jobs:
           EOF
 
       - name: Cache SPM dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
             ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('GoDiveMVP.xcodeproj/project.pbxproj') }}
+          key: spm-${{ runner.os }}-xcode27-${{ hashFiles('GoDiveMVP.xcodeproj/project.pbxproj') }}
           restore-keys: |
-            spm-${{ runner.os }}-
+            spm-${{ runner.os }}-xcode27-
 
       - name: Resolve SPM packages
         run: |
@@ -96,90 +98,86 @@ jobs:
 
       - name: Build for iOS Simulator
         run: |
+          set -o pipefail
           xcodebuild build-for-testing \
             -project GoDiveMVP.xcodeproj \
             -scheme GoDiveMVP \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
             -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages" \
-            -resultBundlePath TestResults.xcresult \
+            -derivedDataPath DerivedData \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            | tee build.log
-          # Show warnings but don't fail on them
+            2>&1 | tee build.log
           grep -E "warning:" build.log || true
 
       - name: Run unit tests
         run: |
-          # TODO(#28): If FishialAPITestSupport causes build failures, exclude it with:
-          # -skip-testing:FishialAPITestSupport
+          set -o pipefail
           xcodebuild test-without-building \
             -project GoDiveMVP.xcodeproj \
             -scheme GoDiveMVP \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
-            -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages" \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
+            -derivedDataPath DerivedData \
             -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled YES \
             -only-testing:GoDiveMVPTests \
-            | tee test.log
-          # Show any test failures
+            2>&1 | tee test.log
           grep -E "(Test Suite|Executed|failed|FAILED)" test.log || true
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: test-results
           path: TestResults.xcresult
           retention-days: 7
 
-  firebase-emulator-tests:
-    name: Firebase Emulator Tests
+  firebase-rules-tests:
+    name: Firebase Rules Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: catalog-cdn
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Check if catalog-cdn tests exist
+      - name: Check if rules-tests exist
         id: check-tests
         run: |
-          if [ -f "catalog-cdn/functions/speciesSimilarity.test.js" ]; then
+          if [ -d "catalog-cdn/rules-tests" ] && [ -f "catalog-cdn/rules-tests/package.json" ]; then
             echo "tests_exist=true" >> "$GITHUB_OUTPUT"
           else
             echo "tests_exist=false" >> "$GITHUB_OUTPUT"
-            echo "No Firebase tests found, skipping"
+            echo "No Firebase rules tests found, skipping"
           fi
-        working-directory: ${{ github.workspace }}
 
       - name: Setup Node.js
         if: steps.check-tests.outputs.tests_exist == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "20"
+          cache: "npm"
+          cache-dependency-path: catalog-cdn/rules-tests/package-lock.json
 
       - name: Setup Java 21
         if: steps.check-tests.outputs.tests_exist == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006232cccaa061b # v4.6.0
         with:
           distribution: "temurin"
           java-version: "21"
 
-      - name: Install Firebase CLI
+      - name: Install dependencies
         if: steps.check-tests.outputs.tests_exist == 'true'
-        run: npm install -g firebase-tools
+        working-directory: catalog-cdn/rules-tests
+        run: npm ci
 
-      - name: Install functions dependencies
+      - name: Run Firestore rules tests
         if: steps.check-tests.outputs.tests_exist == 'true'
-        run: cd functions && npm ci
+        working-directory: catalog-cdn/rules-tests
+        run: npm run test:firestore
 
-      - name: Run emulator tests
+      - name: Run Storage rules tests
         if: steps.check-tests.outputs.tests_exist == 'true'
-        run: |
-          firebase emulators:exec \
-            --project demo-godive-ci \
-            --only firestore,functions \
-            "node functions/speciesSimilarity.test.js"
+        working-directory: catalog-cdn/rules-tests
+        run: npm run test:storage
