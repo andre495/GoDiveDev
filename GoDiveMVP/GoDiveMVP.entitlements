@@ -19,7 +19,7 @@
 		<string>CloudKit</string>
 	</array>
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>$(APS_ENVIRONMENT)</string>
 	<key>com.apple.developer.weatherkit</key>
 	<true/>
 </dict>

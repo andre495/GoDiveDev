@@ -2,7 +2,7 @@
 
 **Branch:** `feature/owasp-secure-coding`  
 **Parent plan:** `owasp_secure_coding_hardening_plan.md`  
-**Policy:** `owasp_access_control_policy.md`  
+**Policy:** `dev-docs/owasp_access_control_policy.md`  
 **Agent rule:** `.cursor/rules/godive-secrets-release-gates.mdc`
 
 Anything shipped inside the IPA can be extracted. Prefer **restricted keys**, **short-lived tokens**, and **server-side secrets** over long-lived client secrets.
