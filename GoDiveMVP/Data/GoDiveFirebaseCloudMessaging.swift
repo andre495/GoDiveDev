@@ -108,12 +108,12 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #endif
     }
 
-    /// Actively fetches the FCM registration token using the non-deprecated completion API.
+    /// Actively fetches the FCM registration token using the non-deprecated register API.
     @MainActor
     private static func fetchRegistrationToken() async -> String? {
         #if canImport(FirebaseMessaging)
         await withCheckedContinuation { continuation in
-            Messaging.messaging().token { token, error in
+            Messaging.messaging().register { token, error in
                 if let error {
                     log.error("FCM token fetch failed: \(String(describing: error), privacy: .private)")
                     continuation.resume(returning: nil)
