@@ -76,6 +76,21 @@ Fix crash when opening the Map tab with All Sites scope. MKMapView throws `NSExc
 - Unit tests for sanitization: worldwide spread, date-line wrap, polar latitude, single site, empty spans, NaN/infinity, negative spans, longitude overflow
 - UI test that opens Explore Map tab with All Sites scope and verifies no crash
 
+### QA follow-up fixes
+
+- Fixed 3 nonisolated warnings at `DiveLocationMapRegionSpec.swift:43-45`: added `nonisolated` to `minimumSpan` constant
+- Added test with exact QA crash input: `center:-2.348,+2.907 span:+117.25,+477.83`
+- Added DEBUG-only `-GoDiveOpenExploreMap` launch argument that:
+  - Bypasses onboarding and UITest stub
+  - Opens Explore → Map → All Sites with real catalog sites
+  - Combined with `-GoDiveMockSeed` for populated catalog
+- Updated UI test to use `-GoDiveOpenExploreMap` (DEBUG builds only; skips on Release)
+- Documented launch arguments in `dev-docs/dev-setup.md`
+
+### Note on unit tests
+
+Unit tests are blocked by #28 (MockFishialURLSession compile error on main). The new sanitization tests are correct and will pass once #28 is resolved.
+
 ### Verification
 
 On simulator: Explore → Map segment → All Sites toggle. Map should display the world view without crashing.

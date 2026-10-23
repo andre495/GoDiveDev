@@ -60,7 +60,7 @@ struct DiveLocationMapRegionSpec: Equatable, Sendable {
         longitudeDelta: 120
     )
 
-    private static let minimumSpan: Double = 0.01
+    private nonisolated static let minimumSpan: Double = 0.01
 
     /// Explicit **nonisolated** equality for Swift Testing **`#expect`** (Swift 6 / MapKit file).
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {

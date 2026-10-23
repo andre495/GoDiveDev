@@ -107,35 +107,39 @@ final class GoDiveMVPUITests: XCTestCase {
     }
 
     /// Issue #53: Map tab crashed with 'Invalid Region' when All Sites scope computes worldwide spans.
-    /// This test opens the Explore tab map and toggles to All Sites to verify no crash.
+    /// This test opens Explore → Map → All Sites with real catalog sites to verify no crash.
+    /// Uses `-GoDiveOpenExploreMap` (DEBUG-only) to bypass onboarding and test the actual map view.
     @MainActor
     func testExploreMapTab_allSitesScope_doesNotCrash() throws {
+        #if DEBUG
+        let mapTestApp = XCUIApplication()
+        mapTestApp.launchArguments += [
+            "-GoDiveOpenExploreMap",
+            "-GoDiveMockSeed",
+            "-UIViewAnimationEnabled", "NO",
+        ]
+        mapTestApp.launch()
+
         XCTAssertTrue(
-            app.otherElements["GoDive.UITest.Root"].waitForExistence(timeout: 20),
-            "UI-test root should be visible"
+            mapTestApp.wait(for: .runningForeground, timeout: 45),
+            "App should reach runningForeground"
         )
 
-        let exploreTab = app.tabBars.buttons["Explore"]
-        XCTAssertTrue(exploreTab.waitForExistence(timeout: 10), "Explore tab should appear")
-        exploreTab.tap()
+        let exploreTab = mapTestApp.tabBars.buttons["Explore"]
+        XCTAssertTrue(exploreTab.waitForExistence(timeout: 15), "Explore tab should appear")
 
-        let mapSegment = app.buttons["Map"]
-        if mapSegment.waitForExistence(timeout: 5) {
-            mapSegment.tap()
-        }
-
-        let allSitesToggle = app.buttons["All Sites"]
-        if allSitesToggle.waitForExistence(timeout: 5) {
-            allSitesToggle.tap()
-        }
-
-        let delay = XCTestExpectation(description: "Wait for map to render")
+        let delay = XCTestExpectation(description: "Wait for map to render and apply region")
         delay.isInverted = true
-        wait(for: [delay], timeout: 2)
+        wait(for: [delay], timeout: 3)
 
         XCTAssertTrue(
-            app.state == .runningForeground,
-            "App should remain in foreground after opening Map with All Sites"
+            mapTestApp.state == .runningForeground,
+            "App should remain in foreground after opening Map with All Sites (issue #53)"
         )
+
+        mapTestApp.terminate()
+        #else
+        throw XCTSkip("-GoDiveOpenExploreMap requires DEBUG build")
+        #endif
     }
 }

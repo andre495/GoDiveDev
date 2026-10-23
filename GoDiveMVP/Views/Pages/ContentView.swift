@@ -14,7 +14,15 @@ struct ContentView: View {
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
 
     /// Selection binding is required for tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
-    @State private var selectedTab: RootTab = .home
+    @State private var selectedTab: RootTab = Self.initialTab
+
+    #if DEBUG
+    private static var initialTab: RootTab {
+        GoDiveUITestConfiguration.shouldOpenExploreMap ? .explore : .home
+    }
+    #else
+    private static let initialTab: RootTab = .home
+    #endif
     /// Live selection for tab content (bubbles / warm-up) — see **`RootTabSelectionStore`**.
     @State private var rootTabSelectionStore = RootTabSelectionStore()
     @State private var searchQuery = ""

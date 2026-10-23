@@ -3003,4 +3003,41 @@ struct ExploreMapTests {
         let maxLatSpan = 180.0 - 2.0 * abs(world.centerLatitude)
         #expect(world.latitudeDelta <= maxLatSpan)
     }
+
+    /// Exact QA crash input from issue #53: center:-2.348,+2.907 span:+117.25,+477.83
+    @Test func diveLocationMapRegionSpec_sanitized_clampsExactQACrashInput() {
+        let crashingInput = DiveLocationMapRegionSpec(
+            centerLatitude: -2.348,
+            centerLongitude: 2.907,
+            latitudeDelta: 117.25,
+            longitudeDelta: 477.83
+        )
+        let safe = crashingInput.sanitized
+        #expect(safe.centerLatitude == -2.348)
+        #expect(safe.centerLongitude == 2.907)
+        #expect(safe.latitudeDelta == 117.25)
+        #expect(safe.longitudeDelta == 360)
+
+        let mkRegion = crashingInput.mkCoordinateRegion
+        #expect(mkRegion.center.latitude == -2.348)
+        #expect(mkRegion.center.longitude == 2.907)
+        #expect(mkRegion.span.latitudeDelta == 117.25)
+        #expect(mkRegion.span.longitudeDelta == 360)
+    }
+
+    /// Verifies ExploreCatalogMapPresentation.region goes through sanitization
+    @Test func exploreCatalogMapPresentation_region_sanitizesBeforeReturning() {
+        let sites: [ExploreCatalogMapPresentation.PlottedSite] = [
+            .init(id: UUID(), siteName: "West Pacific", coordinate: DiveCoordinate(latitude: -18, longitude: 179)),
+            .init(id: UUID(), siteName: "Caribbean", coordinate: DiveCoordinate(latitude: 12, longitude: -68)),
+            .init(id: UUID(), siteName: "Far East", coordinate: DiveCoordinate(latitude: 35, longitude: 140)),
+            .init(id: UUID(), siteName: "Far West", coordinate: DiveCoordinate(latitude: 25, longitude: -155)),
+        ]
+        guard let mkRegion = ExploreCatalogMapPresentation.region(for: sites) else {
+            Issue.record("Expected a region for non-empty sites")
+            return
+        }
+        #expect(mkRegion.span.latitudeDelta <= 180)
+        #expect(mkRegion.span.longitudeDelta <= 360)
+    }
 }
