@@ -120,6 +120,9 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
     let statusBarSafeAreaTop: CGFloat
     /// Pale list chrome feather in light mode (certifications, buddies, equipment locker).
     let statusBarUsesListChromeFeather: Bool
+    /// When **`true`**, the parent provides the status-bar scrim (e.g. **`LogbookTopChromeScrim`** in **`AppPage.scrollUnderHeaderBody`**).
+    /// Set this to avoid stacking two semi-transparent scrims, which creates visible banding.
+    let statusBarScrimIsProvidedExternally: Bool
     /// When **`false`**, empty header chrome (spacers / wordmark band) passes hits through — Home hero media.
     let blocksHitsInEmptyChrome: Bool
 
@@ -132,6 +135,7 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
         statusBarUsesListChromeFeather: Bool = false,
+        statusBarScrimIsProvidedExternally: Bool = false,
         blocksHitsInEmptyChrome: Bool = true,
         @ViewBuilder trailingContent: () -> TrailingContent,
         @ViewBuilder leadingContent: () -> LeadingContent = { EmptyView() }
@@ -144,6 +148,7 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         self.titlePlacement = titlePlacement
         self.statusBarSafeAreaTop = statusBarSafeAreaTop
         self.statusBarUsesListChromeFeather = statusBarUsesListChromeFeather
+        self.statusBarScrimIsProvidedExternally = statusBarScrimIsProvidedExternally
         self.blocksHitsInEmptyChrome = blocksHitsInEmptyChrome
         self.leadingContent = leadingContent()
         self.trailingContent = trailingContent()
@@ -164,7 +169,7 @@ struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
         .fixedSize(horizontal: false, vertical: true)
         .modifier(AppHeaderEmptyChromeHitTestingModifier(blocksHitsInEmptyChrome: blocksHitsInEmptyChrome))
         .background(alignment: .top) {
-            if statusBarSafeAreaTop > 0.5 {
+            if statusBarSafeAreaTop > 0.5, !statusBarScrimIsProvidedExternally {
                 AppStatusBarEdgeScrim(
                     safeAreaTop: statusBarSafeAreaTop,
                     usesListChromeFeather: statusBarUsesListChromeFeather
@@ -377,7 +382,8 @@ extension AppHeader where LeadingContent == EmptyView, TrailingContent == EmptyV
         titleUsesLinkedSiteAccent: Bool = false,
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
-        statusBarUsesListChromeFeather: Bool = false
+        statusBarUsesListChromeFeather: Bool = false,
+        statusBarScrimIsProvidedExternally: Bool = false
     ) {
         self.init(
             title: title,
@@ -387,7 +393,8 @@ extension AppHeader where LeadingContent == EmptyView, TrailingContent == EmptyV
             titleUsesLinkedSiteAccent: titleUsesLinkedSiteAccent,
             titlePlacement: titlePlacement,
             statusBarSafeAreaTop: statusBarSafeAreaTop,
-            statusBarUsesListChromeFeather: statusBarUsesListChromeFeather
+            statusBarUsesListChromeFeather: statusBarUsesListChromeFeather,
+            statusBarScrimIsProvidedExternally: statusBarScrimIsProvidedExternally
         ) {
             EmptyView()
         }

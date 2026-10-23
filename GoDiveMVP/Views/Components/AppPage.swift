@@ -153,7 +153,8 @@ struct AppPage<Content: View, TrailingContent: View>: View {
                         title: title,
                         isCollapsed: isCollapsibleHeaderCollapsed,
                         statusBarSafeAreaTop: safeTop,
-                        expandedTitleFont: collapsibleInlineTitleFont
+                        expandedTitleFont: collapsibleInlineTitleFont,
+                        statusBarScrimIsProvidedExternally: true
                     ) {
                         if showsBackButton {
                             SecondaryDestinationBackButton()
@@ -174,7 +175,8 @@ struct AppPage<Content: View, TrailingContent: View>: View {
                         titleUsesLinkedSiteAccent: titleUsesLinkedSiteAccent,
                         titlePlacement: titlePlacement,
                         statusBarSafeAreaTop: safeTop,
-                        statusBarUsesListChromeFeather: true
+                        statusBarUsesListChromeFeather: true,
+                        statusBarScrimIsProvidedExternally: true
                     ) {
                         trailingContent
                     }
