@@ -950,6 +950,16 @@ final class AccountSession {
 
     nonisolated static let signInFailureUserMessage = "Sign-in could not be completed. Please try again."
 
+    #if DEBUG
+    /// Attaches a test profile for emulator sign-in flows. DEBUG-only.
+    func attachTestProfile(_ profile: UserProfile) {
+        currentProfile = profile
+        persistSession(profile: profile)
+        cachedSelfBuddyID = nil
+        cachedSelfBuddyProfileID = nil
+    }
+    #endif
+
     private func persistSession(profile: UserProfile) {
         AppLaunchSessionRestorePresentation.savePersistedProfileID(profile.id)
         ReturningAccountHints.remember(profile: profile)

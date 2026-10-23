@@ -96,6 +96,7 @@ enum GoDiveFirebaseBootstrap: Sendable {
         }
 
         Auth.auth().useEmulator(withHost: emulatorHost, port: authEmulatorPort)
+        Auth.auth().settings?.isAppVerificationDisabledForTesting = true
 
         let firestoreSettings = Firestore.firestore().settings
         firestoreSettings.host = "\(emulatorHost):\(firestoreEmulatorPort)"
