@@ -2033,6 +2033,33 @@ struct GoDiveSharedProjectionTests {
                 )
             }
 
+            @Test func friendShareRefreshCoordinator_pendingCount_fullRepublishIsOne() {
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: true,
+                        diveIDCount: 0
+                    ) == 1
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: true,
+                        diveIDCount: 5
+                    ) == 1
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: false,
+                        diveIDCount: 3
+                    ) == 3
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: false,
+                        diveIDCount: 0
+                    ) == 0
+                )
+            }
+
             @Test func firebaseBootstrap_didConfigureNotification_isDefined() {
                 #expect(GoDiveFirebaseBootstrap.didConfigureNotification.rawValue.isEmpty == false)
             }

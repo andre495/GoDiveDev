@@ -128,6 +128,20 @@ enum GoDiveFriendShareRefreshCoordinator {
         scheduleFlush(debounceNanoseconds: debounceNanoseconds)
     }
 
+    /// Sets pending state and drains immediately (synchronously, no Task).
+    /// Use when the caller's task context may be cancelled before a scheduled flush runs.
+    fileprivate static func enqueueFullRepublishAndDrainNow(
+        ownerProfileID: UUID,
+        modelContext: ModelContext
+    ) {
+        observedOwnerProfileID = ownerProfileID
+        observedModelContext = modelContext
+        pendingFullRepublish = true
+        pendingDiveIDs = []
+        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
+        startDrainIfNeeded()
+    }
+
     /// Upserts only the given dives (coalesced across rapid edits).
     static func scheduleUpsert(
         diveIDs: Set<UUID>,
@@ -308,6 +322,11 @@ enum GoDiveFriendShareRefreshCoordinatorPresentation: Sendable {
     nonisolated static func shouldDrain(firebaseConfigured: Bool) -> Bool {
         firebaseConfigured
     }
+
+    /// Returns pending count as drain would see it.
+    nonisolated static func pendingCount(fullRepublish: Bool, diveIDCount: Int) -> Int {
+        fullRepublish ? 1 : diveIDCount
+    }
 }
 
 #if DEBUG
@@ -342,17 +361,18 @@ enum GoDiveFriendShareRefreshLaunchEnqueue {
         didEnqueueThisLaunch = true
         log.info("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
         let context = ModelContext(container)
-        // Set up observers first (firebaseReadyObserver triggers drain when Firebase becomes ready).
+        // Set up observers (firebaseReadyObserver triggers drain when Firebase becomes ready).
         GoDiveFriendShareRefreshCoordinator.startObservingSaves(
             ownerProfileID: ownerID,
             modelContext: context
         )
-        // scheduleRepublish sets pendingFullRepublish=true and schedules immediate flush.
-        // Without this, startDrainIfNeeded reads pendingFullRepublish=false and pending=0.
-        GoDiveFriendShareRefreshCoordinator.scheduleRepublish(
+        // Use synchronous enqueue+drain. scheduleRepublish's Task-based flush gets cancelled
+        // when .task(id:) restarts, so call startDrainIfNeeded() directly.
+        // If configured=true, drain runs now. If configured=false, firebaseReadyObserver
+        // triggers drain later (no double-wait for a notification that already fired).
+        GoDiveFriendShareRefreshCoordinator.enqueueFullRepublishAndDrainNow(
             ownerProfileID: ownerID,
-            modelContext: context,
-            debounceNanoseconds: 0
+            modelContext: context
         )
     }
 
