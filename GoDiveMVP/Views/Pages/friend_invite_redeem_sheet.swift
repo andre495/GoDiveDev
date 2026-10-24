@@ -92,7 +92,8 @@ struct FriendInviteRedeemSheet: View {
                     await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
                         ownerProfileID: ownerID,
                         modelContext: context,
-                        assumeHasFriends: true
+                        assumeHasFriends: true,
+                        caller: "invite"
                     )
                 }
             }
