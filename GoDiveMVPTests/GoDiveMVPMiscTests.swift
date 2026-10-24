@@ -1662,22 +1662,167 @@ struct GoDiveMVPMiscTests {
                 #expect(fetched.count == 1)
                 #expect(fetched.first?.heartRateBPM == 88)
             }
+            // MARK: - AppLaunchSessionValidationPolicy (legacy shouldSignOut)
+
             @Test func appLaunchSessionValidationPolicy_offlineFirstKeepsSessionWhenCredentialCheckFails() {
                 #expect(!AppLaunchSessionValidationPolicy.shouldSignOut(credentialState: nil, checkFailed: true))
             }
-            @Test func appLaunchSessionValidationPolicy_signsOutWhenCredentialRevoked() {
+
+            @Test func appLaunchSessionValidationPolicy_legacyShouldSignOut_revokedReturnsTrue() {
                 #expect(
                     AppLaunchSessionValidationPolicy.shouldSignOut(
                         credentialState: .revoked,
                         checkFailed: false
                     )
                 )
+            }
+
+            @Test func appLaunchSessionValidationPolicy_legacyShouldSignOut_authorizedReturnsFalse() {
                 #expect(
                     !AppLaunchSessionValidationPolicy.shouldSignOut(
                         credentialState: .authorized,
                         checkFailed: false
                     )
                 )
+            }
+
+            @Test func appLaunchSessionValidationPolicy_legacyShouldSignOut_notFoundReturnsFalse() {
+                #expect(
+                    !AppLaunchSessionValidationPolicy.shouldSignOut(
+                        credentialState: .notFound,
+                        checkFailed: false
+                    )
+                )
+            }
+
+            @Test func appLaunchSessionValidationPolicy_legacyShouldSignOut_transferredReturnsFalse() {
+                #expect(
+                    !AppLaunchSessionValidationPolicy.shouldSignOut(
+                        credentialState: .transferred,
+                        checkFailed: false
+                    )
+                )
+            }
+
+            // MARK: - AppLaunchSessionValidationPolicy (evaluate)
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_authorizedKeepsSession() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.authorized),
+                    checkedAppleUserID: "user123",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .keepSession)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_revokedForCurrentAccountSignsOut() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.revoked),
+                    checkedAppleUserID: "user123",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .signOut)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_revokedForMismatchedIdKeepsSession() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.revoked),
+                    checkedAppleUserID: "staleUser456",
+                    currentSessionAppleID: "currentUser123"
+                )
+                #expect(decision == .keepSession)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_revokedWithEmptyCurrentIdIsInconclusive() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.revoked),
+                    checkedAppleUserID: "user123",
+                    currentSessionAppleID: ""
+                )
+                #expect(decision == .inconclusive)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_revokedWithEmptyCheckedIdIsInconclusive() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.revoked),
+                    checkedAppleUserID: "",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .inconclusive)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_notFoundIsInconclusive() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.notFound),
+                    checkedAppleUserID: "user123",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .inconclusive)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_transferredIsInconclusive() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.transferred),
+                    checkedAppleUserID: "user123",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .inconclusive)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_failedIsInconclusive() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .failed,
+                    checkedAppleUserID: "user123",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .inconclusive)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_evaluate_normalizesWhitespace() {
+                let decision = AppLaunchSessionValidationPolicy.evaluate(
+                    checkResult: .success(.revoked),
+                    checkedAppleUserID: "  user123  ",
+                    currentSessionAppleID: "user123"
+                )
+                #expect(decision == .signOut)
+            }
+
+            // MARK: - Backoff calculation
+
+            @Test func appLaunchSessionValidationPolicy_backoffMilliseconds_exponentialGrowth() {
+                #expect(AppLaunchSessionValidationPolicy.backoffMilliseconds(attempt: 1) == 1000)
+                #expect(AppLaunchSessionValidationPolicy.backoffMilliseconds(attempt: 2) == 2000)
+                #expect(AppLaunchSessionValidationPolicy.backoffMilliseconds(attempt: 3) == 4000)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_backoffMilliseconds_cappedAtFourAttempts() {
+                let atFour = AppLaunchSessionValidationPolicy.backoffMilliseconds(attempt: 4)
+                let atFive = AppLaunchSessionValidationPolicy.backoffMilliseconds(attempt: 5)
+                let atTen = AppLaunchSessionValidationPolicy.backoffMilliseconds(attempt: 10)
+                #expect(atFour == atFive)
+                #expect(atFive == atTen)
+            }
+
+            @Test func appLaunchSessionValidationPolicy_maxRetryAttempts_isThree() {
+                #expect(AppLaunchSessionValidationPolicy.maxRetryAttempts == 3)
+            }
+
+            // MARK: - AppleCredentialCheckResult equatable
+
+            @Test func appleCredentialCheckResult_equatable() {
+                #expect(AppleCredentialCheckResult.failed == AppleCredentialCheckResult.failed)
+                #expect(AppleCredentialCheckResult.success(.authorized) == AppleCredentialCheckResult.success(.authorized))
+                #expect(AppleCredentialCheckResult.success(.revoked) != AppleCredentialCheckResult.success(.authorized))
+                #expect(AppleCredentialCheckResult.failed != AppleCredentialCheckResult.success(.authorized))
+            }
+
+            // MARK: - AppleCredentialValidationDecision equatable
+
+            @Test func appleCredentialValidationDecision_equatable() {
+                #expect(AppleCredentialValidationDecision.keepSession == AppleCredentialValidationDecision.keepSession)
+                #expect(AppleCredentialValidationDecision.signOut == AppleCredentialValidationDecision.signOut)
+                #expect(AppleCredentialValidationDecision.inconclusive == AppleCredentialValidationDecision.inconclusive)
+                #expect(AppleCredentialValidationDecision.keepSession != AppleCredentialValidationDecision.signOut)
             }
             @Test func homeRootViewportPresentation_frozenHeightWhilePushed() {
                 let resolution = HomeRootViewportPresentation.resolvedViewportHeight(

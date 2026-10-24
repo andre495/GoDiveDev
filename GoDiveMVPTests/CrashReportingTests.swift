@@ -242,6 +242,46 @@ struct CrashReportingTests {
         #expect(SettingsPresentation.ShareSecurityEvents.title == "Share diagnostic events")
     }
 
+    @Test func securityEventPresentation_automaticCredentialRevokedHasDistinctLabel() {
+        let userSignOut = SecurityEvent(
+            capturedAt: Date(timeIntervalSince1970: 100),
+            kindRaw: GoDiveSecurityEvent.Kind.signOut.rawValue,
+            appVersion: "1.0",
+            osVersion: "iOS 26",
+            ownerProfileID: UUID()
+        )
+        let automaticRevoked = SecurityEvent(
+            capturedAt: Date(timeIntervalSince1970: 200),
+            kindRaw: GoDiveSecurityEvent.Kind.automaticCredentialRevoked.rawValue,
+            appVersion: "1.0",
+            osVersion: "iOS 26",
+            ownerProfileID: UUID()
+        )
+        let userLabel = SecurityEventPresentation.kindLabel(userSignOut.kindRaw)
+        let autoLabel = SecurityEventPresentation.kindLabel(automaticRevoked.kindRaw)
+        #expect(userLabel == "Signed out")
+        #expect(autoLabel == "Signed out (credential revoked)")
+        #expect(userLabel != autoLabel)
+        let autoText = SecurityEventPresentation.exportText(for: automaticRevoked)
+        #expect(autoText.contains("credential revoked"))
+    }
+
+    @Test func goDiveSecurityEvent_automaticCredentialRevokedKindRawValue() {
+        #expect(GoDiveSecurityEvent.Kind.automaticCredentialRevoked.rawValue == "signOut.credentialRevoked")
+    }
+
+    @Test func goDiveSecurityEvent_userSignOutAndAutoRevokedAreDifferentKinds() {
+        GoDiveSecurityEvent.testRecorder = []
+        defer { GoDiveSecurityEvent.testRecorder = nil }
+        GoDiveSecurityEvent.record(.signOut)
+        GoDiveSecurityEvent.record(.automaticCredentialRevoked)
+        let kinds = GoDiveSecurityEvent.testRecorder?.map(\.0) ?? []
+        #expect(kinds.count == 2)
+        #expect(kinds[0] == .signOut)
+        #expect(kinds[1] == .automaticCredentialRevoked)
+        #expect(kinds[0] != kinds[1])
+    }
+
     @Test func crashReportCloudUploader_makeRecord_mapsFields() {
         let report = makeReport(capturedAt: Date(timeIntervalSince1970: 100), reason: "SIGSEGV")
         let record = CrashReportCloudUploader.makeRecord(for: report, detailsAssetFileURL: nil)

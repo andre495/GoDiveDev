@@ -127,6 +127,73 @@ struct AccountOnboardingTests {
             )
         }
 
+        @Test func returningAccountHints_clearLastSignedInSession_clearsIdentifiersButKeepsProfileMapping() {
+            let suite = "returning-hints-signout-\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            GoDiveKeychainStore.testingStore = [:]
+            defer {
+                defaults.removePersistentDomain(forName: suite)
+                GoDiveKeychainStore.testingStore = nil
+            }
+            let appleID = "apple-signout-test-\(UUID().uuidString)"
+            let profile = UserProfile(appleUserIdentifier: appleID, displayName: "Casey")
+            ReturningAccountHints.remember(profile: profile, userDefaults: defaults)
+            #expect(ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+            #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == appleID)
+            #expect(GoDiveKeychainStore.string(for: .lastProfileID) == profile.id.uuidString)
+
+            ReturningAccountHints.clearLastSignedInSession(appleUserIdentifier: appleID, userDefaults: defaults)
+
+            #expect(!ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+            #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == nil)
+            #expect(GoDiveKeychainStore.string(for: .lastProfileID) == nil)
+            #expect(GoDiveKeychainStore.string(for: .lastDisplayName) == nil)
+            #expect(
+                ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: appleID, userDefaults: defaults) == nil
+            )
+            #expect(
+                ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID, userDefaults: defaults) == nil
+            )
+        }
+
+        @Test func returningAccountHints_clearLastSignedInSession_clearsCachedDisplayName() {
+            let suite = "returning-hints-signout-name-\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            GoDiveKeychainStore.testingStore = [:]
+            defer {
+                defaults.removePersistentDomain(forName: suite)
+                GoDiveKeychainStore.testingStore = nil
+                UserProfileStore.cacheDisplayName(nil, forAppleUserIdentifier: "apple-signout-name")
+            }
+            let appleID = "apple-signout-name"
+            UserProfileStore.cacheDisplayName("Jordan", forAppleUserIdentifier: appleID)
+            #expect(UserProfileStore.cachedDisplayName(forAppleUserIdentifier: appleID) == "Jordan")
+
+            ReturningAccountHints.clearLastSignedInSession(appleUserIdentifier: appleID, userDefaults: defaults)
+
+            #expect(UserProfileStore.cachedDisplayName(forAppleUserIdentifier: appleID) == nil)
+        }
+
+        @Test func sessionRestore_requiresCurrentProfileID_notHintsAlone() {
+            let suite = "session-restore-hints-\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            GoDiveKeychainStore.testingStore = [:]
+            defer {
+                defaults.removePersistentDomain(forName: suite)
+                GoDiveKeychainStore.testingStore = nil
+            }
+
+            let appleID = "apple-hints-only"
+            let profileID = UUID()
+            _ = GoDiveKeychainStore.setString(appleID, account: .lastAppleUserIdentifier)
+            _ = GoDiveKeychainStore.setString(profileID.uuidString, account: .lastProfileID)
+            #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == appleID)
+            #expect(GoDiveKeychainStore.string(for: .lastProfileID) == profileID.uuidString)
+
+            let currentProfileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(userDefaults: defaults)
+            #expect(currentProfileID == nil)
+        }
+
         @Test func accountDeletionPresentation_copyIsDestructive() {
             #expect(AccountDeletionPresentation.buttonTitle == "Delete Account")
             #expect(AccountDeletionPresentation.confirmButtonTitle == "Delete account")
