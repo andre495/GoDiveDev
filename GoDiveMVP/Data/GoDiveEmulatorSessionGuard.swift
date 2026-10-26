@@ -17,24 +17,29 @@ enum GoDiveEmulatorSessionGuard {
         category: "EmulatorSessionGuard"
     )
 
-    nonisolated private static let emulatorSessionMarkerKey = "GoDiveEmulatorSessionActive"
+    nonisolated static let emulatorSessionMarkerKey = "GoDiveEmulatorSessionActive"
     nonisolated static let allowedTestEmailDomain = "@example.com"
 
     // MARK: - Marker Management (nonisolated, no Auth access)
 
     /// Records that the current Auth session came from the emulator.
-    nonisolated static func markSessionAsEmulator() {
-        UserDefaults.standard.set(true, forKey: emulatorSessionMarkerKey)
+    nonisolated static func markSessionAsEmulator(userDefaults: UserDefaults = .standard) {
+        userDefaults.set(true, forKey: emulatorSessionMarkerKey)
     }
 
     /// Clears the emulator session marker.
-    nonisolated static func clearEmulatorMarker() {
-        UserDefaults.standard.removeObject(forKey: emulatorSessionMarkerKey)
+    nonisolated static func clearEmulatorMarker(userDefaults: UserDefaults = .standard) {
+        userDefaults.removeObject(forKey: emulatorSessionMarkerKey)
     }
 
     /// `true` if the marker indicates an emulator session is active.
+    nonisolated static func hasEmulatorSessionMarker(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: emulatorSessionMarkerKey)
+    }
+
+    /// Legacy computed property for existing callers.
     nonisolated static var hasEmulatorSessionMarker: Bool {
-        UserDefaults.standard.bool(forKey: emulatorSessionMarkerKey)
+        hasEmulatorSessionMarker(userDefaults: .standard)
     }
 
     // MARK: - Pure Decision Logic (nonisolated, testable)
@@ -108,6 +113,74 @@ enum GoDiveEmulatorSessionGuard {
 
         log.info("Cleared emulator-origin session on non-emulator launch")
         return true
+    }
+
+    // MARK: - Testable Guard (injectable dependencies)
+
+    /// Result of a testable guard execution.
+    struct ClearResult: Equatable, Sendable {
+        let didClear: Bool
+        let signOutCalled: Bool
+        let persistedSessionCleared: Bool
+        let markerCleared: Bool
+    }
+
+    /// Testable version of the guard with injectable dependencies.
+    /// - Parameters:
+    ///   - isEmulatorEnabled: Whether the emulator is currently enabled.
+    ///   - hasMarker: Whether the emulator session marker is set.
+    ///   - currentUserEmail: The current Firebase user's email (if any).
+    ///   - signOut: Closure to sign out of Firebase Auth.
+    ///   - clearPersistedSession: Closure to clear persisted session state.
+    ///   - clearMarker: Closure to clear the emulator marker.
+    /// - Returns: Result indicating what was cleared.
+    nonisolated static func clearEmulatorSessionIfNeeded(
+        isEmulatorEnabled: Bool,
+        hasMarker: Bool,
+        currentUserEmail: String?,
+        signOut: () throws -> Void,
+        clearPersistedSession: () -> Void,
+        clearMarker: () -> Void
+    ) -> ClearResult {
+        guard !isEmulatorEnabled else {
+            return ClearResult(
+                didClear: false,
+                signOutCalled: false,
+                persistedSessionCleared: false,
+                markerCleared: false
+            )
+        }
+
+        guard shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: hasMarker,
+            currentUserEmail: currentUserEmail
+        ) else {
+            return ClearResult(
+                didClear: false,
+                signOutCalled: false,
+                persistedSessionCleared: false,
+                markerCleared: false
+            )
+        }
+
+        var signOutCalled = false
+        do {
+            try signOut()
+            signOutCalled = true
+        } catch {
+            signOutCalled = true
+        }
+
+        clearPersistedSession()
+        clearMarker()
+
+        return ClearResult(
+            didClear: true,
+            signOutCalled: signOutCalled,
+            persistedSessionCleared: true,
+            markerCleared: true
+        )
     }
 
     /// Logs a warning if the test sign-in flag is present without the emulator flag.
