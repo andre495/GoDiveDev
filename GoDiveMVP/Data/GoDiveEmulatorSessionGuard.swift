@@ -13,7 +13,7 @@ import os
 /// and signs out any session that originated from the emulator.
 enum GoDiveEmulatorSessionGuard {
     nonisolated private static let log = Logger(
-        subsystem: "PrimoSoftware.GoDiveMVP",
+        subsystem: "GoDive",
         category: "EmulatorSessionGuard"
     )
 
@@ -56,12 +56,25 @@ enum GoDiveEmulatorSessionGuard {
         return hasMarker || isTestEmail(currentUserEmail)
     }
 
+    // MARK: - Persisted Session Clearing (nonisolated, testable)
+
+    /// Clears all persisted session state for an emulator-origin session.
+    /// Called when an emulator session is detected on a non-emulator launch.
+    nonisolated static func clearPersistedEmulatorSession() {
+        AppLaunchSessionRestorePresentation.clearPersistedProfileID()
+        ReturningAccountHints.clearAll()
+        GoDiveFirestoreUserProfileMapping.clearCachedFirebaseUID()
+    }
+
     // MARK: - Guard Execution (must run on main thread)
 
     /// Clears any emulator session when running in production mode.
     /// Call from main thread after Firebase configure, before Firestore/Storage/FCM work.
     ///
     /// When emulator is enabled, this is a no-op (emulator sessions are expected).
+    ///
+    /// Clears: Firebase Auth session, emulator marker, persisted profile ID, returning
+    /// account hints, and cached Firebase UID. The user lands on Welcome after restore.
     ///
     /// - Parameter isEmulatorEnabled: Whether the emulator is currently enabled.
     /// - Returns: `true` if a session was cleared.
@@ -84,18 +97,17 @@ enum GoDiveEmulatorSessionGuard {
             return false
         }
 
-        let hadTestEmail = isTestEmail(currentEmail)
-
         do {
             try Auth.auth().signOut()
-            clearEmulatorMarker()
-            log.warning("Cleared emulator Auth session to prevent production access (marker=\(hasMarker) testEmail=\(hadTestEmail) email=\(currentEmail ?? "(none)", privacy: .private))")
-            return true
         } catch {
             log.error("Failed to sign out emulator session: \(String(describing: error), privacy: .private)")
-            clearEmulatorMarker()
-            return false
         }
+
+        clearPersistedEmulatorSession()
+        clearEmulatorMarker()
+
+        log.info("Cleared emulator-origin session on non-emulator launch")
+        return true
     }
 
     /// Logs a warning if the test sign-in flag is present without the emulator flag.

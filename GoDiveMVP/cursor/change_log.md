@@ -6,6 +6,45 @@ Agents: append summaries and bullets here during work; refresh **`cursor/app_sum
 
 ---
 
+## Fix emulator-session isolation (Issue #68)
+
+Prevent emulator-origin sessions from being restored on non-emulator Debug launches.
+
+### Bug
+
+When a user signed in via the emulator test sign-in (`-GoDiveUseFirebaseEmulator` + `-GoDiveEmulatorTestSignIn`), then relaunched without the emulator flag, the session was restored and the app ran against production Firebase with an emulator-origin identity.
+
+### Fix
+
+On any DEBUG launch without the emulator flag, if the persisted session came from the emulator (via the `GoDiveEmulatorSessionActive` marker), the guard now:
+
+1. Signs out of Firebase Auth locally
+2. Clears persisted session state from Keychain (`currentProfileID`)
+3. Clears returning account hints (`lastAppleUserIdentifier`, `lastProfileID`, `lastDisplayName`)
+4. Clears cached Firebase UID
+5. Clears the emulator session marker
+6. Logs one `.info` line (subsystem `GoDive`)
+
+The user lands on Welcome after session restore with no production Firestore/Storage calls made.
+
+### Changes
+
+- Added `clearPersistedEmulatorSession()` to `GoDiveEmulatorSessionGuard` — clears all Keychain-persisted session state
+- Updated `clearEmulatorSessionIfNeededOnMain` to call `clearPersistedEmulatorSession()` before clearing the marker
+- Changed log subsystem from `PrimoSoftware.GoDiveMVP` to `GoDive` and log level from `.warning` to `.info`
+- Added unit tests for session isolation: emulator-marked session on non-emulator launch is cleared, emulator-marked session on emulator launch is kept, no marker means unchanged, complete session clear removes all persisted state
+
+### Manual verification
+
+1. Launch with `-GoDiveUseFirebaseEmulator -GoDiveEmulatorTestSignIn qa@example.com`
+2. Sign in completes (emulator)
+3. Relaunch WITHOUT the emulator flag
+4. App lands on Welcome — no production calls made
+
+Fixes #68.
+
+---
+
 ## Add loading screen for returning account sync
 
 When a user signs back in to an existing account (Sign in with Apple), a loading screen now appears while their data syncs, instead of showing an empty Home screen.
