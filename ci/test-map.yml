@@ -1,0 +1,315 @@
+# Test Selection Map
+# Maps changed file paths to test suites for selective CI runs.
+#
+# Format:
+#   - pattern: glob pattern to match changed files
+#     suites: list of test class names (without .swift extension)
+#
+# Special behaviors:
+#   - "FULL" as a suite name triggers the full test suite
+#   - Paths matching multiple patterns get all their suites combined
+#   - Unmapped paths trigger FULL suite (fail-safe)
+#   - Core paths always trigger FULL suite
+#
+# To add a mapping:
+#   1. Add a pattern matching your file paths
+#   2. List the relevant test classes
+#   3. Run `ci/select-tests.sh --self-test` to verify
+
+# =============================================================================
+# CORE PATHS - Always run full suite
+# =============================================================================
+core_paths:
+  - "GoDiveMVP.xcodeproj/**"
+  - "GoDiveMVP/Data/AccountSession*.swift"
+  - "GoDiveMVP/Data/GoDiveFirebase*.swift"
+  - "GoDiveMVP/Data/AppModelContainer.swift"
+  - "GoDiveMVP/Data/AppLaunch*.swift"
+  - "GoDiveMVP/Models/**"
+  - "GoDiveMVPTests/GoDiveMVPTestSupport.swift"
+  - "GoDiveMVPTests/FishialAPITestSupport.swift"
+  - ".github/workflows/ios-ci.yml"
+  - "ci/**"
+
+# =============================================================================
+# PATH TO SUITE MAPPINGS
+# =============================================================================
+mappings:
+  # Account & Auth
+  - pattern: "GoDiveMVP/Data/Account*.swift"
+    suites:
+      - AccountOnboardingTests
+      - AccountSyncStateTests
+
+  - pattern: "GoDiveMVP/Data/ReturningAccount*.swift"
+    suites:
+      - AccountOnboardingTests
+      - AccountSyncStateTests
+
+  - pattern: "GoDiveMVP/Views/Pages/sign_in.swift"
+    suites:
+      - AccountOnboardingTests
+
+  # Dive Activities
+  - pattern: "GoDiveMVP/Data/DiveActivity*.swift"
+    suites:
+      - DiveActivityLogbookTests
+      - DiveActivityMediaTests
+      - DiveActivityOverviewTests
+
+  - pattern: "GoDiveMVP/Views/Pages/dive_activity*.swift"
+    suites:
+      - DiveActivityLogbookTests
+      - DiveActivityOverviewTests
+
+  - pattern: "GoDiveMVP/Views/Pages/logbook.swift"
+    suites:
+      - DiveActivityLogbookTests
+
+  # Snorkel Activities
+  - pattern: "GoDiveMVP/Data/SnorkelActivity*.swift"
+    suites:
+      - SnorkelActivityTests
+
+  - pattern: "GoDiveMVP/Views/Pages/snorkel*.swift"
+    suites:
+      - SnorkelActivityTests
+
+  # Buddies
+  - pattern: "GoDiveMVP/Data/DiveBuddy*.swift"
+    suites:
+      - DiveBuddyTests
+      - BuddyFeedTests
+
+  - pattern: "GoDiveMVP/Data/GoDiveBuddy*.swift"
+    suites:
+      - DiveBuddyTests
+      - BuddyFeedTests
+
+  - pattern: "GoDiveMVP/Views/Pages/buddy*.swift"
+    suites:
+      - DiveBuddyTests
+      - BuddyFeedTests
+
+  # Friends & Social
+  - pattern: "GoDiveMVP/Data/GoDiveFriend*.swift"
+    suites:
+      - GoDiveFriendInviteTests
+      - GoDiveFriendsMiscTests
+      - FriendSharedMediaTests
+
+  - pattern: "GoDiveMVP/Data/GoDiveShared*.swift"
+    suites:
+      - GoDiveSharedProjectionTests
+      - FriendSharedMediaTests
+
+  - pattern: "GoDiveMVP/Views/Pages/friends*.swift"
+    suites:
+      - GoDiveFriendInviteTests
+      - GoDiveFriendsMiscTests
+
+  # Trips
+  - pattern: "GoDiveMVP/Data/Trip*.swift"
+    suites:
+      - TripPlannerTests
+
+  - pattern: "GoDiveMVP/Views/Pages/trip*.swift"
+    suites:
+      - TripPlannerTests
+
+  # Equipment
+  - pattern: "GoDiveMVP/Data/Equipment*.swift"
+    suites:
+      - EquipmentTests
+
+  - pattern: "GoDiveMVP/Views/Pages/equipment*.swift"
+    suites:
+      - EquipmentTests
+
+  # Certifications
+  - pattern: "GoDiveMVP/Data/Certification*.swift"
+    suites:
+      - CertificationTests
+
+  - pattern: "GoDiveMVP/Views/Pages/certification*.swift"
+    suites:
+      - CertificationTests
+
+  # Home & Dashboard
+  - pattern: "GoDiveMVP/Data/Home*.swift"
+    suites:
+      - HomePresentationTests
+
+  - pattern: "GoDiveMVP/Views/Pages/home*.swift"
+    suites:
+      - HomePresentationTests
+
+  # Explore & Maps
+  - pattern: "GoDiveMVP/Data/Explore*.swift"
+    suites:
+      - ExploreMapTests
+
+  - pattern: "GoDiveMVP/Data/DiveLocation*.swift"
+    suites:
+      - ExploreMapTests
+
+  - pattern: "GoDiveMVP/Data/DiveSite*.swift"
+    suites:
+      - ExploreMapTests
+
+  - pattern: "GoDiveMVP/Views/Pages/explore*.swift"
+    suites:
+      - ExploreMapTests
+
+  - pattern: "GoDiveMVP/Views/Components/*Map*.swift"
+    suites:
+      - ExploreMapTests
+
+  # Field Guide & Marine Life
+  - pattern: "GoDiveMVP/Data/FieldGuide*.swift"
+    suites:
+      - FieldGuideTests
+
+  - pattern: "GoDiveMVP/Data/MarineLife*.swift"
+    suites:
+      - FieldGuideTests
+
+  - pattern: "GoDiveMVP/Views/Pages/field_guide*.swift"
+    suites:
+      - FieldGuideTests
+
+  # Import/Export
+  - pattern: "GoDiveMVP/Data/Import*.swift"
+    suites:
+      - ImportDecoderTests
+
+  - pattern: "GoDiveMVP/Data/*Decoder*.swift"
+    suites:
+      - ImportDecoderTests
+
+  # Navigation
+  - pattern: "GoDiveMVP/Data/Navigation*.swift"
+    suites:
+      - NavigationPresentationTests
+
+  - pattern: "GoDiveMVP/Views/Pages/ContentView.swift"
+    suites:
+      - NavigationPresentationTests
+
+  # Profile
+  - pattern: "GoDiveMVP/Data/Profile*.swift"
+    suites:
+      - ProfilePresentationTests
+
+  - pattern: "GoDiveMVP/Views/Pages/profile*.swift"
+    suites:
+      - ProfilePresentationTests
+
+  # Security & Settings
+  - pattern: "GoDiveMVP/Data/Security*.swift"
+    suites:
+      - SecurityAndSettingsTests
+      - CrashReportingTests
+
+  - pattern: "GoDiveMVP/Data/AppUserSettings*.swift"
+    suites:
+      - SecurityAndSettingsTests
+
+  - pattern: "GoDiveMVP/Views/Pages/settings*.swift"
+    suites:
+      - SecurityAndSettingsTests
+
+  # Search
+  - pattern: "GoDiveMVP/Data/GlobalSearch*.swift"
+    suites:
+      - GlobalSearchTests
+
+  - pattern: "GoDiveMVP/Views/Pages/search*.swift"
+    suites:
+      - GlobalSearchTests
+
+  # Tagging
+  - pattern: "GoDiveMVP/Data/Tagging*.swift"
+    suites:
+      - TaggingSheetTests
+      - TaggingSheetSelectionPresentationTests
+
+  - pattern: "GoDiveMVP/Views/Components/*Tagging*.swift"
+    suites:
+      - TaggingSheetTests
+      - TaggingSheetSelectionPresentationTests
+
+  # Emulator/Firebase test config
+  - pattern: "GoDiveMVP/Data/GoDiveEmulator*.swift"
+    suites:
+      - EmulatorTestSignInTests
+      - FirebaseEmulatorConfigTests
+
+  # SwiftData Infrastructure
+  - pattern: "GoDiveMVP/Data/SwiftData*.swift"
+    suites:
+      - SwiftDataInfrastructureTests
+
+  # Test files map to themselves
+  - pattern: "GoDiveMVPTests/AccountOnboardingTests.swift"
+    suites: [AccountOnboardingTests]
+  - pattern: "GoDiveMVPTests/AccountSyncStateTests.swift"
+    suites: [AccountSyncStateTests]
+  - pattern: "GoDiveMVPTests/BuddyFeedTests.swift"
+    suites: [BuddyFeedTests]
+  - pattern: "GoDiveMVPTests/CertificationTests.swift"
+    suites: [CertificationTests]
+  - pattern: "GoDiveMVPTests/CrashReportingTests.swift"
+    suites: [CrashReportingTests]
+  - pattern: "GoDiveMVPTests/DiveActivityLogbookTests.swift"
+    suites: [DiveActivityLogbookTests]
+  - pattern: "GoDiveMVPTests/DiveActivityMediaTests.swift"
+    suites: [DiveActivityMediaTests]
+  - pattern: "GoDiveMVPTests/DiveActivityOverviewTests.swift"
+    suites: [DiveActivityOverviewTests]
+  - pattern: "GoDiveMVPTests/DiveActivityOverviewTwoDetentTests.swift"
+    suites: [DiveActivityOverviewTwoDetentTests]
+  - pattern: "GoDiveMVPTests/DiveBuddyTests.swift"
+    suites: [DiveBuddyTests]
+  - pattern: "GoDiveMVPTests/EmulatorTestSignInTests.swift"
+    suites: [EmulatorTestSignInTests]
+  - pattern: "GoDiveMVPTests/EquipmentTests.swift"
+    suites: [EquipmentTests]
+  - pattern: "GoDiveMVPTests/ExploreMapTests.swift"
+    suites: [ExploreMapTests]
+  - pattern: "GoDiveMVPTests/FieldGuideTests.swift"
+    suites: [FieldGuideTests]
+  - pattern: "GoDiveMVPTests/FirebaseEmulatorConfigTests.swift"
+    suites: [FirebaseEmulatorConfigTests]
+  - pattern: "GoDiveMVPTests/FriendSharedMediaTests.swift"
+    suites: [FriendSharedMediaTests]
+  - pattern: "GoDiveMVPTests/GlobalSearchTests.swift"
+    suites: [GlobalSearchTests]
+  - pattern: "GoDiveMVPTests/GoDiveFriendInviteTests.swift"
+    suites: [GoDiveFriendInviteTests]
+  - pattern: "GoDiveMVPTests/GoDiveFriendsMiscTests.swift"
+    suites: [GoDiveFriendsMiscTests]
+  - pattern: "GoDiveMVPTests/GoDiveMVPMiscTests.swift"
+    suites: [GoDiveMVPMiscTests]
+  - pattern: "GoDiveMVPTests/GoDiveSharedProjectionTests.swift"
+    suites: [GoDiveSharedProjectionTests]
+  - pattern: "GoDiveMVPTests/HomePresentationTests.swift"
+    suites: [HomePresentationTests]
+  - pattern: "GoDiveMVPTests/ImportDecoderTests.swift"
+    suites: [ImportDecoderTests]
+  - pattern: "GoDiveMVPTests/NavigationPresentationTests.swift"
+    suites: [NavigationPresentationTests]
+  - pattern: "GoDiveMVPTests/ProfilePresentationTests.swift"
+    suites: [ProfilePresentationTests]
+  - pattern: "GoDiveMVPTests/SecurityAndSettingsTests.swift"
+    suites: [SecurityAndSettingsTests]
+  - pattern: "GoDiveMVPTests/SnorkelActivityTests.swift"
+    suites: [SnorkelActivityTests]
+  - pattern: "GoDiveMVPTests/SwiftDataInfrastructureTests.swift"
+    suites: [SwiftDataInfrastructureTests]
+  - pattern: "GoDiveMVPTests/TaggingSheetSelectionPresentationTests.swift"
+    suites: [TaggingSheetSelectionPresentationTests]
+  - pattern: "GoDiveMVPTests/TaggingSheetTests.swift"
+    suites: [TaggingSheetTests]
+  - pattern: "GoDiveMVPTests/TripPlannerTests.swift"
+    suites: [TripPlannerTests]

@@ -1,0 +1,318 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly full test run at 3am UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      full_suite:
+        description: "Run full test suite"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Determine which tests to run based on changed files
+  select-tests:
+    name: Select Tests
+    runs-on: ubuntu-latest
+    outputs:
+      test_args: ${{ steps.select.outputs.test_args }}
+      run_full: ${{ steps.select.outputs.run_full }}
+      run_ios_tests: ${{ steps.select.outputs.run_ios_tests }}
+      run_rules_tests: ${{ steps.select.outputs.run_rules_tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Select test suites
+        id: select
+        run: |
+          # Full suite on: push to main, nightly schedule, manual trigger with full_suite
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Push to main - running full suite"
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "Nightly schedule - running full suite"
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event.inputs.full_suite }}" == "true" ]]; then
+            echo "Manual trigger with full_suite - running full suite"
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # For PRs, use selective testing
+          # Run script, show stderr in logs, capture only stdout for result
+          echo "Running test selection..."
+          ci/select-tests.sh 2>&1 | head -20 || true  # Show debug output
+          result=$(ci/select-tests.sh 2>/dev/null) || true
+          echo "Selection result: $result"
+
+          # Check if rules tests should run (catalog-cdn changes)
+          changed_files=$(git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+          if echo "$changed_files" | grep -q "^catalog-cdn/"; then
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_rules_tests=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Trim whitespace and compare
+          result=$(echo "$result" | tr -d '\n' | xargs)
+          if [[ "$result" == "FULL" ]]; then
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$result" == "NO_TESTS" ]]; then
+            echo "test_args=" >> "$GITHUB_OUTPUT"
+            echo "run_full=false" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "test_args=$result" >> "$GITHUB_OUTPUT"
+            echo "run_full=false" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate summary
+        run: |
+          ci/select-tests.sh --summary >> "$GITHUB_STEP_SUMMARY" || true
+
+  build-and-test:
+    name: Build & Test
+    needs: select-tests
+    if: needs.select-tests.outputs.run_ios_tests == 'true'
+    runs-on: xcode-27
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Select Xcode 27.1
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: "27.1"
+
+      - name: Create placeholder GoogleService-Info.plist
+        run: |
+          # Use YOUR_API_KEY pattern which GoDiveFirebaseBootstrap detects and skips
+          cat > GoDiveMVP/Config/GoogleService-Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>API_KEY</key>
+              <string>YOUR_API_KEY</string>
+              <key>BUNDLE_ID</key>
+              <string>PrimoSoftware.GoDiveMVP</string>
+              <key>GCM_SENDER_ID</key>
+              <string>000000000000</string>
+              <key>GOOGLE_APP_ID</key>
+              <string>YOUR_GOOGLE_APP_ID</string>
+              <key>IS_ADS_ENABLED</key>
+              <false/>
+              <key>IS_ANALYTICS_ENABLED</key>
+              <false/>
+              <key>IS_APPINVITE_ENABLED</key>
+              <false/>
+              <key>IS_GCM_ENABLED</key>
+              <false/>
+              <key>IS_SIGNIN_ENABLED</key>
+              <false/>
+              <key>PLIST_VERSION</key>
+              <string>1</string>
+              <key>PROJECT_ID</key>
+              <string>demo-godive-ci</string>
+              <key>STORAGE_BUCKET</key>
+              <string>demo-godive-ci.firebasestorage.app</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Create placeholder GoogleMapsSecrets.plist
+        run: |
+          cat > GoDiveMVP/Config/GoogleMapsSecrets.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>APIKey</key>
+              <string>CI_PLACEHOLDER_MAPS_API_KEY</string>
+              <key>MapID</key>
+              <string></string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-xcode27-${{ hashFiles('GoDiveMVP.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            spm-${{ runner.os }}-xcode27-
+
+      - name: Resolve SPM packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project GoDiveMVP.xcodeproj \
+            -scheme GoDiveMVP \
+            -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages"
+
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project GoDiveMVP.xcodeproj \
+            -scheme GoDiveMVP \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
+            -clonedSourcePackagesDirPath "$HOME/Library/Developer/Xcode/DerivedData/GoDiveMVP/SourcePackages" \
+            -derivedDataPath DerivedData \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build.log
+          grep -E "warning:" build.log || true
+
+      - name: Run unit tests
+        env:
+          TEST_ARGS: ${{ needs.select-tests.outputs.test_args }}
+        run: |
+          set -o pipefail
+          echo "Test arguments: $TEST_ARGS"
+
+          # Build xcodebuild command with selective test args
+          cmd=(xcodebuild test-without-building
+            -project GoDiveMVP.xcodeproj
+            -scheme GoDiveMVP
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0'
+            -derivedDataPath DerivedData
+            -resultBundlePath TestResults.xcresult
+            -parallel-testing-enabled YES)
+
+          # Add test selection args (may be multiple -only-testing flags)
+          if [[ -n "$TEST_ARGS" ]]; then
+            for arg in $TEST_ARGS; do
+              cmd+=("$arg")
+            done
+          else
+            cmd+=("-only-testing:GoDiveMVPTests")
+          fi
+
+          "${cmd[@]}" 2>&1 | tee test.log
+          grep -E "(Test Suite|Executed|failed|FAILED)" test.log || true
+
+      - name: Test summary
+        if: always()
+        env:
+          RUN_FULL: ${{ needs.select-tests.outputs.run_full }}
+          TEST_ARGS: ${{ needs.select-tests.outputs.test_args }}
+        run: |
+          echo "## iOS Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$RUN_FULL" == "true" ]]; then
+            echo "**Mode:** Full test suite" >> "$GITHUB_STEP_SUMMARY"
+          else
+            suite_count=$(echo "$TEST_ARGS" | tr ' ' '\n' | grep -c "only-testing" || echo "0")
+            echo "**Mode:** Selective ($suite_count suites)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f test.log ]]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "(Test Suite .* (passed|failed)|Executed [0-9]+ test|FAILED)" test.log | tail -20 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 7
+
+  firebase-rules-tests:
+    name: Firebase Rules Tests
+    needs: select-tests
+    if: needs.select-tests.outputs.run_rules_tests == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check if rules-tests exist
+        id: check-tests
+        run: |
+          if [ -d "catalog-cdn/rules-tests" ] && [ -f "catalog-cdn/rules-tests/package.json" ]; then
+            echo "tests_exist=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests_exist=false" >> "$GITHUB_OUTPUT"
+            echo "No Firebase rules tests found, skipping"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: catalog-cdn/rules-tests/package-lock.json
+
+      - name: Setup Java 21
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006232cccaa061b # v4.6.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install dependencies
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        working-directory: catalog-cdn/rules-tests
+        run: npm ci
+
+      - name: Run Firestore rules tests
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        working-directory: catalog-cdn/rules-tests
+        run: npm run test:firestore
+
+      - name: Run Storage rules tests
+        if: steps.check-tests.outputs.tests_exist == 'true'
+        working-directory: catalog-cdn/rules-tests
+        run: npm run test:storage
