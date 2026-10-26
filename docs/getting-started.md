@@ -59,9 +59,28 @@ When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDi
 - On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**) over Wi‑Fi or cellular, including in the background when iOS allows.
 - GoDive may also create a lightweight **Firebase** social profile (display name, optional photo) used for [Friends](friends.md) — QR invites, Buddy Feed, and what you choose to share. That is separate from your private dive log. See the [Privacy Policy](privacy-and-data.md).
 
-### First-time welcome
+### Returning to an existing account
 
-Returning sign-ins skip profile setup and open Home after the bubble celebration. Permissions for **Contacts** and **Photos** are requested during new-account onboarding (after profile setup, before the optional import slide).
+When you sign back in to an account that already has dives (for example, after reinstalling GoDive or setting up a new device), a loading screen appears while your data syncs:
+
+- **"Restoring your dives…"** — your dive log is syncing from iCloud  
+- **"Loading account…"** — your profile is loading  
+- **"Loading friends…"** — your friends list is syncing  
+
+Once everything finishes, GoDive opens to Home with your dives ready.
+
+**If sync takes a while:** after about 20 seconds, GoDive opens Home anyway and shows a **"Still syncing…"** banner at the top. When your data lands, the banner changes to **"Sync complete"** and dismisses itself — you don't need to do anything.
+
+**If you're offline or iCloud is unavailable:** a message explains the issue ("You're offline" or "iCloud unavailable") with two buttons:
+
+- **Retry** — try syncing again after reconnecting  
+- **Continue** — open Home without waiting (your dives will sync when connectivity returns)  
+
+New accounts skip this sync screen and go straight through the onboarding steps described above.
+
+### Permissions
+
+Permissions for **Contacts** and **Photos** are requested during new-account onboarding (after profile setup, before the optional import slide).
 
 ## Your first dive
 
@@ -134,3 +153,17 @@ Open **Profile → menu (☰) → Settings** to choose:
 - **Auto-upload media to activities**
 
 Details are in [Settings](settings.md).
+
+## Troubleshooting
+
+### Sync stuck or slow when signing back in
+
+When you return to an existing account, GoDive syncs your dive log from iCloud. This usually takes a few seconds, but a large log or slow connection can take longer. If it takes more than about 20 seconds, GoDive opens Home with a **"Still syncing…"** banner so you can start using the app while data finishes loading in the background.
+
+If you see **"You're offline"** or **"iCloud unavailable"**:
+
+1. Check that you have an internet connection (Wi‑Fi or cellular).  
+2. Make sure you're signed into **iCloud** in **iOS Settings → [your name]** with the same Apple ID you used before.  
+3. Tap **Retry** to try again, or **Continue** to open Home and let sync finish when connectivity returns.
+
+Your dives are safe in iCloud — they'll appear once the connection is restored.
