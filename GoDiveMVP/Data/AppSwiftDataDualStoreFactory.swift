@@ -4,20 +4,22 @@ import Foundation
 import os
 import SwiftData
 
-/// Protocol for running CloudKit diagnostic probes, enabling dependency injection in tests.
+/// Protocol for running CloudKit-backed diagnostic probes (A, B, D, E, F).
+/// Local-only probe (C) always runs directly in **`runCloudKitOpenProbes`** so tests still verify SwiftData opens.
 protocol CloudKitProbeRunning: Sendable {
-    /// Runs probes and returns diagnostic result lines to be written to the diagnostics file.
-    func runProbes(rootDirectory: URL) -> [String]
+    /// Runs CloudKit-backed probes and returns diagnostic result lines.
+    /// Called from a nonisolated context; implementations must be nonisolated.
+    nonisolated func runCloudKitProbes(probeRoot: URL) -> [String]
 }
 
 /// Production implementation of **`CloudKitProbeRunning`** that exercises real CloudKit container opens.
-struct LiveCloudKitProbeRunner: CloudKitProbeRunning {
-    nonisolated func runProbes(rootDirectory: URL) -> [String] {
-        var lines: [String] = ["--- probes ---"]
+struct LiveCloudKitProbeRunner: CloudKitProbeRunning, Sendable {
+    nonisolated init() {}
+
+    nonisolated func runCloudKitProbes(probeRoot: URL) -> [String] {
+        var lines: [String] = []
         let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
         let fullSchema = Schema(AppSwiftDataStorePartition.allModelTypes)
-        let probeRoot = rootDirectory.appendingPathComponent("CloudKitProbes", isDirectory: true)
-        try? FileManager.default.createDirectory(at: probeRoot, withIntermediateDirectories: true)
 
         // Probe A: user models only + private CloudKit
         do {
@@ -70,22 +72,6 @@ struct LiveCloudKitProbeRunner: CloudKitProbeRunning {
             lines.append("probeB_dualUserCloudKit=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
         }
 
-        // Probe C: user only local (control)
-        do {
-            let url = probeRoot.appendingPathComponent("probe-user-local.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeUserLocal",
-                schema: userSchema,
-                url: url,
-                cloudKitDatabase: .none
-            )
-            _ = try ModelContainer(for: userSchema, configurations: [config])
-            lines.append("probeC_userOnlyLocal=success")
-        } catch {
-            lines.append("probeC_userOnlyLocal=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
-        }
-
         // Probe D: Core Data CloudKit load — surfaces the real validation reason SwiftData hides.
         lines.append(contentsOf: AppSwiftDataDualStoreFactory.runCoreDataCloudKitValidationProbe(probeRoot: probeRoot))
 
@@ -122,7 +108,6 @@ struct LiveCloudKitProbeRunner: CloudKitProbeRunning {
             lines.append("probeF_userProfileOnlyCloudKit=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
         }
 
-        lines.append("policyVersion=\(AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersion)")
         return lines
     }
 }
@@ -518,14 +503,46 @@ enum AppSwiftDataDualStoreFactory {
 
     /// Probe CloudKit open shapes and append results (helps isolate multi-store vs schema failures).
     ///
-    /// - Parameter probeRunner: Runs the CloudKit probe suite and returns diagnostic lines.
-    ///   Defaults to the production **`LiveCloudKitProbeRunner`**; inject a fake for unit tests.
+    /// - Parameter cloudKitProbeRunner: Runs CloudKit-backed probes (A, B, D, E, F). Defaults to
+    ///   **`LiveCloudKitProbeRunner`**; inject a fake for unit tests. Probe C (local-only) always
+    ///   runs directly so tests still verify real SwiftData opens.
     nonisolated static func runCloudKitOpenProbes(
         rootDirectory: URL,
-        probeRunner: (any CloudKitProbeRunning)? = nil
+        cloudKitProbeRunner: (any CloudKitProbeRunning)? = nil
     ) {
-        let runner = probeRunner ?? LiveCloudKitProbeRunner()
-        let lines = runner.runProbes(rootDirectory: rootDirectory)
+        var lines: [String] = ["--- probes ---"]
+        let probeRoot = rootDirectory.appendingPathComponent("CloudKitProbes", isDirectory: true)
+        try? FileManager.default.createDirectory(at: probeRoot, withIntermediateDirectories: true)
+
+        let runner = cloudKitProbeRunner ?? LiveCloudKitProbeRunner()
+
+        // Probes A, B from CloudKit runner (before C)
+        let cloudKitLines = runner.runCloudKitProbes(probeRoot: probeRoot)
+        let probeAB = cloudKitLines.filter { $0.hasPrefix("probeA_") || $0.hasPrefix("probeB_") }
+        lines.append(contentsOf: probeAB)
+
+        // Probe C: user only local (control) — always runs directly so tests verify real SwiftData opens
+        let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
+        do {
+            let url = probeRoot.appendingPathComponent("probe-user-local.store")
+            try? FileManager.default.removeItem(at: url)
+            let config = ModelConfiguration(
+                "ProbeUserLocal",
+                schema: userSchema,
+                url: url,
+                cloudKitDatabase: .none
+            )
+            _ = try ModelContainer(for: userSchema, configurations: [config])
+            lines.append("probeC_userOnlyLocal=success")
+        } catch {
+            lines.append("probeC_userOnlyLocal=FAIL \(describeErrorForProbe(error))")
+        }
+
+        // Probes D, E, F from CloudKit runner (after C)
+        let probeDEF = cloudKitLines.filter { $0.hasPrefix("probeD_") || $0.hasPrefix("probeE_") || $0.hasPrefix("probeF_") }
+        lines.append(contentsOf: probeDEF)
+
+        lines.append("policyVersion=\(cloudKitOpenPolicyVersion)")
 
         let path = rootDirectory.appendingPathComponent(cloudKitDiagnosticsFileName)
         let existing = (try? String(contentsOf: path, encoding: .utf8)) ?? ""
