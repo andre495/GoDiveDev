@@ -31,19 +31,22 @@ enum DiveActivityMediaStorage {
 
     /// Persists a **pointer** to a Photos-library asset (no byte copy): pixels/frames load on demand via
     /// **`DiveMediaReferenceLoader`**. Used by auto-attach and the manual picker.
+    ///
+    /// - Parameter cloudIdentifierResolver: Resolver for Photos cloud identifiers. Defaults to the
+    ///   production **`PhotoKitCloudIdentifierResolver`**; inject a fake for unit tests.
     @discardableResult
     static func addLibraryReference(
         localIdentifier: String,
         mediaKind: DiveMediaKind,
         capturedAt: Date? = nil,
         to activity: DiveActivity,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        cloudIdentifierResolver: (any CloudIdentifierResolving)? = nil
     ) throws -> UUID {
         let trimmedLocal = localIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         #if canImport(Photos)
-        let cloudIdentifier = DiveMediaCloudIdentifierResolver.cloudIdentifierString(
-            forLocalIdentifier: trimmedLocal
-        ) ?? ""
+        let resolver = cloudIdentifierResolver ?? PhotoKitCloudIdentifierResolver.shared
+        let cloudIdentifier = resolver.cloudIdentifierString(forLocalIdentifier: trimmedLocal) ?? ""
         #else
         let cloudIdentifier = ""
         #endif

@@ -787,14 +787,32 @@ struct CrashReportingTests {
         try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temp) }
 
-        // Skip CloudKit probes in unit tests to avoid hangs on Xcode 27 simulators without iCloud.
-        AppSwiftDataDualStoreFactory.runCloudKitOpenProbes(rootDirectory: temp, skipCloudKitProbes: true)
+        // Fake probe runner returns simulated success/failure lines without touching real CloudKit.
+        struct FakeCloudKitProbeRunner: CloudKitProbeRunning {
+            func runProbes(rootDirectory: URL) -> [String] {
+                [
+                    "--- probes ---",
+                    "probeA_userOnlyCloudKit=FAIL domain=test code=1 desc=simulated iCloud unavailable",
+                    "probeB_dualUserCloudKit=FAIL domain=test code=1 desc=simulated iCloud unavailable",
+                    "probeC_userOnlyLocal=success",
+                    "probeD_coreDataCloudKit=FAIL domain=test code=1 desc=simulated iCloud unavailable",
+                    "probeE_userOnlyAutomaticCloudKit=FAIL domain=test code=1 desc=simulated iCloud unavailable",
+                    "probeF_userProfileOnlyCloudKit=FAIL domain=test code=1 desc=simulated iCloud unavailable",
+                    "policyVersion=\(AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersion)",
+                ]
+            }
+        }
+
+        AppSwiftDataDualStoreFactory.runCloudKitOpenProbes(rootDirectory: temp, probeRunner: FakeCloudKitProbeRunner())
         let path = temp.appendingPathComponent(AppSwiftDataDualStoreFactory.cloudKitDiagnosticsFileName)
         let text = try String(contentsOf: path, encoding: .utf8)
+
+        // Verify diagnostics file is written with probe results.
+        #expect(text.contains("--- probes ---"))
         #expect(text.contains("probeC_userOnlyLocal=success"))
-        // CloudKit probes are skipped in tests; verify they emit the SKIPPED result line.
-        #expect(text.contains("probeA_userOnlyCloudKit=SKIPPED"))
-        #expect(text.contains("probeB_dualUserCloudKit=SKIPPED"))
+        #expect(text.contains("probeA_userOnlyCloudKit=FAIL"))
+        #expect(text.contains("probeB_dualUserCloudKit=FAIL"))
+        #expect(text.contains("policyVersion=\(AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersion)"))
     }
 
     @Test func marineLifeOwnership_infersFromUUIDPrefix() {
