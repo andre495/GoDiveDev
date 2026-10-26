@@ -76,7 +76,10 @@ jobs:
           fi
 
           # For PRs, use selective testing
-          result=$(ci/select-tests.sh 2>&1) || true
+          # Run script, show stderr in logs, capture only stdout for result
+          echo "Running test selection..."
+          ci/select-tests.sh 2>&1 | head -20 || true  # Show debug output
+          result=$(ci/select-tests.sh 2>/dev/null) || true
           echo "Selection result: $result"
 
           # Check if rules tests should run (catalog-cdn changes)
@@ -87,6 +90,8 @@ jobs:
             echo "run_rules_tests=false" >> "$GITHUB_OUTPUT"
           fi
 
+          # Trim whitespace and compare
+          result=$(echo "$result" | tr -d '\n' | xargs)
           if [[ "$result" == "FULL" ]]; then
             echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
             echo "run_full=true" >> "$GITHUB_OUTPUT"
