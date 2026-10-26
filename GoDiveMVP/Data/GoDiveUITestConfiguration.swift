@@ -12,4 +12,15 @@ enum GoDiveUITestConfiguration: Sendable {
         }
         return ProcessInfo.processInfo.environment[launchEnvironmentKey] == "1"
     }
+
+    #if DEBUG
+    /// DEBUG-only: Open Explore → Map → All Sites on launch with real catalog sites.
+    /// Use with `-GoDiveMockSeed` to populate catalog data.
+    /// Skips onboarding and the UITest stub to exercise the actual map view.
+    nonisolated static let openExploreMapArgument = "-GoDiveOpenExploreMap"
+
+    nonisolated static var shouldOpenExploreMap: Bool {
+        ProcessInfo.processInfo.arguments.contains(openExploreMapArgument)
+    }
+    #endif
 }

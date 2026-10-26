@@ -27,13 +27,12 @@ enum DiveSiteCoordinatePickerPresentation: Sendable {
     }
 
     nonisolated static func region(for center: DiveCoordinate) -> MKCoordinateRegion {
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: center.latitude, longitude: center.longitude),
-            span: MKCoordinateSpan(
-                latitudeDelta: pickerLatitudeDelta,
-                longitudeDelta: pickerLongitudeDelta
-            )
-        )
+        DiveLocationMapRegionSpec(
+            centerLatitude: center.latitude,
+            centerLongitude: center.longitude,
+            latitudeDelta: pickerLatitudeDelta,
+            longitudeDelta: pickerLongitudeDelta
+        ).mkCoordinateRegion
     }
 
     nonisolated static func formattedLatitude(_ value: Double) -> String {

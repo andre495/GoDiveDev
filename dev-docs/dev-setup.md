@@ -109,3 +109,27 @@ Do not create, commit, or request these files for local development.
 ## Swift Package Manager
 
 SPM dependencies resolve automatically when you open the project in Xcode. No manual `swift package resolve` is required.
+
+## DEBUG Launch Arguments
+
+The following launch arguments are available in **DEBUG builds only** (compiled out of Release):
+
+| Argument | Description |
+|---|---|
+| `-GoDiveUITest` | Activates UITest mode: shows stub `GoDiveUITestRootView` instead of the real app, disables animations, skips network/CloudKit. |
+| `-GoDiveOpenExploreMap` | Opens Explore → Map → All Sites on launch with real catalog sites. Bypasses onboarding and the UITest stub. Use for testing the map view with worldwide data. Combine with `-GoDiveMockSeed` to populate sample data. |
+| `-GoDiveMockSeed` | Seeds mock dive/site data from bundled JSON on launch. See `dev-docs/mock-data-seeding.md`. |
+| `-GoDiveUseFirebaseEmulator` | Points Firebase SDKs at the local emulator (Auth, Firestore, Storage). Start the emulator first with `firebase emulators:start`. |
+| `-GoDiveEmulatorTestSignIn <email>` | Auto-signs in with the given `@example.com` email on launch. Requires `-GoDiveUseFirebaseEmulator`. See `dev-docs/emulator-test-signin.md`. |
+
+### Testing the Explore Map (Issue #53)
+
+To manually verify that the Map tab handles worldwide catalog sites without crashing:
+
+1. Set scheme arguments in Xcode: Product > Scheme > Edit Scheme > Run > Arguments
+2. Add `-GoDiveOpenExploreMap` and `-GoDiveMockSeed`
+3. Build and run (DEBUG configuration)
+4. The app should open directly to the Explore tab with Map view and All Sites scope
+5. The map should display the world view without crashing
+
+The UI test `testExploreMapTab_allSitesScope_doesNotCrash` exercises this path automatically.

@@ -334,15 +334,16 @@ extension TripDetailMapPresentation {
     }
 
     static func gmsCoordinateBounds(for region: DiveLocationMapRegionSpec) -> GMSCoordinateBounds {
-        let halfLatitude = region.latitudeDelta / 2
-        let halfLongitude = region.longitudeDelta / 2
+        let safe = region.sanitized
+        let halfLatitude = safe.latitudeDelta / 2
+        let halfLongitude = safe.longitudeDelta / 2
         let northEast = CLLocationCoordinate2D(
-            latitude: region.centerLatitude + halfLatitude,
-            longitude: region.centerLongitude + halfLongitude
+            latitude: safe.centerLatitude + halfLatitude,
+            longitude: safe.centerLongitude + halfLongitude
         )
         let southWest = CLLocationCoordinate2D(
-            latitude: region.centerLatitude - halfLatitude,
-            longitude: region.centerLongitude - halfLongitude
+            latitude: safe.centerLatitude - halfLatitude,
+            longitude: safe.centerLongitude - halfLongitude
         )
         return GMSCoordinateBounds(coordinate: northEast, coordinate: southWest)
     }
