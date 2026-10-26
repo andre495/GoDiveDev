@@ -2160,6 +2160,8 @@ struct DiveActivityMediaTests {
 
         @Test @MainActor
         func diveActivityMediaStorage_addLibraryReference_persistsOrderedRows() throws {
+            DiveMediaCloudIdentifierResolver.skipPhotoKitCallsForTesting = true
+            defer { DiveMediaCloudIdentifierResolver.skipPhotoKitCallsForTesting = false }
             let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
             let context = ModelContext(container)
             let activity = DiveActivity(
@@ -2215,6 +2217,8 @@ struct DiveActivityMediaTests {
 
         @Test @MainActor
         func diveActivityMediaStorage_addLibraryReference_persistsCapturedAt() throws {
+            DiveMediaCloudIdentifierResolver.skipPhotoKitCallsForTesting = true
+            defer { DiveMediaCloudIdentifierResolver.skipPhotoKitCallsForTesting = false }
             let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
             let context = ModelContext(container)
             let activity = DiveActivity(
@@ -4104,6 +4108,8 @@ struct DiveActivityMediaTests {
                 #expect(present.libraryCloudIdentifier == "cloud/1")
             }
             @Test @MainActor func diveMediaStorage_addLibraryReference_persistsPointerWithoutBytes() throws {
+                DiveMediaCloudIdentifierResolver.skipPhotoKitCallsForTesting = true
+                defer { DiveMediaCloudIdentifierResolver.skipPhotoKitCallsForTesting = false }
                 let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
                 let context = ModelContext(container)
                 let activity = DiveActivity(

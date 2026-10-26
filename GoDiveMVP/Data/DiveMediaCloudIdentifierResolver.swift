@@ -21,9 +21,14 @@ enum DiveMediaCloudIdentifierCodec: Sendable {
 /// Maps Photos local ↔ cloud identifiers for cross-device dive media pointers.
 enum DiveMediaCloudIdentifierResolver: Sendable {
 
+    /// Set to `true` in unit tests to skip PhotoKit calls that can hang on Xcode 27 simulators.
+    /// This is safe to set from any thread since it only affects new calls (not thread-safe mid-call).
+    nonisolated(unsafe) static var skipPhotoKitCallsForTesting: Bool = false
+
     /// Best-effort local → cloud string for persistence at attach time.
     nonisolated static func cloudIdentifierString(forLocalIdentifier localIdentifier: String) -> String? {
         #if canImport(Photos)
+        if skipPhotoKitCallsForTesting { return nil }
         let trimmed = DiveMediaCloudIdentifierStorage.normalized(localIdentifier)
         guard !trimmed.isEmpty else { return nil }
         let map = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: [trimmed])
@@ -45,6 +50,7 @@ enum DiveMediaCloudIdentifierResolver: Sendable {
         forCloudIdentifierString raw: String
     ) -> DiveMediaCloudResolveOutcome {
         #if canImport(Photos)
+        if skipPhotoKitCallsForTesting { return .unavailable }
         guard let cloud = DiveMediaCloudIdentifierCodec.decode(raw) else {
             return DiveMediaCloudIdentifierStorage.isPresent(raw) ? .unavailable : .emptyInput
         }

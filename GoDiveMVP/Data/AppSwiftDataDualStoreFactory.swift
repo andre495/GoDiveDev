@@ -389,7 +389,10 @@ enum AppSwiftDataDualStoreFactory {
     }
 
     /// Probe CloudKit open shapes and append results (helps isolate multi-store vs schema failures).
-    nonisolated static func runCloudKitOpenProbes(rootDirectory: URL) {
+    ///
+    /// - Parameter skipCloudKitProbes: Skip probes that require CloudKit connectivity. Pass `true` in unit
+    ///   tests to avoid hangs when CloudKit is unavailable (Xcode 27+ simulators may hang instead of failing fast).
+    nonisolated static func runCloudKitOpenProbes(rootDirectory: URL, skipCloudKitProbes: Bool = false) {
         var lines: [String] = ["--- probes ---"]
         let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
         let fullSchema = Schema(AppSwiftDataStorePartition.allModelTypes)
@@ -397,54 +400,62 @@ enum AppSwiftDataDualStoreFactory {
         try? FileManager.default.createDirectory(at: probeRoot, withIntermediateDirectories: true)
 
         // Probe A: user models only + private CloudKit
-        do {
-            let url = probeRoot.appendingPathComponent("probe-user-only.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeUserOnly",
-                schema: userSchema,
-                url: url,
-                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
-            )
-            _ = try ModelContainer(for: userSchema, configurations: [config])
-            lines.append("probeA_userOnlyCloudKit=success")
-        } catch {
-            lines.append("probeA_userOnlyCloudKit=FAIL \(describeError(error))")
+        if skipCloudKitProbes {
+            lines.append("probeA_userOnlyCloudKit=SKIPPED (skipCloudKitProbes)")
+        } else {
+            do {
+                let url = probeRoot.appendingPathComponent("probe-user-only.store")
+                try? FileManager.default.removeItem(at: url)
+                let config = ModelConfiguration(
+                    "ProbeUserOnly",
+                    schema: userSchema,
+                    url: url,
+                    cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+                )
+                _ = try ModelContainer(for: userSchema, configurations: [config])
+                lines.append("probeA_userOnlyCloudKit=success")
+            } catch {
+                lines.append("probeA_userOnlyCloudKit=FAIL \(describeError(error))")
+            }
         }
 
         // Probe B: dual split with user CloudKit (same as production)
-        do {
-            let userURL = probeRoot.appendingPathComponent("probe-dual-user.store")
-            let catalogURL = probeRoot.appendingPathComponent("probe-dual-catalog.store")
-            let diagnosticsURL = probeRoot.appendingPathComponent("probe-dual-diagnostics.store")
-            for url in [userURL, catalogURL, diagnosticsURL] {
-                try? FileManager.default.removeItem(at: url)
+        if skipCloudKitProbes {
+            lines.append("probeB_dualUserCloudKit=SKIPPED (skipCloudKitProbes)")
+        } else {
+            do {
+                let userURL = probeRoot.appendingPathComponent("probe-dual-user.store")
+                let catalogURL = probeRoot.appendingPathComponent("probe-dual-catalog.store")
+                let diagnosticsURL = probeRoot.appendingPathComponent("probe-dual-diagnostics.store")
+                for url in [userURL, catalogURL, diagnosticsURL] {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                let userConfig = ModelConfiguration(
+                    "ProbeDualUser",
+                    schema: userSchema,
+                    url: userURL,
+                    cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+                )
+                let catalogConfig = ModelConfiguration(
+                    "ProbeDualCatalog",
+                    schema: Schema(AppSwiftDataStorePartition.catalogModelTypes),
+                    url: catalogURL,
+                    cloudKitDatabase: .none
+                )
+                let diagnosticsConfig = ModelConfiguration(
+                    "ProbeDualDiagnostics",
+                    schema: Schema(AppSwiftDataStorePartition.diagnosticsModelTypes),
+                    url: diagnosticsURL,
+                    cloudKitDatabase: .none
+                )
+                _ = try ModelContainer(
+                    for: fullSchema,
+                    configurations: userConfig, catalogConfig, diagnosticsConfig
+                )
+                lines.append("probeB_dualUserCloudKit=success")
+            } catch {
+                lines.append("probeB_dualUserCloudKit=FAIL \(describeError(error))")
             }
-            let userConfig = ModelConfiguration(
-                "ProbeDualUser",
-                schema: userSchema,
-                url: userURL,
-                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
-            )
-            let catalogConfig = ModelConfiguration(
-                "ProbeDualCatalog",
-                schema: Schema(AppSwiftDataStorePartition.catalogModelTypes),
-                url: catalogURL,
-                cloudKitDatabase: .none
-            )
-            let diagnosticsConfig = ModelConfiguration(
-                "ProbeDualDiagnostics",
-                schema: Schema(AppSwiftDataStorePartition.diagnosticsModelTypes),
-                url: diagnosticsURL,
-                cloudKitDatabase: .none
-            )
-            _ = try ModelContainer(
-                for: fullSchema,
-                configurations: userConfig, catalogConfig, diagnosticsConfig
-            )
-            lines.append("probeB_dualUserCloudKit=success")
-        } catch {
-            lines.append("probeB_dualUserCloudKit=FAIL \(describeError(error))")
         }
 
         // Probe C: user only local (control)
@@ -464,39 +475,51 @@ enum AppSwiftDataDualStoreFactory {
         }
 
         // Probe D: Core Data CloudKit load — surfaces the real validation reason SwiftData hides.
-        lines.append(contentsOf: runCoreDataCloudKitValidationProbe(probeRoot: probeRoot))
+        if skipCloudKitProbes {
+            lines.append("probeD_coreDataCloudKit=SKIPPED (skipCloudKitProbes)")
+        } else {
+            lines.append(contentsOf: runCoreDataCloudKitValidationProbe(probeRoot: probeRoot))
+        }
 
         // Probe E: SwiftData + .automatic (entitlement-inferred container)
-        do {
-            let url = probeRoot.appendingPathComponent("probe-user-automatic.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeUserAutomatic",
-                schema: userSchema,
-                url: url,
-                cloudKitDatabase: .automatic
-            )
-            _ = try ModelContainer(for: userSchema, configurations: [config])
-            lines.append("probeE_userOnlyAutomaticCloudKit=success")
-        } catch {
-            lines.append("probeE_userOnlyAutomaticCloudKit=FAIL \(describeError(error))")
+        if skipCloudKitProbes {
+            lines.append("probeE_userOnlyAutomaticCloudKit=SKIPPED (skipCloudKitProbes)")
+        } else {
+            do {
+                let url = probeRoot.appendingPathComponent("probe-user-automatic.store")
+                try? FileManager.default.removeItem(at: url)
+                let config = ModelConfiguration(
+                    "ProbeUserAutomatic",
+                    schema: userSchema,
+                    url: url,
+                    cloudKitDatabase: .automatic
+                )
+                _ = try ModelContainer(for: userSchema, configurations: [config])
+                lines.append("probeE_userOnlyAutomaticCloudKit=success")
+            } catch {
+                lines.append("probeE_userOnlyAutomaticCloudKit=FAIL \(describeError(error))")
+            }
         }
 
         // Probe F: minimal schema (UserProfile only) + private CloudKit
-        do {
-            let minimalSchema = Schema([UserProfile.self])
-            let url = probeRoot.appendingPathComponent("probe-profile-only.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeProfileOnly",
-                schema: minimalSchema,
-                url: url,
-                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
-            )
-            _ = try ModelContainer(for: minimalSchema, configurations: [config])
-            lines.append("probeF_userProfileOnlyCloudKit=success")
-        } catch {
-            lines.append("probeF_userProfileOnlyCloudKit=FAIL \(describeError(error))")
+        if skipCloudKitProbes {
+            lines.append("probeF_userProfileOnlyCloudKit=SKIPPED (skipCloudKitProbes)")
+        } else {
+            do {
+                let minimalSchema = Schema([UserProfile.self])
+                let url = probeRoot.appendingPathComponent("probe-profile-only.store")
+                try? FileManager.default.removeItem(at: url)
+                let config = ModelConfiguration(
+                    "ProbeProfileOnly",
+                    schema: minimalSchema,
+                    url: url,
+                    cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+                )
+                _ = try ModelContainer(for: minimalSchema, configurations: [config])
+                lines.append("probeF_userProfileOnlyCloudKit=success")
+            } catch {
+                lines.append("probeF_userProfileOnlyCloudKit=FAIL \(describeError(error))")
+            }
         }
 
         lines.append("policyVersion=\(cloudKitOpenPolicyVersion)")

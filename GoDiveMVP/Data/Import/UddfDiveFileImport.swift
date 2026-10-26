@@ -28,6 +28,9 @@ enum UddfDiveFileImport {
     }
 
     /// Decodes + persists (batched geocode + indexed site match). Contacts / media attach run inside persist when enabled.
+    ///
+    /// - Parameter resolver: Geocoding time-zone resolver. Defaults to `MapKitGeocodingTimeZoneResolver.shared`.
+    ///   Pass a mock resolver in tests to avoid real network calls and prevent timeouts.
     @MainActor
     static func importUddfData(
         _ data: Data,
@@ -35,6 +38,7 @@ enum UddfDiveFileImport {
         owner: UserProfile? = nil,
         createMissingDiveSites: Bool = false,
         attachMediaFromPhotoLibrary: Bool? = nil,
+        resolver: (any GeocodingTimeZoneResolving)? = nil,
         onProgress: ProgressHandler? = nil,
         onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async -> DiveFileImportOutcome {
@@ -50,12 +54,16 @@ enum UddfDiveFileImport {
             owner: owner,
             createMissingDiveSites: createMissingDiveSites,
             attachMediaFromPhotoLibrary: attachMediaFromPhotoLibrary,
+            resolver: resolver,
             onProgress: onProgress,
             onMediaAttachProgress: onMediaAttachProgress
         )
     }
 
     /// Duplicate check + SwiftData insert (call after decode so UI / tests can drive progress).
+    ///
+    /// - Parameter resolver: Geocoding time-zone resolver. Defaults to `MapKitGeocodingTimeZoneResolver.shared`.
+    ///   Pass a mock resolver in tests to avoid real network calls and prevent timeouts.
     @MainActor
     static func persistImportedActivities(
         _ activities: [DiveActivity],
@@ -63,6 +71,7 @@ enum UddfDiveFileImport {
         owner: UserProfile? = nil,
         createMissingDiveSites: Bool = false,
         attachMediaFromPhotoLibrary: Bool? = nil,
+        resolver: (any GeocodingTimeZoneResolving)? = nil,
         onProgress: ProgressHandler? = nil,
         onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async -> DiveFileImportOutcome {
@@ -74,6 +83,7 @@ enum UddfDiveFileImport {
                     owner: owner,
                     createMissingDiveSites: createMissingDiveSites,
                     attachMediaFromPhotoLibrary: attachMediaFromPhotoLibrary,
+                    resolver: resolver,
                     onProgress: onProgress,
                     onMediaAttachProgress: onMediaAttachProgress
                 )
@@ -95,9 +105,11 @@ enum UddfDiveFileImport {
         owner: UserProfile?,
         createMissingDiveSites: Bool,
         attachMediaFromPhotoLibrary: Bool?,
+        resolver: (any GeocodingTimeZoneResolving)?,
         onProgress: ProgressHandler?,
         onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler?
     ) async throws -> DiveFileImportOutcome {
+        let resolvedResolver = resolver ?? MapKitGeocodingTimeZoneResolver.shared
         do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
                 return DiveFileImportOutcome(
@@ -109,7 +121,8 @@ enum UddfDiveFileImport {
             var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
             await UddfImportedDiveNormalization.normalizeBeforePersist(
                 activities,
-                catalogSites: catalogSites
+                catalogSites: catalogSites,
+                resolver: resolvedResolver
             )
 
             let ownedExisting = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
@@ -186,9 +199,9 @@ enum UddfDiveFileImport {
             }
             await DiveSiteTimeZoneResolution.ensureResolvedForLinkedActivities(
                 inserted,
-                resolver: MapKitGeocodingTimeZoneResolver.shared
+                resolver: resolvedResolver
             )
-            await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted)
+            await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted, catalogSites: catalogSites, resolver: resolvedResolver)
             await ActivityWeatherImportCapture.captureForDives(inserted, catalogSites: catalogSites)
 
             if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {

@@ -812,10 +812,12 @@ struct ImportDecoderTests {
             try context.save()
             let activities = try UddfDiveFileDecoder.buildDiveActivities(from: Data(UddfTestXML.twoDives.utf8))
             var snapshots: [(Int, Int, Int, Int)] = []
+            let mockResolver = FixedGeocodingTimeZoneResolver(timeZone: .gmt)
             _ = await UddfDiveFileImport.persistImportedActivities(
                 activities,
                 modelContext: context,
-                owner: owner
+                owner: owner,
+                resolver: mockResolver
             ) { imported, duplicates, processed, total in
                 snapshots.append((imported, duplicates, processed, total))
             }
@@ -872,10 +874,11 @@ struct ImportDecoderTests {
             context.insert(owner)
             try context.save()
             let data = Data(UddfTestXML.twoDives.utf8)
-            let first = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+            let mockResolver = FixedGeocodingTimeZoneResolver(timeZone: .gmt)
+            let first = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner, resolver: mockResolver)
             #expect(first.didSucceed)
             #expect(first.insertedCount == 2)
-            let second = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+            let second = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner, resolver: mockResolver)
             #expect(!second.didSucceed)
             #expect(second.insertedCount == 0)
             #expect(second.skippedDuplicateCount == 2)
@@ -903,7 +906,8 @@ struct ImportDecoderTests {
             context.insert(owner)
             try context.save()
             let data = Data(UddfTestXML.twoDives.utf8)
-            let outcome = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+            let mockResolver = FixedGeocodingTimeZoneResolver(timeZone: .gmt)
+            let outcome = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner, resolver: mockResolver)
             #expect(outcome.didSucceed)
             let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
             #expect(fetched.count == 2)
@@ -919,9 +923,10 @@ struct ImportDecoderTests {
             context.insert(owner)
             try context.save()
             let data = Data(UddfTestXML.oneDive.utf8)
-            let first = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+            let mockResolver = FixedGeocodingTimeZoneResolver(timeZone: .gmt)
+            let first = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner, resolver: mockResolver)
             #expect(first.didSucceed)
-            let second = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+            let second = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner, resolver: mockResolver)
             #expect(!second.didSucceed)
             #expect(second.userMessage.contains("already in your log") || second.userMessage.contains("duplicate"))
             let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
