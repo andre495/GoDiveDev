@@ -5,7 +5,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Nightly full test run at 3am UTC
+    - cron: "0 3 * * *"
   workflow_dispatch:
+    inputs:
+      full_suite:
+        description: "Run full test suite"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,8 +24,91 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Determine which tests to run based on changed files
+  select-tests:
+    name: Select Tests
+    runs-on: ubuntu-latest
+    outputs:
+      test_args: ${{ steps.select.outputs.test_args }}
+      run_full: ${{ steps.select.outputs.run_full }}
+      run_ios_tests: ${{ steps.select.outputs.run_ios_tests }}
+      run_rules_tests: ${{ steps.select.outputs.run_rules_tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Select test suites
+        id: select
+        run: |
+          # Full suite on: push to main, nightly schedule, manual trigger with full_suite
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Push to main - running full suite"
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "Nightly schedule - running full suite"
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event.inputs.full_suite }}" == "true" ]]; then
+            echo "Manual trigger with full_suite - running full suite"
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # For PRs, use selective testing
+          result=$(ci/select-tests.sh 2>&1) || true
+          echo "Selection result: $result"
+
+          # Check if rules tests should run (catalog-cdn changes)
+          changed_files=$(git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+          if echo "$changed_files" | grep -q "^catalog-cdn/"; then
+            echo "run_rules_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_rules_tests=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$result" == "FULL" ]]; then
+            echo "test_args=-only-testing:GoDiveMVPTests" >> "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$result" == "NO_TESTS" ]]; then
+            echo "test_args=" >> "$GITHUB_OUTPUT"
+            echo "run_full=false" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "test_args=$result" >> "$GITHUB_OUTPUT"
+            echo "run_full=false" >> "$GITHUB_OUTPUT"
+            echo "run_ios_tests=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate summary
+        run: |
+          ci/select-tests.sh --summary >> "$GITHUB_STEP_SUMMARY" || true
+
   build-and-test:
     name: Build & Test
+    needs: select-tests
+    if: needs.select-tests.outputs.run_ios_tests == 'true'
     runs-on: xcode-27
     timeout-minutes: 45
 
@@ -113,18 +205,53 @@ jobs:
           grep -E "warning:" build.log || true
 
       - name: Run unit tests
+        env:
+          TEST_ARGS: ${{ needs.select-tests.outputs.test_args }}
         run: |
           set -o pipefail
-          xcodebuild test-without-building \
-            -project GoDiveMVP.xcodeproj \
-            -scheme GoDiveMVP \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
-            -derivedDataPath DerivedData \
-            -resultBundlePath TestResults.xcresult \
-            -parallel-testing-enabled YES \
-            -only-testing:GoDiveMVPTests \
-            2>&1 | tee test.log
+          echo "Test arguments: $TEST_ARGS"
+
+          # Build xcodebuild command with selective test args
+          cmd=(xcodebuild test-without-building
+            -project GoDiveMVP.xcodeproj
+            -scheme GoDiveMVP
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0'
+            -derivedDataPath DerivedData
+            -resultBundlePath TestResults.xcresult
+            -parallel-testing-enabled YES)
+
+          # Add test selection args (may be multiple -only-testing flags)
+          if [[ -n "$TEST_ARGS" ]]; then
+            for arg in $TEST_ARGS; do
+              cmd+=("$arg")
+            done
+          else
+            cmd+=("-only-testing:GoDiveMVPTests")
+          fi
+
+          "${cmd[@]}" 2>&1 | tee test.log
           grep -E "(Test Suite|Executed|failed|FAILED)" test.log || true
+
+      - name: Test summary
+        if: always()
+        env:
+          RUN_FULL: ${{ needs.select-tests.outputs.run_full }}
+          TEST_ARGS: ${{ needs.select-tests.outputs.test_args }}
+        run: |
+          echo "## iOS Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$RUN_FULL" == "true" ]]; then
+            echo "**Mode:** Full test suite" >> "$GITHUB_STEP_SUMMARY"
+          else
+            suite_count=$(echo "$TEST_ARGS" | tr ' ' '\n' | grep -c "only-testing" || echo "0")
+            echo "**Mode:** Selective ($suite_count suites)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f test.log ]]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "(Test Suite .* (passed|failed)|Executed [0-9]+ test|FAILED)" test.log | tail -20 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload test results on failure
         if: failure()
@@ -136,6 +263,8 @@ jobs:
 
   firebase-rules-tests:
     name: Firebase Rules Tests
+    needs: select-tests
+    if: needs.select-tests.outputs.run_rules_tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

@@ -7,12 +7,70 @@ This document describes the CI workflow for GoDiveMVP.
 The `ios-ci.yml` workflow runs on:
 - Every push to `main`
 - Every pull request targeting `main`
-- Manual trigger via `workflow_dispatch`
+- Nightly schedule (3am UTC) for full regression
+- Manual trigger via `workflow_dispatch` (with optional `full_suite` flag)
 
-It consists of two jobs:
+It consists of three jobs:
 
-1. **Build & Test** — builds the iOS app and runs unit tests on a macOS runner with Xcode 27.1
-2. **Firebase Rules Tests** — runs Firestore and Storage security rules tests using the Firebase emulator
+1. **Select Tests** — determines which test suites to run based on changed files
+2. **Build & Test** — builds the iOS app and runs unit tests on a macOS runner with Xcode 27.1
+3. **Firebase Rules Tests** — runs Firestore and Storage security rules tests (only when `catalog-cdn/` changes)
+
+## Selective Testing
+
+PRs run only the test suites relevant to their changed files, reducing CI time. The full suite runs on:
+- Pushes to `main`
+- Nightly schedule
+- Manual triggers with `full_suite: true`
+- PRs that touch core paths
+
+### How It Works
+
+1. The **Select Tests** job runs `ci/select-tests.sh` to diff changed files against the merge base
+2. Changed paths are matched against patterns in `ci/test-map.yml`
+3. Matching test suites are combined and passed to `xcodebuild -only-testing:` flags
+
+### Core Paths
+
+These paths always trigger the full suite (fail-safe):
+- `GoDiveMVP.xcodeproj/**` — project configuration
+- `GoDiveMVP/Data/AccountSession*.swift` — auth infrastructure
+- `GoDiveMVP/Data/GoDiveFirebase*.swift` — Firebase setup
+- `GoDiveMVP/Data/AppModelContainer.swift` — SwiftData container
+- `GoDiveMVP/Models/**` — shared data models
+- `GoDiveMVPTests/*TestSupport.swift` — test infrastructure
+- `.github/workflows/ios-ci.yml` — CI itself
+- `ci/**` — test selection logic
+
+### Adding Mappings
+
+To add a new mapping in `ci/test-map.yml`:
+
+```yaml
+- pattern: "GoDiveMVP/Data/MyFeature*.swift"
+  suites:
+    - MyFeatureTests
+    - MyFeatureIntegrationTests
+```
+
+Verify with the self-test:
+```bash
+ci/select-tests.sh --self-test
+```
+
+### Viewing Selection Results
+
+The job summary shows which suites ran and why. For debugging locally:
+```bash
+# See what would run for your current changes
+ci/select-tests.sh
+
+# Test with specific files
+ci/select-tests.sh --files GoDiveMVP/Data/TripStore.swift
+
+# Generate markdown summary
+ci/select-tests.sh --summary
+```
 
 ## Build & Test Job
 
@@ -36,6 +94,8 @@ The test target requires PR #60 (`cursor/xcode-27-upgrade-3f93`) for Swift 6 act
 ## Firebase Rules Tests Job
 
 Runs on `ubuntu-latest` with Node 20 and Java 21.
+
+**Conditional execution**: This job only runs when `catalog-cdn/` files change, or on pushes to main, nightly schedules, and manual triggers. PRs that don't touch Firebase rules skip this job.
 
 ### Steps
 
