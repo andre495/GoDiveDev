@@ -105,7 +105,8 @@ enum GoDiveBuddyShareBackgroundUpload: Sendable {
             await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
                 ownerProfileID: ownerProfileID,
                 modelContext: modelContext,
-                userDefaults: userDefaults
+                userDefaults: userDefaults,
+                caller: "resumePendingWork"
             )
             GoDiveBuddySharePendingWorkStore.clearFullRepublishPending(ownerProfileID: ownerProfileID)
         }

@@ -231,6 +231,12 @@ private struct ProductionAppRoot: View {
                     await seedMockDataIfNeeded(container: container)
                 }
             }
+            .task(id: accountSession.currentProfile?.id) {
+                GoDiveFriendShareRefreshLaunchEnqueue.runOnceIfRequested(
+                    profile: accountSession.currentProfile,
+                    container: container
+                )
+            }
             #endif
     }
 

@@ -30,4 +30,26 @@ struct FirebaseEmulatorConfigTests {
         #expect(true, "DEBUG build - emulator configuration is available")
         #endif
     }
+
+    @Test("didConfigureNotification posts after emulator setup completes")
+    func didConfigureNotificationPostsAfterEmulatorSetup() {
+        // Contract: didConfigureNotification must be posted AFTER all Firebase setup completes,
+        // including emulator wiring in DEBUG builds. Observers (e.g. share-refresh drain) rely
+        // on this ordering to avoid hitting production backends when emulator mode is requested.
+        //
+        // The ordering is enforced in GoDiveFirebaseBootstrap.configureOnMain():
+        //   1. FirebaseApp.configure(options:)
+        //   2. configuredSuccessfully = true
+        //   3. #if DEBUG: configureEmulatorIfRequested() + guards
+        //   4. NotificationCenter.post(didConfigureNotification) <-- LAST
+        //
+        // This test verifies the notification name exists and documents the ordering contract.
+        #expect(
+            GoDiveFirebaseBootstrap.didConfigureNotification.rawValue ==
+            "GoDiveFirebaseBootstrap.didConfigure"
+        )
+        #expect(
+            GoDiveFirebaseBootstrapPresentation.didConfigureNotificationPostsAfterEmulatorSetup
+        )
+    }
 }

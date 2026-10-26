@@ -561,7 +561,8 @@ actor GoDiveSharedMediaUploadQueue {
 
     @MainActor
     private func notifyIdleStateIfNeeded() async {
-        guard let ownerUID = Auth.auth().currentUser?.uid,
+        guard GoDiveFirebaseBootstrap.isConfigured,
+              let ownerUID = Auth.auth().currentUser?.uid,
               let ownerProfileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
         else { return }
         await GoDiveBuddyShareBackgroundUpload.refreshBackgroundExecutionIdleState(

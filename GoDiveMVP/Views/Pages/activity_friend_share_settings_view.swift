@@ -612,7 +612,7 @@ private struct ActivityFriendShareSettingsForm: View {
 
     @MainActor
     private func refreshStatus() async {
-        let ownerUID = Auth.auth().currentUser?.uid
+        let ownerUID = GoDiveFirebaseBootstrap.isConfigured ? Auth.auth().currentUser?.uid : nil
         let galleryIDs = sortedDiveMedia.isEmpty
             ? Set(sortedSnorkelMedia.map(\.id))
             : Set(sortedDiveMedia.map(\.id))

@@ -54,6 +54,16 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #if canImport(FirebaseMessaging)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         UNUserNotificationCenter.current().delegate = GoDivePushNotificationCenterDelegate.shared
+        // Only wire Messaging delegate if Firebase configured — avoids crash when plist is missing.
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
+        #if DEBUG
+        // In emulator mode, disable FCM auto-init and token work to prevent real project connections.
+        if GoDiveFirebaseBootstrap.isEmulatorEnabled {
+            Messaging.messaging().isAutoInitEnabled = false
+            log.notice("FCM disabled (emulator mode)")
+            return
+        }
+        #endif
         Messaging.messaging().delegate = GoDiveFirebaseMessagingDelegate.shared
         // Defer APNs registration until after the launch overlay so it does not contend with store open.
         #endif
@@ -63,6 +73,10 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     @MainActor
     static func registerForRemoteNotificationsIfNeeded() {
         #if canImport(FirebaseMessaging)
+        #if DEBUG
+        // In emulator mode, skip APNs registration to prevent real project connections.
+        if GoDiveFirebaseBootstrap.isEmulatorEnabled { return }
+        #endif
         // Resolve `UIApplication.shared` inside `@MainActor` (not as a default arg — defaults are caller-isolated).
         UIApplication.shared.registerForRemoteNotifications()
         #endif
@@ -71,6 +85,11 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     @MainActor
     static func setAPNSToken(_ deviceToken: Data) {
         #if canImport(FirebaseMessaging)
+        guard GoDiveFirebaseBootstrap.isConfigured else { return }
+        #if DEBUG
+        // In emulator mode, skip APNs token forwarding to prevent real project connections.
+        if GoDiveFirebaseBootstrap.isEmulatorEnabled { return }
+        #endif
         Messaging.messaging().apnsToken = deviceToken
         #endif
     }
@@ -80,6 +99,10 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #if canImport(FirebaseMessaging) && canImport(FirebaseAuth) && canImport(FirebaseFirestore)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
+        #if DEBUG
+        // In emulator mode, skip FCM registration to prevent real project connections.
+        if GoDiveFirebaseBootstrap.isEmulatorEnabled { return }
+        #endif
         guard Auth.auth().currentUser != nil else { return }
 
         let center = UNUserNotificationCenter.current()
@@ -109,6 +132,10 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         #if canImport(FirebaseMessaging) && canImport(FirebaseAuth) && canImport(FirebaseFirestore)
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
+        #if DEBUG
+        // In emulator mode, skip FCM token upload to prevent real project connections.
+        if GoDiveFirebaseBootstrap.isEmulatorEnabled { return }
+        #endif
 
         // Persist any token that arrived before sign-in (from delegate or previous launch).
         if let cached = loadPendingToken(), !cached.isEmpty {
@@ -122,6 +149,10 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
     @MainActor
     static func handleDelegateToken(_ token: String) async {
         #if canImport(FirebaseAuth) && canImport(FirebaseFirestore)
+        #if DEBUG
+        // In emulator mode, skip FCM token persistence to prevent real project connections.
+        if GoDiveFirebaseBootstrap.isEmulatorEnabled { return }
+        #endif
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 

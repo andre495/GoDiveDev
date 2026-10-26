@@ -2021,4 +2021,64 @@ struct GoDiveSharedProjectionTests {
                 )
                 #expect(needing == [sharedID])
             }
+
+            // MARK: - Firebase configuration guard (issue #58)
+
+            @Test func friendShareRefreshCoordinator_shouldDrain_requiresFirebaseConfigured() {
+                #expect(
+                    !GoDiveFriendShareRefreshCoordinatorPresentation.shouldDrain(firebaseConfigured: false)
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.shouldDrain(firebaseConfigured: true)
+                )
+            }
+
+            @Test func friendShareRefreshCoordinator_pendingCount_fullRepublishIsOne() {
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: true,
+                        diveIDCount: 0
+                    ) == 1
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: true,
+                        diveIDCount: 5
+                    ) == 1
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: false,
+                        diveIDCount: 3
+                    ) == 3
+                )
+                #expect(
+                    GoDiveFriendShareRefreshCoordinatorPresentation.pendingCount(
+                        fullRepublish: false,
+                        diveIDCount: 0
+                    ) == 0
+                )
+            }
+
+            @Test func firebaseBootstrap_didConfigureNotification_isDefined() {
+                #expect(GoDiveFirebaseBootstrap.didConfigureNotification.rawValue.isEmpty == false)
+            }
+
+            #if DEBUG
+            @Test func friendShareRefreshLaunchEnqueue_launchArgumentDefined() {
+                #expect(
+                    GoDiveFriendShareRefreshLaunchEnqueue.launchArgument == "-GoDiveEnqueueFriendShareRefresh"
+                )
+            }
+
+            @Test func friendShareRefreshLaunchEnqueue_isArgumentPresent_matchesExactString() {
+                let exactArg = "-GoDiveEnqueueFriendShareRefresh"
+                #expect(GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: [exactArg]))
+                #expect(GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["other", exactArg, "args"]))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: []))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["GoDiveEnqueueFriendShareRefresh"]))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["-godiveenqueuefriendsharerefresh"]))
+                #expect(!GoDiveFriendShareRefreshLaunchEnqueue.isArgumentPresent(in: ["-GoDiveEnqueueFriendShareRefresh "]))
+            }
+            #endif
 }

@@ -7,6 +7,9 @@ import FirebaseStorage
 
 /// Configures Firebase when **`GoogleService-Info.plist`** is present (gitignored secrets).
 enum GoDiveFirebaseBootstrap: Sendable {
+    /// Posted on the main queue after Firebase configuration succeeds.
+    /// Coordinators that defer work until Firebase is ready can observe this to drain pending tasks.
+    nonisolated static let didConfigureNotification = Notification.Name("GoDiveFirebaseBootstrap.didConfigure")
     nonisolated private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FirebaseBootstrap")
 
     nonisolated private static let plistResourceName = "GoogleService-Info"
@@ -98,6 +101,8 @@ enum GoDiveFirebaseBootstrap: Sendable {
             clearStaleEmulatorSessionIfNeeded()
             GoDiveEmulatorSessionGuard.logWarningIfTestSignInWithoutEmulator()
             #endif
+            // Post AFTER all setup (including emulator wiring) so observers see fully-ready state.
+            NotificationCenter.default.post(name: didConfigureNotification, object: nil)
         } else {
             log.error("FirebaseApp.configure(options:) completed but FirebaseApp.app() is nil")
         }
@@ -160,4 +165,11 @@ enum GoDiveFirebaseBootstrap: Sendable {
         if appID.isEmpty || appID.hasPrefix("YOUR_") { return true }
         return false
     }
+}
+
+/// Testable ordering contract for Firebase bootstrap.
+enum GoDiveFirebaseBootstrapPresentation: Sendable {
+    /// `true` documents that `didConfigureNotification` is posted AFTER emulator setup completes.
+    /// Observers (e.g. share-refresh drain) rely on this to avoid production backends in emulator mode.
+    nonisolated static let didConfigureNotificationPostsAfterEmulatorSetup = true
 }

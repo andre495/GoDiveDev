@@ -1,5 +1,6 @@
 import FirebaseAuth
 import Foundation
+import os
 import SwiftData
 
 /// Debounced upsert / republish of friend-visible dive projections after local log changes.
@@ -9,6 +10,9 @@ import SwiftData
 /// seconds) is never cancelled mid-write — new work queues behind it and drains afterwards.
 @MainActor
 enum GoDiveFriendShareRefreshCoordinator {
+    #if DEBUG
+    private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
+    #endif
     private static var pendingTask: Task<Void, Never>?
     private static var drainTask: Task<Void, Never>?
     private static var pendingDiveIDs: Set<UUID> = []
@@ -16,6 +20,7 @@ enum GoDiveFriendShareRefreshCoordinator {
     private static var didSaveObserver: NSObjectProtocol?
     private static var explicitChangeObserver: NSObjectProtocol?
     private static var deferredMediaUploadObserver: NSObjectProtocol?
+    private static var firebaseReadyObserver: NSObjectProtocol?
     private static var observedOwnerProfileID: UUID?
     private static weak var observedModelContext: ModelContext?
 
@@ -70,6 +75,16 @@ enum GoDiveFriendShareRefreshCoordinator {
                 )
             }
         }
+
+        firebaseReadyObserver = NotificationCenter.default.addObserver(
+            forName: GoDiveFirebaseBootstrap.didConfigureNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                startDrainIfNeeded()
+            }
+        }
     }
 
     static func stopObservingSaves() {
@@ -84,6 +99,10 @@ enum GoDiveFriendShareRefreshCoordinator {
         if let deferredMediaUploadObserver {
             NotificationCenter.default.removeObserver(deferredMediaUploadObserver)
             self.deferredMediaUploadObserver = nil
+        }
+        if let firebaseReadyObserver {
+            NotificationCenter.default.removeObserver(firebaseReadyObserver)
+            self.firebaseReadyObserver = nil
         }
         observedOwnerProfileID = nil
         observedModelContext = nil
@@ -107,6 +126,20 @@ enum GoDiveFriendShareRefreshCoordinator {
         pendingDiveIDs = []
         GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
         scheduleFlush(debounceNanoseconds: debounceNanoseconds)
+    }
+
+    /// Sets pending state and drains immediately (synchronously, no Task).
+    /// Use when the caller's task context may be cancelled before a scheduled flush runs.
+    fileprivate static func enqueueFullRepublishAndDrainNow(
+        ownerProfileID: UUID,
+        modelContext: ModelContext
+    ) {
+        observedOwnerProfileID = ownerProfileID
+        observedModelContext = modelContext
+        pendingFullRepublish = true
+        pendingDiveIDs = []
+        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
+        startDrainIfNeeded()
     }
 
     /// Upserts only the given dives (coalesced across rapid edits).
@@ -184,8 +217,19 @@ enum GoDiveFriendShareRefreshCoordinator {
 
     private static var drainGeneration = 0
 
-    private static func startDrainIfNeeded() {
+    fileprivate static func startDrainIfNeeded() {
         guard drainTask == nil else { return }
+        let pendingCount = pendingFullRepublish ? 1 : pendingDiveIDs.count
+        let isConfigured = GoDiveFirebaseBootstrap.isConfigured
+        guard isConfigured else {
+            #if DEBUG
+            log.info("Drain skip: configured=\(isConfigured) pending=\(pendingCount)")
+            #endif
+            return
+        }
+        #if DEBUG
+        log.info("Drain start: configured=\(isConfigured) pending=\(pendingCount)")
+        #endif
         drainGeneration += 1
         let generation = drainGeneration
         drainTask = Task {
@@ -217,7 +261,8 @@ enum GoDiveFriendShareRefreshCoordinator {
             GoDiveBuddyShareBackgroundUpload.beginBackgroundExecution()
             await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
                 ownerProfileID: ownerProfileID,
-                modelContext: modelContext
+                modelContext: modelContext,
+                caller: "drain"
             )
             GoDiveBuddySharePendingWorkStore.clearFullRepublishPending(ownerProfileID: ownerProfileID)
             if let ownerUID = Auth.auth().currentUser?.uid {
@@ -269,3 +314,71 @@ enum GoDiveFriendShareRefreshCoordinator {
         }
     }
 }
+
+/// Testable decision logic for friend share refresh coordination.
+enum GoDiveFriendShareRefreshCoordinatorPresentation: Sendable {
+    /// Returns whether draining should proceed based on Firebase configuration state.
+    /// When `false`, pending work should be kept and deferred until Firebase becomes ready.
+    nonisolated static func shouldDrain(firebaseConfigured: Bool) -> Bool {
+        firebaseConfigured
+    }
+
+    /// Returns pending count as drain would see it.
+    nonisolated static func pendingCount(fullRepublish: Bool, diveIDCount: Int) -> Int {
+        fullRepublish ? 1 : diveIDCount
+    }
+}
+
+#if DEBUG
+/// DEBUG-only launch argument to enqueue a friend-share refresh for QA testing.
+/// Verifies that drain waits until Firebase and emulator are fully wired.
+@MainActor
+enum GoDiveFriendShareRefreshLaunchEnqueue {
+    nonisolated static let launchArgument = "-GoDiveEnqueueFriendShareRefresh"
+
+    /// `true` when the launch argument is present.
+    nonisolated static var isRequested: Bool {
+        ProcessInfo.processInfo.arguments.contains(launchArgument)
+    }
+
+    private static let log = Logger(subsystem: "GoDive", category: "FriendShare")
+
+    /// Tracks whether we've already enqueued this launch (at most once).
+    private static var didEnqueueThisLaunch = false
+
+    /// Called from `.task(id: profile?.id)` — runs when profile changes.
+    /// Enqueues at most once per launch when profile becomes non-nil.
+    static func runOnceIfRequested(profile: UserProfile?, container: ModelContainer) {
+        let requested = isRequested
+        let hasProfile = profile != nil
+        let isConfigured = GoDiveFirebaseBootstrap.isConfigured
+        log.info("Launch: requested=\(requested) hasProfile=\(hasProfile) configured=\(isConfigured)")
+
+        guard requested else { return }
+        guard !didEnqueueThisLaunch else { return }
+        guard let ownerID = profile?.id else { return }
+
+        didEnqueueThisLaunch = true
+        log.info("Enqueue: configured=\(isConfigured) pending=1 (full republish)")
+        let context = ModelContext(container)
+        // Set up observers (firebaseReadyObserver triggers drain when Firebase becomes ready).
+        GoDiveFriendShareRefreshCoordinator.startObservingSaves(
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+        // Use synchronous enqueue+drain. scheduleRepublish's Task-based flush gets cancelled
+        // when .task(id:) restarts, so call startDrainIfNeeded() directly.
+        // If configured=true, drain runs now. If configured=false, firebaseReadyObserver
+        // triggers drain later (no double-wait for a notification that already fired).
+        GoDiveFriendShareRefreshCoordinator.enqueueFullRepublishAndDrainNow(
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+    }
+
+    /// Testable helper: checks if `arguments` contains the launch argument string.
+    nonisolated static func isArgumentPresent(in arguments: [String]) -> Bool {
+        arguments.contains(launchArgument)
+    }
+}
+#endif
