@@ -6,12 +6,7 @@ import CoreLocation
 /// Pure geometry — **`nonisolated`** so tank hero layout and tests stay off the main actor (Swift 6).
 enum DiveLocationMapPresentation: Sendable {
     /// Wide world view when a dive has no stored coordinates.
-    nonisolated static let defaultRegion = DiveLocationMapRegionSpec(
-        centerLatitude: 20,
-        centerLongitude: 0,
-        latitudeDelta: 120,
-        longitudeDelta: 120
-    )
+    nonisolated static let defaultRegion = DiveLocationMapRegionSpec.worldFallbackRegion
 
     /// Baseline span for latitude shift math at **`referenceCameraDistanceMeters`**.
     nonisolated static let diveSiteLatitudeDelta = 0.05

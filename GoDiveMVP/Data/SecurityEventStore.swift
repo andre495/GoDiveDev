@@ -43,6 +43,7 @@ nonisolated enum SecurityEventPresentation: Sendable {
         case .authSucceeded: "Signed in"
         case .authFailed: "Sign-in failed"
         case .signOut: "Signed out"
+        case .automaticCredentialRevoked: "Signed out (credential revoked)"
         case .accountDeleted: "Account deleted"
         case .accountDeleteFailed: "Account delete failed"
         case .importRejected: "Import rejected"

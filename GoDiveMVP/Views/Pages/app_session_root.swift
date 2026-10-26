@@ -13,6 +13,7 @@ struct AppSessionRootView: View {
     @State private var allowsCelebrationShellPrewarm = false
     @State private var pendingFriendInviteToken: String?
     @State private var didRunInitialSessionRestore = false
+    @State private var showsSyncCompleteBanner = false
 
     private var showsBootstrapOverlay: Bool {
         AppSessionBootstrapPresentation.showsLaunchOverlay(
@@ -20,6 +21,18 @@ struct AppSessionRootView: View {
             isPopulatingRemoteAccountData: accountSession.isPopulatingRemoteAccountData,
             showsMainAppShell: accountSession.showsMainAppShell,
             isHomeLaunchChromeReady: accountSession.isHomeLaunchChromeReady
+        )
+    }
+
+    private var showsAccountSyncOverlay: Bool {
+        AppSessionBootstrapPresentation.showsAccountSyncOverlay(
+            syncStatus: accountSession.syncState.status
+        )
+    }
+
+    private var showsSyncBanner: Bool {
+        AppSessionBootstrapPresentation.showsSyncBanner(
+            syncStatus: accountSession.syncState.status
         )
     }
 
@@ -39,10 +52,18 @@ struct AppSessionRootView: View {
         )
     }
 
+    #if DEBUG
+    private var effectivelySignedIn: Bool {
+        GoDiveUITestConfiguration.shouldOpenExploreMap || accountSession.isSignedIn
+    }
+    #else
+    private var effectivelySignedIn: Bool { accountSession.isSignedIn }
+    #endif
+
     var body: some View {
         ZStack {
             Group {
-                if accountSession.isSignedIn {
+                if effectivelySignedIn {
                     signedInShell
                 } else if !accountSession.isRestoringSession {
                     if AppLoggedOutOnboardingPresentation.shouldPresentOnboarding() {
@@ -65,8 +86,23 @@ struct AppSessionRootView: View {
                     )
                     .transition(.opacity)
             }
+
+            if showsAccountSyncOverlay {
+                AccountSyncLoadingOverlay(
+                    progressMessage: accountSession.syncState.currentProgressMessage,
+                    onRetry: accountSession.syncState.hasFailed ? {
+                        retrySyncAfterFailure()
+                    } : nil,
+                    onContinue: accountSession.syncState.hasFailed ? {
+                        accountSession.syncState.releaseAllGates()
+                    } : nil,
+                    failureReason: accountSession.syncState.failureReason
+                )
+                .transition(.opacity)
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
+        .animation(.easeInOut(duration: 0.2), value: showsAccountSyncOverlay)
         .onChange(of: showsBootstrapOverlay) { wasShowing, isShowing in
             if wasShowing, !isShowing {
                 AppLaunchTimelineLog.splashOverlayHidden(
@@ -151,6 +187,28 @@ struct AppSessionRootView: View {
                     .accessibilityHidden(accountSession.showsSignInCelebration)
                     .onAppear {
                         SignInCelebrationTransitionDiagnostics.mark("ContentView_onAppear")
+                    }
+                    .overlay(alignment: .top) {
+                        if showsSyncBanner || showsSyncCompleteBanner {
+                            AccountSyncBanner(
+                                message: showsSyncCompleteBanner
+                                    ? AccountSyncLoadingPresentation.syncCompleteBannerMessage
+                                    : AccountSyncLoadingPresentation.stillSyncingBannerMessage,
+                                isComplete: showsSyncCompleteBanner,
+                                onDismiss: {
+                                    showsSyncCompleteBanner = false
+                                }
+                            )
+                            .padding(.top, 60)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .onChange(of: accountSession.syncState.status) { oldStatus, newStatus in
+                        if case .timedOut = oldStatus, case .ready = newStatus {
+                            withAnimation {
+                                showsSyncCompleteBanner = true
+                            }
+                        }
                     }
             }
 
@@ -243,6 +301,16 @@ struct AppSessionRootView: View {
         else { return }
         if let token = GoDiveFriendInviteDeepLinkStore.shared.consumePendingToken() {
             pendingFriendInviteToken = token
+        }
+    }
+
+    private func retrySyncAfterFailure() {
+        guard let appleID = accountSession.currentProfile?.appleUserIdentifier else { return }
+        Task {
+            await accountSession.retrySyncAfterFailure(
+                appleUserIdentifier: appleID,
+                modelContext: modelContext
+            )
         }
     }
 }

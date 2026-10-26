@@ -105,4 +105,41 @@ final class GoDiveMVPUITests: XCTestCase {
             "Dismissing the country picker must return to the add-site sheet, not close it"
         )
     }
+
+    /// Issue #53: Map tab crashed with 'Invalid Region' when All Sites scope computes worldwide spans.
+    /// This test opens Explore → Map → All Sites with real catalog sites to verify no crash.
+    /// Uses `-GoDiveOpenExploreMap` (DEBUG-only) to bypass onboarding and test the actual map view.
+    @MainActor
+    func testExploreMapTab_allSitesScope_doesNotCrash() throws {
+        #if DEBUG
+        let mapTestApp = XCUIApplication()
+        mapTestApp.launchArguments += [
+            "-GoDiveOpenExploreMap",
+            "-GoDiveMockSeed",
+            "-UIViewAnimationEnabled", "NO",
+        ]
+        mapTestApp.launch()
+
+        XCTAssertTrue(
+            mapTestApp.wait(for: .runningForeground, timeout: 45),
+            "App should reach runningForeground"
+        )
+
+        let exploreTab = mapTestApp.tabBars.buttons["Explore"]
+        XCTAssertTrue(exploreTab.waitForExistence(timeout: 15), "Explore tab should appear")
+
+        let delay = XCTestExpectation(description: "Wait for map to render and apply region")
+        delay.isInverted = true
+        wait(for: [delay], timeout: 3)
+
+        XCTAssertTrue(
+            mapTestApp.state == .runningForeground,
+            "App should remain in foreground after opening Map with All Sites (issue #53)"
+        )
+
+        mapTestApp.terminate()
+        #else
+        throw XCTSkip("-GoDiveOpenExploreMap requires DEBUG build")
+        #endif
+    }
 }
