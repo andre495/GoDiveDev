@@ -12,7 +12,10 @@ enum AccountSessionMainShellPresentation: Sendable {
         showsPostSignUpOnboardingImport: Bool,
         showsSignInCelebration: Bool
     ) -> Bool {
-        isSignedIn
+        #if DEBUG
+        if GoDiveUITestConfiguration.shouldOpenExploreMap { return true }
+        #endif
+        return isSignedIn
             && !showsNewAccountWelcome
             && !showsPostSignUpInterests
             && !showsPostSignUpProfileSetup

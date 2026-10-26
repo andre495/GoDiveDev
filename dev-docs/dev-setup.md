@@ -112,15 +112,16 @@ SPM dependencies resolve automatically when you open the project in Xcode. No ma
 
 ## DEBUG Launch Arguments
 
-The following launch arguments are available in DEBUG builds. Set them in Xcode: **Product > Scheme > Edit Scheme > Run > Arguments Passed On Launch**.
+The following launch arguments are available in **DEBUG builds only** (compiled out of Release):
 
-| Argument | Purpose |
-|----------|---------|
-| `-GoDiveUseFirebaseEmulator` | Point Auth, Firestore, and Storage at the local Firebase emulator suite instead of production. FCM token registration, APNs token forwarding, and device check-in are disabled in this mode to prevent any connections to the real Firebase project. |
-| `-GoDiveMockSeed` | Seed mock dive data from `dives_sample.json` at launch. |
+| Argument | Description |
+|---|---|
+| `-GoDiveUITest` | Activates UITest mode: shows stub `GoDiveUITestRootView` instead of the real app, disables animations, skips network/CloudKit. |
+| `-GoDiveOpenExploreMap` | Opens Explore → Map → All Sites on launch with real catalog sites. Bypasses onboarding and the UITest stub. Use for testing the map view with worldwide data. Combine with `-GoDiveMockSeed` to populate sample data. |
+| `-GoDiveMockSeed` | Seeds mock dive/site data from bundled JSON on launch. See `dev-docs/mock-data-seeding.md`. |
+| `-GoDiveUseFirebaseEmulator` | Points Firebase SDKs at the local emulator (Auth, Firestore, Storage). Start the emulator first with `firebase emulators:start`. FCM token registration, APNs token forwarding, and device check-in are disabled in this mode to prevent any connections to the real Firebase project. |
+| `-GoDiveEmulatorTestSignIn <email>` | Auto-signs in with the given `@example.com` email on launch. Requires `-GoDiveUseFirebaseEmulator`. See `dev-docs/emulator-test-signin.md`. |
 | `-GoDiveEnqueueFriendShareRefresh` | Enqueue a pending friend-share refresh at launch for the current account. Useful for QA: verifies the drain waits until Firebase (and emulator if enabled) is fully wired before contacting the backend. Requires an active sign-in (profile must exist at launch). |
-
-These arguments compile out of Release builds.
 
 ### Emulator Mode Network Isolation
 
@@ -133,3 +134,15 @@ When `-GoDiveUseFirebaseEmulator` is set:
 - **FCM auto-init** → disabled (`isAutoInitEnabled = false`)
 
 This ensures **zero remote connections** to the production Firebase project when testing with the emulator. Normal (non-emulator) launches continue to register for push notifications and write the `fcm_{deviceId}` document as expected.
+
+### Testing the Explore Map (Issue #53)
+
+To manually verify that the Map tab handles worldwide catalog sites without crashing:
+
+1. Set scheme arguments in Xcode: Product > Scheme > Edit Scheme > Run > Arguments
+2. Add `-GoDiveOpenExploreMap` and `-GoDiveMockSeed`
+3. Build and run (DEBUG configuration)
+4. The app should open directly to the Explore tab with Map view and All Sites scope
+5. The map should display the world view without crashing
+
+The UI test `testExploreMapTab_allSitesScope_doesNotCrash` exercises this path automatically.

@@ -27,7 +27,12 @@ struct GoDiveMVPApp: App {
         AppLaunchTimelineLog.processStart()
         AppUserSettings.registerDefaultValues()
         GoDiveMediaDiskMaintenance.installSharedURLCacheLimits()
-        guard GoDiveUITestConfiguration.isActive else {
+        #if DEBUG
+        let shouldOpenExploreMap = GoDiveUITestConfiguration.shouldOpenExploreMap
+        #else
+        let shouldOpenExploreMap = false
+        #endif
+        guard GoDiveUITestConfiguration.isActive, !shouldOpenExploreMap else {
             AppModelContainer.beginLoadingProductionIfNeeded()
             return
         }
@@ -37,7 +42,12 @@ struct GoDiveMVPApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if GoDiveUITestConfiguration.isActive {
+                #if DEBUG
+                let shouldOpenExploreMap = GoDiveUITestConfiguration.shouldOpenExploreMap
+                #else
+                let shouldOpenExploreMap = false
+                #endif
+                if GoDiveUITestConfiguration.isActive, !shouldOpenExploreMap {
                     GoDiveUITestRootView()
                 } else if let container = productionContainer {
                     ProductionAppRoot(

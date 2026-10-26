@@ -52,10 +52,18 @@ struct AppSessionRootView: View {
         )
     }
 
+    #if DEBUG
+    private var effectivelySignedIn: Bool {
+        GoDiveUITestConfiguration.shouldOpenExploreMap || accountSession.isSignedIn
+    }
+    #else
+    private var effectivelySignedIn: Bool { accountSession.isSignedIn }
+    #endif
+
     var body: some View {
         ZStack {
             Group {
-                if accountSession.isSignedIn {
+                if effectivelySignedIn {
                     signedInShell
                 } else if !accountSession.isRestoringSession {
                     if AppLoggedOutOnboardingPresentation.shouldPresentOnboarding() {
