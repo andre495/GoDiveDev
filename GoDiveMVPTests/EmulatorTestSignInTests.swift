@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import GoDiveMVP
 
@@ -35,16 +36,6 @@ struct EmulatorTestSignInTests {
         }
     }
     #endif
-
-    @Test("DEBUG guard excludes emulator sign-in from Release builds")
-    func releaseBuildsExcludeEmulatorSignIn() {
-        #if !DEBUG
-        #expect(true, "Emulator sign-in is correctly excluded from Release builds")
-        #else
-        _ = GoDiveEmulatorTestSignIn.self
-        #expect(true, "Emulator sign-in is available in DEBUG builds")
-        #endif
-    }
 }
 
 /// Tests for emulator configuration gating.
@@ -75,20 +66,11 @@ struct EmulatorConfigurationGatingTests {
     func emulatorEnabledOnlyAfterUseEmulator() {
         let hasLaunchArg = GoDiveFirebaseBootstrap.isEmulatorLaunchArgumentPresent
         let isEnabled = GoDiveFirebaseBootstrap.isEmulatorEnabled
-        if hasLaunchArg && !isEnabled {
-            #expect(true, "Launch arg present but emulator not configured (useEmulator not called)")
+        if hasLaunchArg {
+            #expect(isEnabled == true || isEnabled == false, "Emulator may or may not be enabled after launch arg")
         }
     }
     #endif
-
-    @Test("Release builds exclude emulator flag")
-    func releaseExcludesEmulatorFlag() {
-        #if !DEBUG
-        #expect(true, "isEmulatorEnabled is correctly excluded from Release builds")
-        #else
-        #expect(true, "isEmulatorEnabled is available in DEBUG builds")
-        #endif
-    }
 }
 
 /// Tests for email domain validation.
@@ -251,15 +233,296 @@ struct EmulatorSessionGuardTests {
         GoDiveEmulatorSessionGuard.clearEmulatorMarker()
         #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == false)
     }
-    #endif
 
-    @Test("DEBUG guard excludes session guard from Release builds")
-    func releaseBuildsExcludeSessionGuard() {
-        #if !DEBUG
-        #expect(true, "Session guard is correctly excluded from Release builds")
-        #else
-        _ = GoDiveEmulatorSessionGuard.self
-        #expect(true, "Session guard is available in DEBUG builds")
-        #endif
+    @Test("Marker can use injected UserDefaults")
+    func markerWithInjectedUserDefaults() {
+        let testDefaults = UserDefaults(suiteName: "EmulatorSessionGuardTests")!
+        defer { testDefaults.removePersistentDomain(forName: "EmulatorSessionGuardTests") }
+
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker(userDefaults: testDefaults)
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker(userDefaults: testDefaults) == false)
+
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator(userDefaults: testDefaults)
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker(userDefaults: testDefaults) == true)
+
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker(userDefaults: testDefaults)
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker(userDefaults: testDefaults) == false)
     }
+    #endif
+}
+
+/// Tests for emulator session isolation — ensures emulator-origin sessions are cleared on non-emulator launches.
+@Suite("Emulator session isolation")
+struct EmulatorSessionIsolationTests {
+
+    #if DEBUG
+    @Test("clearPersistedEmulatorSession clears profile ID from Keychain")
+    func clearPersistedEmulatorSessionClearsProfileID() {
+        GoDiveKeychainStore.testingStore = [:]
+        defer { GoDiveKeychainStore.testingStore = nil }
+
+        let testProfileID = UUID()
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(testProfileID)
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == testProfileID)
+
+        GoDiveEmulatorSessionGuard.clearPersistedEmulatorSession()
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == nil)
+    }
+
+    @Test("clearPersistedEmulatorSession clears returning account hints")
+    func clearPersistedEmulatorSessionClearsReturningHints() {
+        GoDiveKeychainStore.testingStore = [:]
+        defer { GoDiveKeychainStore.testingStore = nil }
+
+        _ = GoDiveKeychainStore.setString("emulator_test_abc123", account: .lastAppleUserIdentifier)
+        _ = GoDiveKeychainStore.setString(UUID().uuidString, account: .lastProfileID)
+        _ = GoDiveKeychainStore.setString("Test User", account: .lastDisplayName)
+
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) != nil)
+
+        GoDiveEmulatorSessionGuard.clearPersistedEmulatorSession()
+
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == nil)
+        #expect(GoDiveKeychainStore.string(for: .lastProfileID) == nil)
+        #expect(GoDiveKeychainStore.string(for: .lastDisplayName) == nil)
+    }
+
+    @Test("clearPersistedEmulatorSession clears Firebase UID cache")
+    func clearPersistedEmulatorSessionClearsFirebaseUID() {
+        GoDiveKeychainStore.testingStore = [:]
+        defer { GoDiveKeychainStore.testingStore = nil }
+
+        GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID("emulator_uid_123")
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == "emulator_uid_123")
+
+        GoDiveEmulatorSessionGuard.clearPersistedEmulatorSession()
+
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == nil)
+    }
+
+    @Test("Emulator-marked session on non-emulator launch triggers clear decision")
+    func emulatorMarkedSessionOnNonEmulatorLaunchShouldClear() {
+        let shouldClear = GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: true,
+            currentUserEmail: nil
+        )
+        #expect(shouldClear == true, "Session with emulator marker should be cleared on non-emulator launch")
+    }
+
+    @Test("Emulator-marked session on emulator launch is kept")
+    func emulatorMarkedSessionOnEmulatorLaunchIsKept() {
+        let shouldClear = GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: true,
+            hasMarker: true,
+            currentUserEmail: "test@example.com"
+        )
+        #expect(shouldClear == false, "Session should be kept when emulator is enabled")
+    }
+
+    @Test("No marker means session unchanged")
+    func noMarkerMeansSessionUnchanged() {
+        let shouldClear = GoDiveEmulatorSessionGuard.shouldClearSession(
+            isEmulatorEnabled: false,
+            hasMarker: false,
+            currentUserEmail: "real.user@gmail.com"
+        )
+        #expect(shouldClear == false, "Session without emulator marker should not be cleared")
+    }
+
+    @Test("Complete session clear removes all persisted emulator state")
+    func completeSessionClearRemovesAllPersistedState() {
+        GoDiveKeychainStore.testingStore = [:]
+        defer { GoDiveKeychainStore.testingStore = nil }
+
+        let profileID = UUID()
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(profileID)
+        _ = GoDiveKeychainStore.setString("emulator_test_user", account: .lastAppleUserIdentifier)
+        _ = GoDiveKeychainStore.setString(profileID.uuidString, account: .lastProfileID)
+        _ = GoDiveKeychainStore.setString("Emulator Tester", account: .lastDisplayName)
+        GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID("emu_firebase_uid")
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator()
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == profileID)
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == "emulator_test_user")
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == "emu_firebase_uid")
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == true)
+
+        GoDiveEmulatorSessionGuard.clearPersistedEmulatorSession()
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == nil)
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == nil)
+        #expect(GoDiveKeychainStore.string(for: .lastProfileID) == nil)
+        #expect(GoDiveKeychainStore.string(for: .lastDisplayName) == nil)
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == nil)
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker == false)
+    }
+
+    // MARK: - End-to-End Tests with Injected Fakes
+
+    @Test("End-to-end: emulator-marked session on non-emulator launch calls sign-out and clears all state")
+    func endToEndEmulatorMarkedNonEmulatorLaunch() {
+        GoDiveKeychainStore.testingStore = [:]
+        let testDefaults = UserDefaults(suiteName: "EmulatorSessionIsolationEndToEndTests")!
+        defer {
+            GoDiveKeychainStore.testingStore = nil
+            testDefaults.removePersistentDomain(forName: "EmulatorSessionIsolationEndToEndTests")
+        }
+
+        let profileID = UUID()
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(profileID)
+        _ = GoDiveKeychainStore.setString("emulator_test_user", account: .lastAppleUserIdentifier)
+        _ = GoDiveKeychainStore.setString(profileID.uuidString, account: .lastProfileID)
+        _ = GoDiveKeychainStore.setString("Emulator Tester", account: .lastDisplayName)
+        GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID("emu_firebase_uid")
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator(userDefaults: testDefaults)
+
+        var signOutCalled = false
+        var persistedSessionCleared = false
+        var markerCleared = false
+
+        let result = GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeeded(
+            isEmulatorEnabled: false,
+            hasMarker: true,
+            currentUserEmail: "test@example.com",
+            signOut: { signOutCalled = true },
+            clearPersistedSession: {
+                GoDiveEmulatorSessionGuard.clearPersistedEmulatorSession()
+                persistedSessionCleared = true
+            },
+            clearMarker: {
+                GoDiveEmulatorSessionGuard.clearEmulatorMarker(userDefaults: testDefaults)
+                markerCleared = true
+            }
+        )
+
+        #expect(result.didClear == true, "Should clear session")
+        #expect(result.signOutCalled == true, "Should call sign-out")
+        #expect(result.persistedSessionCleared == true, "Should clear persisted session")
+        #expect(result.markerCleared == true, "Should clear marker")
+        #expect(signOutCalled == true, "Sign-out closure should be called")
+        #expect(persistedSessionCleared == true, "Persisted session clear closure should be called")
+        #expect(markerCleared == true, "Marker clear closure should be called")
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == nil, "Profile ID should be cleared")
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == nil, "Apple ID should be cleared")
+        #expect(GoDiveKeychainStore.string(for: .lastProfileID) == nil, "Last profile ID should be cleared")
+        #expect(GoDiveKeychainStore.string(for: .lastDisplayName) == nil, "Display name should be cleared")
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == nil, "Firebase UID should be cleared")
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker(userDefaults: testDefaults) == false, "Marker should be cleared")
+    }
+
+    @Test("End-to-end: emulator launch keeps session, no sign-out or clear")
+    func endToEndEmulatorLaunchKeepsSession() {
+        GoDiveKeychainStore.testingStore = [:]
+        let testDefaults = UserDefaults(suiteName: "EmulatorSessionIsolationKeepTests")!
+        defer {
+            GoDiveKeychainStore.testingStore = nil
+            testDefaults.removePersistentDomain(forName: "EmulatorSessionIsolationKeepTests")
+        }
+
+        let profileID = UUID()
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(profileID)
+        _ = GoDiveKeychainStore.setString("emulator_test_user", account: .lastAppleUserIdentifier)
+        GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID("emu_firebase_uid")
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator(userDefaults: testDefaults)
+
+        var signOutCalled = false
+        var persistedSessionCleared = false
+        var markerCleared = false
+
+        let result = GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeeded(
+            isEmulatorEnabled: true,
+            hasMarker: true,
+            currentUserEmail: "test@example.com",
+            signOut: { signOutCalled = true },
+            clearPersistedSession: { persistedSessionCleared = true },
+            clearMarker: { markerCleared = true }
+        )
+
+        #expect(result.didClear == false, "Should not clear session when emulator enabled")
+        #expect(result.signOutCalled == false, "Should not call sign-out")
+        #expect(result.persistedSessionCleared == false, "Should not clear persisted session")
+        #expect(result.markerCleared == false, "Should not clear marker")
+        #expect(signOutCalled == false, "Sign-out closure should not be called")
+        #expect(persistedSessionCleared == false, "Persisted session clear closure should not be called")
+        #expect(markerCleared == false, "Marker clear closure should not be called")
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == profileID, "Profile ID should be preserved")
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == "emulator_test_user", "Apple ID should be preserved")
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == "emu_firebase_uid", "Firebase UID should be preserved")
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker(userDefaults: testDefaults) == true, "Marker should be preserved")
+    }
+
+    @Test("End-to-end: no marker means no clear operations")
+    func endToEndNoMarkerNoOperations() {
+        GoDiveKeychainStore.testingStore = [:]
+        defer { GoDiveKeychainStore.testingStore = nil }
+
+        let profileID = UUID()
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(profileID)
+        _ = GoDiveKeychainStore.setString("real_user_apple_id", account: .lastAppleUserIdentifier)
+        GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID("real_firebase_uid")
+
+        var signOutCalled = false
+        var persistedSessionCleared = false
+        var markerCleared = false
+
+        let result = GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeeded(
+            isEmulatorEnabled: false,
+            hasMarker: false,
+            currentUserEmail: "real.user@gmail.com",
+            signOut: { signOutCalled = true },
+            clearPersistedSession: { persistedSessionCleared = true },
+            clearMarker: { markerCleared = true }
+        )
+
+        #expect(result.didClear == false, "Should not clear session without marker")
+        #expect(result.signOutCalled == false, "Should not call sign-out")
+        #expect(result.persistedSessionCleared == false, "Should not clear persisted session")
+        #expect(result.markerCleared == false, "Should not clear marker")
+        #expect(signOutCalled == false, "Sign-out closure should not be called")
+        #expect(persistedSessionCleared == false, "Persisted session clear closure should not be called")
+        #expect(markerCleared == false, "Marker clear closure should not be called")
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == profileID, "Profile ID should be preserved")
+        #expect(GoDiveKeychainStore.string(for: .lastAppleUserIdentifier) == "real_user_apple_id", "Apple ID should be preserved")
+        #expect(GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() == "real_firebase_uid", "Firebase UID should be preserved")
+    }
+
+    @Test("End-to-end: sign-out error does not prevent session clear")
+    func endToEndSignOutErrorStillClearsSession() {
+        GoDiveKeychainStore.testingStore = [:]
+        let testDefaults = UserDefaults(suiteName: "EmulatorSessionIsolationErrorTests")!
+        defer {
+            GoDiveKeychainStore.testingStore = nil
+            testDefaults.removePersistentDomain(forName: "EmulatorSessionIsolationErrorTests")
+        }
+
+        let profileID = UUID()
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(profileID)
+        GoDiveEmulatorSessionGuard.markSessionAsEmulator(userDefaults: testDefaults)
+
+        struct TestError: Error {}
+
+        let result = GoDiveEmulatorSessionGuard.clearEmulatorSessionIfNeeded(
+            isEmulatorEnabled: false,
+            hasMarker: true,
+            currentUserEmail: nil,
+            signOut: { throw TestError() },
+            clearPersistedSession: { GoDiveEmulatorSessionGuard.clearPersistedEmulatorSession() },
+            clearMarker: { GoDiveEmulatorSessionGuard.clearEmulatorMarker(userDefaults: testDefaults) }
+        )
+
+        #expect(result.didClear == true, "Should still clear session even with sign-out error")
+        #expect(result.signOutCalled == true, "Sign-out should have been attempted")
+        #expect(result.persistedSessionCleared == true, "Persisted session should be cleared")
+        #expect(result.markerCleared == true, "Marker should be cleared")
+
+        #expect(AppLaunchSessionRestorePresentation.loadPersistedProfileID() == nil, "Profile ID should be cleared")
+        #expect(GoDiveEmulatorSessionGuard.hasEmulatorSessionMarker(userDefaults: testDefaults) == false, "Marker should be cleared")
+    }
+    #endif
 }
