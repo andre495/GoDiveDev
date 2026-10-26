@@ -1078,19 +1078,7 @@ struct HomePresentationTests {
 
         @Test @MainActor
         func homeOverviewAggregateBuilder_launchPath_includesTopSpeciesAndBuddiesWithoutMediaJPEG() throws {
-            let schema = Schema([
-                DiveActivity.self,
-                DiveMediaPhoto.self,
-                DiveBuddy.self,
-                DiveBuddyTag.self,
-                DiveTrip.self,
-                DiveTripActivityLink.self,
-                SightingInstance.self,
-                MarineLife.self,
-                UserProfile.self,
-            ])
-            let config = ModelConfiguration(isStoredInMemoryOnly: true)
-            let container = try ModelContainer(for: schema, configurations: [config])
+            let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
             let context = ModelContext(container)
             let owner = UserProfile(
                 appleUserIdentifier: "launch-path-\(UUID().uuidString)",
@@ -1175,18 +1163,7 @@ struct HomePresentationTests {
 
         @Test @MainActor
         func homeOverviewAggregateBuilder_buildAsync_offMainCaptureBindsOnlyCarouselPicks() async throws {
-            let schema = Schema([
-                DiveActivity.self,
-                DiveMediaPhoto.self,
-                DiveBuddy.self,
-                DiveBuddyTag.self,
-                DiveTrip.self,
-                DiveTripActivityLink.self,
-                SightingInstance.self,
-                UserProfile.self,
-            ])
-            let config = ModelConfiguration(isStoredInMemoryOnly: true)
-            let container = try ModelContainer(for: schema, configurations: [config])
+            let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
             let context = ModelContext(container)
             let owner = UserProfile(
                 appleUserIdentifier: "enrich-picks-\(UUID().uuidString)",

@@ -28,6 +28,11 @@ import UIKit
 #endif
 @testable import GoDiveMVP
 
+/// Fake cloud identifier resolver for unit tests — returns nil/unavailable without touching PhotoKit.
+private struct FakeCloudIdentifierResolver: CloudIdentifierResolving {
+    func cloudIdentifierString(forLocalIdentifier localIdentifier: String) -> String? { nil }
+    func localIdentifier(forCloudIdentifierString raw: String) -> DiveMediaCloudResolveOutcome { .unavailable }
+}
 
 struct DiveActivityMediaTests {
         @Test @MainActor func diveActivityMediaStorage_postMediaDidChange_notifiesObservers() {
@@ -2160,6 +2165,7 @@ struct DiveActivityMediaTests {
 
         @Test @MainActor
         func diveActivityMediaStorage_addLibraryReference_persistsOrderedRows() throws {
+            let fakeResolver = FakeCloudIdentifierResolver()
             let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
             let context = ModelContext(container)
             let activity = DiveActivity(
@@ -2171,8 +2177,8 @@ struct DiveActivityMediaTests {
             context.insert(activity)
             try context.save()
 
-            _ = try DiveActivityMediaStorage.addLibraryReference(localIdentifier: "A/1", mediaKind: .image, to: activity, modelContext: context)
-            _ = try DiveActivityMediaStorage.addLibraryReference(localIdentifier: "B/2", mediaKind: .video, to: activity, modelContext: context)
+            _ = try DiveActivityMediaStorage.addLibraryReference(localIdentifier: "A/1", mediaKind: .image, to: activity, modelContext: context, cloudIdentifierResolver: fakeResolver)
+            _ = try DiveActivityMediaStorage.addLibraryReference(localIdentifier: "B/2", mediaKind: .video, to: activity, modelContext: context, cloudIdentifierResolver: fakeResolver)
 
             let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
             #expect(sorted.count == 2)
@@ -2215,6 +2221,7 @@ struct DiveActivityMediaTests {
 
         @Test @MainActor
         func diveActivityMediaStorage_addLibraryReference_persistsCapturedAt() throws {
+            let fakeResolver = FakeCloudIdentifierResolver()
             let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
             let context = ModelContext(container)
             let activity = DiveActivity(
@@ -2232,7 +2239,8 @@ struct DiveActivityMediaTests {
                 mediaKind: .image,
                 capturedAt: capturedAt,
                 to: activity,
-                modelContext: context
+                modelContext: context,
+                cloudIdentifierResolver: fakeResolver
             )
 
             let row = try #require(activity.mediaPhotos.first)
@@ -4104,6 +4112,7 @@ struct DiveActivityMediaTests {
                 #expect(present.libraryCloudIdentifier == "cloud/1")
             }
             @Test @MainActor func diveMediaStorage_addLibraryReference_persistsPointerWithoutBytes() throws {
+                let fakeResolver = FakeCloudIdentifierResolver()
                 let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
                 let context = ModelContext(container)
                 let activity = DiveActivity(
@@ -4120,7 +4129,8 @@ struct DiveActivityMediaTests {
                     mediaKind: .video,
                     capturedAt: Date(timeIntervalSince1970: 1_000),
                     to: activity,
-                    modelContext: context
+                    modelContext: context,
+                    cloudIdentifierResolver: fakeResolver
                 )
                 let row = try #require(activity.mediaPhotos.first { $0.id == addedID })
                 #expect(row.resolvedMediaKind == .video)

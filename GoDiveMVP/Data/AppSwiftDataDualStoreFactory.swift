@@ -4,6 +4,114 @@ import Foundation
 import os
 import SwiftData
 
+/// Protocol for running CloudKit-backed diagnostic probes (A, B, D, E, F).
+/// Local-only probe (C) always runs directly in **`runCloudKitOpenProbes`** so tests still verify SwiftData opens.
+protocol CloudKitProbeRunning: Sendable {
+    /// Runs CloudKit-backed probes and returns diagnostic result lines.
+    /// Called from a nonisolated context; implementations must be nonisolated.
+    nonisolated func runCloudKitProbes(probeRoot: URL) -> [String]
+}
+
+/// Production implementation of **`CloudKitProbeRunning`** that exercises real CloudKit container opens.
+struct LiveCloudKitProbeRunner: CloudKitProbeRunning, Sendable {
+    nonisolated init() {}
+
+    nonisolated func runCloudKitProbes(probeRoot: URL) -> [String] {
+        var lines: [String] = []
+        let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
+        let fullSchema = Schema(AppSwiftDataStorePartition.allModelTypes)
+
+        // Probe A: user models only + private CloudKit
+        do {
+            let url = probeRoot.appendingPathComponent("probe-user-only.store")
+            try? FileManager.default.removeItem(at: url)
+            let config = ModelConfiguration(
+                "ProbeUserOnly",
+                schema: userSchema,
+                url: url,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+            )
+            _ = try ModelContainer(for: userSchema, configurations: [config])
+            lines.append("probeA_userOnlyCloudKit=success")
+        } catch {
+            lines.append("probeA_userOnlyCloudKit=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
+        }
+
+        // Probe B: dual split with user CloudKit (same as production)
+        do {
+            let userURL = probeRoot.appendingPathComponent("probe-dual-user.store")
+            let catalogURL = probeRoot.appendingPathComponent("probe-dual-catalog.store")
+            let diagnosticsURL = probeRoot.appendingPathComponent("probe-dual-diagnostics.store")
+            for url in [userURL, catalogURL, diagnosticsURL] {
+                try? FileManager.default.removeItem(at: url)
+            }
+            let userConfig = ModelConfiguration(
+                "ProbeDualUser",
+                schema: userSchema,
+                url: userURL,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+            )
+            let catalogConfig = ModelConfiguration(
+                "ProbeDualCatalog",
+                schema: Schema(AppSwiftDataStorePartition.catalogModelTypes),
+                url: catalogURL,
+                cloudKitDatabase: .none
+            )
+            let diagnosticsConfig = ModelConfiguration(
+                "ProbeDualDiagnostics",
+                schema: Schema(AppSwiftDataStorePartition.diagnosticsModelTypes),
+                url: diagnosticsURL,
+                cloudKitDatabase: .none
+            )
+            _ = try ModelContainer(
+                for: fullSchema,
+                configurations: userConfig, catalogConfig, diagnosticsConfig
+            )
+            lines.append("probeB_dualUserCloudKit=success")
+        } catch {
+            lines.append("probeB_dualUserCloudKit=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
+        }
+
+        // Probe D: Core Data CloudKit load — surfaces the real validation reason SwiftData hides.
+        lines.append(contentsOf: AppSwiftDataDualStoreFactory.runCoreDataCloudKitValidationProbe(probeRoot: probeRoot))
+
+        // Probe E: SwiftData + .automatic (entitlement-inferred container)
+        do {
+            let url = probeRoot.appendingPathComponent("probe-user-automatic.store")
+            try? FileManager.default.removeItem(at: url)
+            let config = ModelConfiguration(
+                "ProbeUserAutomatic",
+                schema: userSchema,
+                url: url,
+                cloudKitDatabase: .automatic
+            )
+            _ = try ModelContainer(for: userSchema, configurations: [config])
+            lines.append("probeE_userOnlyAutomaticCloudKit=success")
+        } catch {
+            lines.append("probeE_userOnlyAutomaticCloudKit=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
+        }
+
+        // Probe F: minimal schema (UserProfile only) + private CloudKit
+        do {
+            let minimalSchema = Schema([UserProfile.self])
+            let url = probeRoot.appendingPathComponent("probe-profile-only.store")
+            try? FileManager.default.removeItem(at: url)
+            let config = ModelConfiguration(
+                "ProbeProfileOnly",
+                schema: minimalSchema,
+                url: url,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+            )
+            _ = try ModelContainer(for: minimalSchema, configurations: [config])
+            lines.append("probeF_userProfileOnlyCloudKit=success")
+        } catch {
+            lines.append("probeF_userProfileOnlyCloudKit=FAIL \(AppSwiftDataDualStoreFactory.describeErrorForProbe(error))")
+        }
+
+        return lines
+    }
+}
+
 /// On-disk dual-store layout and container factory.
 ///
 /// Phase 2: production **user** store prefers private CloudKit; **user-local** (profile points),
@@ -334,6 +442,11 @@ enum AppSwiftDataDualStoreFactory {
         try? (existing + line).write(to: path, atomically: true, encoding: .utf8)
     }
 
+    /// Internal wrapper for **`LiveCloudKitProbeRunner`** to describe errors in probe output.
+    nonisolated static func describeErrorForProbe(_ error: Error) -> String {
+        describeError(error)
+    }
+
     nonisolated private static func describeError(_ error: Error) -> String {
         let ns = error as NSError
         var parts = [
@@ -389,65 +502,27 @@ enum AppSwiftDataDualStoreFactory {
     }
 
     /// Probe CloudKit open shapes and append results (helps isolate multi-store vs schema failures).
-    nonisolated static func runCloudKitOpenProbes(rootDirectory: URL) {
+    ///
+    /// - Parameter cloudKitProbeRunner: Runs CloudKit-backed probes (A, B, D, E, F). Defaults to
+    ///   **`LiveCloudKitProbeRunner`**; inject a fake for unit tests. Probe C (local-only) always
+    ///   runs directly so tests still verify real SwiftData opens.
+    nonisolated static func runCloudKitOpenProbes(
+        rootDirectory: URL,
+        cloudKitProbeRunner: (any CloudKitProbeRunning)? = nil
+    ) {
         var lines: [String] = ["--- probes ---"]
-        let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
-        let fullSchema = Schema(AppSwiftDataStorePartition.allModelTypes)
         let probeRoot = rootDirectory.appendingPathComponent("CloudKitProbes", isDirectory: true)
         try? FileManager.default.createDirectory(at: probeRoot, withIntermediateDirectories: true)
 
-        // Probe A: user models only + private CloudKit
-        do {
-            let url = probeRoot.appendingPathComponent("probe-user-only.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeUserOnly",
-                schema: userSchema,
-                url: url,
-                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
-            )
-            _ = try ModelContainer(for: userSchema, configurations: [config])
-            lines.append("probeA_userOnlyCloudKit=success")
-        } catch {
-            lines.append("probeA_userOnlyCloudKit=FAIL \(describeError(error))")
-        }
+        let runner = cloudKitProbeRunner ?? LiveCloudKitProbeRunner()
 
-        // Probe B: dual split with user CloudKit (same as production)
-        do {
-            let userURL = probeRoot.appendingPathComponent("probe-dual-user.store")
-            let catalogURL = probeRoot.appendingPathComponent("probe-dual-catalog.store")
-            let diagnosticsURL = probeRoot.appendingPathComponent("probe-dual-diagnostics.store")
-            for url in [userURL, catalogURL, diagnosticsURL] {
-                try? FileManager.default.removeItem(at: url)
-            }
-            let userConfig = ModelConfiguration(
-                "ProbeDualUser",
-                schema: userSchema,
-                url: userURL,
-                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
-            )
-            let catalogConfig = ModelConfiguration(
-                "ProbeDualCatalog",
-                schema: Schema(AppSwiftDataStorePartition.catalogModelTypes),
-                url: catalogURL,
-                cloudKitDatabase: .none
-            )
-            let diagnosticsConfig = ModelConfiguration(
-                "ProbeDualDiagnostics",
-                schema: Schema(AppSwiftDataStorePartition.diagnosticsModelTypes),
-                url: diagnosticsURL,
-                cloudKitDatabase: .none
-            )
-            _ = try ModelContainer(
-                for: fullSchema,
-                configurations: userConfig, catalogConfig, diagnosticsConfig
-            )
-            lines.append("probeB_dualUserCloudKit=success")
-        } catch {
-            lines.append("probeB_dualUserCloudKit=FAIL \(describeError(error))")
-        }
+        // Probes A, B from CloudKit runner (before C)
+        let cloudKitLines = runner.runCloudKitProbes(probeRoot: probeRoot)
+        let probeAB = cloudKitLines.filter { $0.hasPrefix("probeA_") || $0.hasPrefix("probeB_") }
+        lines.append(contentsOf: probeAB)
 
-        // Probe C: user only local (control)
+        // Probe C: user only local (control) — always runs directly so tests verify real SwiftData opens
+        let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
         do {
             let url = probeRoot.appendingPathComponent("probe-user-local.store")
             try? FileManager.default.removeItem(at: url)
@@ -460,44 +535,12 @@ enum AppSwiftDataDualStoreFactory {
             _ = try ModelContainer(for: userSchema, configurations: [config])
             lines.append("probeC_userOnlyLocal=success")
         } catch {
-            lines.append("probeC_userOnlyLocal=FAIL \(describeError(error))")
+            lines.append("probeC_userOnlyLocal=FAIL \(describeErrorForProbe(error))")
         }
 
-        // Probe D: Core Data CloudKit load — surfaces the real validation reason SwiftData hides.
-        lines.append(contentsOf: runCoreDataCloudKitValidationProbe(probeRoot: probeRoot))
-
-        // Probe E: SwiftData + .automatic (entitlement-inferred container)
-        do {
-            let url = probeRoot.appendingPathComponent("probe-user-automatic.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeUserAutomatic",
-                schema: userSchema,
-                url: url,
-                cloudKitDatabase: .automatic
-            )
-            _ = try ModelContainer(for: userSchema, configurations: [config])
-            lines.append("probeE_userOnlyAutomaticCloudKit=success")
-        } catch {
-            lines.append("probeE_userOnlyAutomaticCloudKit=FAIL \(describeError(error))")
-        }
-
-        // Probe F: minimal schema (UserProfile only) + private CloudKit
-        do {
-            let minimalSchema = Schema([UserProfile.self])
-            let url = probeRoot.appendingPathComponent("probe-profile-only.store")
-            try? FileManager.default.removeItem(at: url)
-            let config = ModelConfiguration(
-                "ProbeProfileOnly",
-                schema: minimalSchema,
-                url: url,
-                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
-            )
-            _ = try ModelContainer(for: minimalSchema, configurations: [config])
-            lines.append("probeF_userProfileOnlyCloudKit=success")
-        } catch {
-            lines.append("probeF_userProfileOnlyCloudKit=FAIL \(describeError(error))")
-        }
+        // Probes D, E, F from CloudKit runner (after C)
+        let probeDEF = cloudKitLines.filter { $0.hasPrefix("probeD_") || $0.hasPrefix("probeE_") || $0.hasPrefix("probeF_") }
+        lines.append(contentsOf: probeDEF)
 
         lines.append("policyVersion=\(cloudKitOpenPolicyVersion)")
 
@@ -508,7 +551,8 @@ enum AppSwiftDataDualStoreFactory {
     }
 
     /// Uses **`NSPersistentCloudKitContainer`** so CloudKit schema validation errors appear in diagnostics.
-    nonisolated private static func runCoreDataCloudKitValidationProbe(probeRoot: URL) -> [String] {
+    /// Internal for **`LiveCloudKitProbeRunner`** access.
+    nonisolated static func runCoreDataCloudKitValidationProbe(probeRoot: URL) -> [String] {
         let url = probeRoot.appendingPathComponent("probe-coredata-ck.store")
         try? FileManager.default.removeItem(at: url)
         for suffix in ["-shm", "-wal"] {

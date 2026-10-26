@@ -16,6 +16,7 @@ enum DiveBackgroundImportCoordinator {
         owner: UserProfile,
         createMissingDiveSites: Bool,
         attachMediaFromPhotoLibrary: Bool? = nil,
+        resolver: (any GeocodingTimeZoneResolving)? = nil,
         onProgress: UddfDiveFileImport.ProgressHandler? = nil,
         onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async -> DiveFileImportOutcome {
@@ -27,6 +28,7 @@ enum DiveBackgroundImportCoordinator {
                 owner: owner,
                 createMissingDiveSites: createMissingDiveSites,
                 attachMediaFromPhotoLibrary: attachMediaFromPhotoLibrary,
+                resolver: resolver,
                 onProgress: onProgress,
                 onMediaAttachProgress: onMediaAttachProgress
             )

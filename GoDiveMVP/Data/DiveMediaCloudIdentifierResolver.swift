@@ -3,6 +3,14 @@ import Foundation
 import Photos
 #endif
 
+/// Protocol for resolving Photos library cloud identifiers, enabling dependency injection in tests.
+protocol CloudIdentifierResolving: Sendable {
+    /// Best-effort local → cloud string for persistence at attach time.
+    func cloudIdentifierString(forLocalIdentifier localIdentifier: String) -> String?
+    /// Cloud → local mapping for Device B after CloudKit imports a media pointer.
+    func localIdentifier(forCloudIdentifierString raw: String) -> DiveMediaCloudResolveOutcome
+}
+
 /// PhotoKit **`PHCloudIdentifier`** encode / decode for **`DiveMediaPhoto.photosCloudIdentifier`**.
 enum DiveMediaCloudIdentifierCodec: Sendable {
     #if canImport(Photos)
@@ -18,11 +26,11 @@ enum DiveMediaCloudIdentifierCodec: Sendable {
     #endif
 }
 
-/// Maps Photos local ↔ cloud identifiers for cross-device dive media pointers.
-enum DiveMediaCloudIdentifierResolver: Sendable {
+/// Production implementation of **`CloudIdentifierResolving`** using **`PHPhotoLibrary`**.
+struct PhotoKitCloudIdentifierResolver: CloudIdentifierResolving {
+    nonisolated static let shared = PhotoKitCloudIdentifierResolver()
 
-    /// Best-effort local → cloud string for persistence at attach time.
-    nonisolated static func cloudIdentifierString(forLocalIdentifier localIdentifier: String) -> String? {
+    nonisolated func cloudIdentifierString(forLocalIdentifier localIdentifier: String) -> String? {
         #if canImport(Photos)
         let trimmed = DiveMediaCloudIdentifierStorage.normalized(localIdentifier)
         guard !trimmed.isEmpty else { return nil }
@@ -40,10 +48,7 @@ enum DiveMediaCloudIdentifierResolver: Sendable {
         #endif
     }
 
-    /// Cloud → local mapping for Device B after CloudKit imports a media pointer.
-    nonisolated static func localIdentifier(
-        forCloudIdentifierString raw: String
-    ) -> DiveMediaCloudResolveOutcome {
+    nonisolated func localIdentifier(forCloudIdentifierString raw: String) -> DiveMediaCloudResolveOutcome {
         #if canImport(Photos)
         guard let cloud = DiveMediaCloudIdentifierCodec.decode(raw) else {
             return DiveMediaCloudIdentifierStorage.isPresent(raw) ? .unavailable : .emptyInput
@@ -55,7 +60,7 @@ enum DiveMediaCloudIdentifierResolver: Sendable {
             let trimmed = DiveMediaCloudIdentifierStorage.normalized(localID)
             return trimmed.isEmpty ? .notFound : .resolved(localIdentifier: trimmed)
         case .failure(let error):
-            return outcome(forPhotoKitError: error)
+            return Self.outcome(forPhotoKitError: error)
         }
         #else
         return .unavailable
@@ -70,7 +75,6 @@ enum DiveMediaCloudIdentifierResolver: Sendable {
             case .identifierNotFound:
                 return .notFound
             case .multipleIdentifiersFound:
-                // Prefer a deterministic first identifier when PhotoKit surfaces multiples.
                 if let identifiers = nsError.userInfo[PHLocalIdentifiersErrorKey] as? [String] {
                     let trimmed = identifiers
                         .map(DiveMediaCloudIdentifierStorage.normalized)
@@ -90,4 +94,15 @@ enum DiveMediaCloudIdentifierResolver: Sendable {
         return .unavailable
     }
     #endif
+}
+
+/// Static façade preserving existing call sites; uses **`PhotoKitCloudIdentifierResolver`** by default.
+enum DiveMediaCloudIdentifierResolver: Sendable {
+    nonisolated static func cloudIdentifierString(forLocalIdentifier localIdentifier: String) -> String? {
+        PhotoKitCloudIdentifierResolver.shared.cloudIdentifierString(forLocalIdentifier: localIdentifier)
+    }
+
+    nonisolated static func localIdentifier(forCloudIdentifierString raw: String) -> DiveMediaCloudResolveOutcome {
+        PhotoKitCloudIdentifierResolver.shared.localIdentifier(forCloudIdentifierString: raw)
+    }
 }
