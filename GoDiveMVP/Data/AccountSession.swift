@@ -93,10 +93,17 @@ final class AccountSession {
 
         let context = activeModelContainer?.mainContext ?? modelContext
 
+        let persistedProfileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
         let appleID = GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        guard persistedProfileID != nil || !appleID.isEmpty else {
+            currentProfile = nil
+            return
+        }
+
         guard !appleID.isEmpty else {
-            if let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
+            if let profileID = persistedProfileID,
                let profile = try? UserProfileStore.profile(id: profileID, modelContext: context)
             {
                 currentProfile = profile
@@ -107,9 +114,7 @@ final class AccountSession {
             return
         }
 
-        let preferredID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
-            ?? ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID)
-        guard let preferredID else {
+        guard let preferredID = persistedProfileID else {
             currentProfile = nil
             return
         }
@@ -801,7 +806,13 @@ final class AccountSession {
 
     func signOut(persistSecurityEvent: Bool = true) {
         let ownerID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
+        let appleUserIdentifier = currentProfile?.appleUserIdentifier
+            ?? GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)
         clearPersistedSession()
+        ReturningAccountHints.clearLastSignedInSession(appleUserIdentifier: appleUserIdentifier)
+        #if DEBUG
+        GoDiveEmulatorSessionGuard.clearEmulatorMarker()
+        #endif
         currentProfile = nil
         showsNewAccountWelcome = false
         showsPostSignUpInterests = false

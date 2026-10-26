@@ -13,6 +13,7 @@ enum GoDiveSecurityEvent: Sendable {
         case authSucceeded = "auth.success"
         case authFailed = "auth.fail"
         case signOut = "signOut"
+        case automaticCredentialRevoked = "signOut.credentialRevoked"
         case accountDeleted = "accountDelete"
         case accountDeleteFailed = "accountDelete.fail"
         case importRejected = "import.reject"

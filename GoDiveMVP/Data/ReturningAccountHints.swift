@@ -78,14 +78,28 @@ enum ReturningAccountHints: Sendable {
         return true
     }
 
-    /// Clears returning-user hints (account deletion only — not used for normal sign out).
-    nonisolated static func clearAll(userDefaults: UserDefaults = .standard) {
+    /// Clears session identifiers so a cold relaunch stays signed out.
+    /// Keeps the Apple-ID-to-profile mapping in `UserProfileStore.cachedDisplayName` for returning-account
+    /// detection when the user signs in again after reinstall (#56).
+    nonisolated static func clearLastSignedInSession(
+        appleUserIdentifier: String? = nil,
+        userDefaults: UserDefaults = .standard
+    ) {
         _ = GoDiveKeychainStore.remove(.lastAppleUserIdentifier)
         _ = GoDiveKeychainStore.remove(.lastDisplayName)
         _ = GoDiveKeychainStore.remove(.lastProfileID)
         userDefaults.removeObject(forKey: lastAppleUserIdentifierKey)
         userDefaults.removeObject(forKey: lastDisplayNameKey)
         userDefaults.removeObject(forKey: lastProfileIDKey)
+        if let appleID = appleUserIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !appleID.isEmpty {
+            UserProfileStore.cacheDisplayName(nil, forAppleUserIdentifier: appleID)
+        }
+    }
+
+    /// Clears returning-user hints (account deletion only — not used for normal sign out).
+    nonisolated static func clearAll(userDefaults: UserDefaults = .standard) {
+        clearLastSignedInSession(userDefaults: userDefaults)
     }
 
     /// One-shot migrate of legacy UserDefaults hints into Keychain.
